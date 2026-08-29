@@ -49,6 +49,7 @@ class SettingsStoreTests(unittest.TestCase):
             "page_size": 32,
             "proxy": "http://127.0.0.1:8080",
             "remember_credentials": False,
+            "credential_vault_receipt": "a" * 64,
             "prefer_original": False,
             "save_metadata": False,
             "window_geometry": "test-geometry",
@@ -145,6 +146,14 @@ class SettingsStoreTests(unittest.TestCase):
         with self.assertRaises(SettingsError):
             self.store.set("window_geometry", geometry_at_limit + "g")
 
+        for receipt in ("", "0" * 64, "abcdef" * 10 + "abcd"):
+            self.store.set("credential_vault_receipt", receipt)
+            self.assertEqual(self.store.get("credential_vault_receipt"), receipt)
+        for receipt in (None, 0, "A" * 64, "g" * 64, "0" * 63, "0" * 65):
+            with self.subTest(receipt=receipt):
+                with self.assertRaises(SettingsError):
+                    self.store.set("credential_vault_receipt", receipt)
+
     def test_proxy_validation_accepts_only_credential_free_host_and_port(self):
         accepted = (
             "http://127.0.0.1:8080",
@@ -183,6 +192,8 @@ class SettingsStoreTests(unittest.TestCase):
         cases = (
             b"{not-json",
             json.dumps([]).encode("utf-8"),
+            json.dumps({"schema_version": True}).encode("utf-8"),
+            json.dumps({"schema_version": 1.0}).encode("utf-8"),
             json.dumps({"schema_version": 2}).encode("utf-8"),
             json.dumps({"schema_version": 1, "unknown": True}).encode("utf-8"),
             json.dumps({"schema_version": 1, "page_size": 41}).encode("utf-8"),

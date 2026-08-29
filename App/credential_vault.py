@@ -13,6 +13,8 @@ from __future__ import annotations
 import ctypes
 from ctypes import wintypes
 from dataclasses import dataclass, field
+import hashlib
+import hmac
 import json
 import os
 import tempfile
@@ -65,6 +67,23 @@ class StoredSession:
             self.access_token, "access token", _MAX_TOKEN_CHARS, allow_empty=False
         )
         return StoredSession(username=username, access_token=token)
+
+
+@dataclass(frozen=True, slots=True)
+class VaultReceipt:
+    """Non-secret SHA-256 receipt for one exact protected vault file."""
+
+    sha256: str
+
+    def validated(self) -> "VaultReceipt":
+        value = self.sha256
+        if (
+            not isinstance(value, str)
+            or len(value) != 64
+            or any(char not in "0123456789abcdef" for char in value)
+        ):
+            raise VaultError("invalid credential receipt")
+        return self
 
 
 @dataclass(frozen=True, slots=True)
@@ -322,7 +341,7 @@ class CredentialVault:
         ) as exc:
             raise VaultError(f"credential load failed ({type(exc).__name__})") from exc
 
-    def save(self, session: StoredSession) -> None:
+    def save(self, session: StoredSession) -> VaultReceipt:
         if not isinstance(session, StoredSession):
             raise VaultError("invalid stored session")
         values = session.validated()
@@ -339,6 +358,71 @@ class CredentialVault:
         if len(protected) > _MAX_FILE_BYTES:
             raise VaultError("credential payload is too large")
         self._atomic_write(protected)
+        return VaultReceipt(hashlib.sha256(protected).hexdigest())
+
+    def matches(self, receipt: VaultReceipt) -> bool:
+        """Return whether the current bounded vault bytes match a receipt."""
+        if not isinstance(receipt, VaultReceipt):
+            raise VaultError("invalid credential receipt")
+        expected = receipt.validated().sha256
+        try:
+            with open(self.path, "rb") as file_obj:
+                payload = file_obj.read(_MAX_FILE_BYTES + 1)
+        except FileNotFoundError:
+            return False
+        except OSError as exc:
+            raise VaultError(
+                f"credential receipt check failed ({type(exc).__name__})"
+            ) from exc
+        if len(payload) > _MAX_FILE_BYTES:
+            return False
+        actual = hashlib.sha256(payload).hexdigest()
+        return hmac.compare_digest(actual, expected)
+
+    def load_matching(self, receipt: VaultReceipt) -> StoredSession | None:
+        """Atomically receipt-check and decode one exact schema-2 vault read."""
+        if not isinstance(receipt, VaultReceipt):
+            raise VaultError("invalid credential receipt")
+        expected = receipt.validated().sha256
+        try:
+            with open(self.path, "rb") as file_obj:
+                payload = file_obj.read(_MAX_FILE_BYTES + 1)
+            if len(payload) > _MAX_FILE_BYTES or not payload.startswith(_MAGIC):
+                raise VaultError("unsupported credential file")
+            actual = hashlib.sha256(payload).hexdigest()
+            if not hmac.compare_digest(actual, expected):
+                return None
+            clear = self._unprotect(payload[len(_MAGIC) :])
+            if type(clear) is not bytes or len(clear) > _MAX_FILE_BYTES:
+                raise VaultError("invalid credential payload")
+            decoded = json.loads(clear.decode("utf-8"))
+            if (
+                not isinstance(decoded, dict)
+                or type(decoded.get("schema_version")) is not int
+                or decoded.get("schema_version") != 2
+                or set(decoded)
+                != {"schema_version", "username", "access_token"}
+            ):
+                raise VaultError("invalid credential payload")
+            return StoredSession(
+                username=decoded["username"],
+                access_token=decoded["access_token"],
+            ).validated()
+        except FileNotFoundError:
+            return None
+        except VaultError:
+            raise
+        except (
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            TypeError,
+            ValueError,
+            RecursionError,
+        ) as exc:
+            raise VaultError(
+                f"credential matching load failed ({type(exc).__name__})"
+            ) from exc
 
     def clear(self) -> None:
         try:
@@ -383,6 +467,7 @@ __all__ = [
     "CredentialVault",
     "Credentials",
     "StoredSession",
+    "VaultReceipt",
     "VaultError",
     "VaultSnapshot",
     "dpapi_protect",

@@ -26,6 +26,7 @@ class SettingsStore:
         "page_size": 24,
         "proxy": "",
         "remember_credentials": False,
+        "credential_vault_receipt": "",
         "prefer_original": True,
         "save_metadata": True,
         "window_geometry": "",
@@ -66,7 +67,11 @@ class SettingsStore:
                 raise SettingsError("settings file is too large")
             with open(self.path, "r", encoding="utf-8") as file_obj:
                 saved = json.load(file_obj)
-            if not isinstance(saved, dict) or saved.get("schema_version") != self.SCHEMA_VERSION:
+            if (
+                not isinstance(saved, dict)
+                or type(saved.get("schema_version")) is not int
+                or saved.get("schema_version") != self.SCHEMA_VERSION
+            ):
                 raise SettingsError("unsupported settings schema")
             unknown = set(saved) - {"schema_version", *self.DEFAULTS}
             if unknown:
@@ -122,6 +127,16 @@ class SettingsStore:
         if key in {"remember_credentials", "prefer_original", "save_metadata"}:
             if type(value) is not bool:
                 raise SettingsError("invalid boolean setting")
+            return value
+        if key == "credential_vault_receipt":
+            if value == "":
+                return ""
+            if (
+                not isinstance(value, str)
+                or len(value) != 64
+                or any(char not in "0123456789abcdef" for char in value)
+            ):
+                raise SettingsError("invalid credential vault receipt")
             return value
         if key == "proxy":
             try:

@@ -65,6 +65,8 @@ class _FakeSearchWorker:
 class _MemoryVault:
     def __init__(self, state=None) -> None:
         self.state = state
+        self.receipt = None
+        self._generation = 0
         self.saved = []
         self.clear_count = 0
         self.restore_count = 0
@@ -87,19 +89,32 @@ class _MemoryVault:
         self._fail("restore")
         self.state = snapshot
 
-    def save(self, session) -> None:
+    def save(self, session):
+        from credential_vault import VaultReceipt
+
         self._fail("save")
         self.saved.append(session)
         self.state = session
+        self._generation += 1
+        self.receipt = VaultReceipt(f"{self._generation:064x}")
+        return self.receipt
 
     def clear(self) -> None:
         self.clear_count += 1
         self._fail("clear")
         self.state = None
+        self.receipt = None
 
     def load(self):
         self._fail("load")
         return self.state
+
+    def matches(self, receipt) -> bool:
+        return self.receipt == receipt and self.state is not None
+
+    def load_matching(self, receipt):
+        self._fail("load")
+        return self.state if self.matches(receipt) else None
 
 
 class MainWindowOfflineSmokeTests(unittest.TestCase):
@@ -365,7 +380,7 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
             finally:
                 self._close(window)
 
-    def test_login_settings_failure_rolls_back_vault_but_keeps_live_session(self):
+    def test_login_settings_failure_keeps_new_vault_behind_recovery_barrier(self):
         from credential_vault import StoredSession
         from settings_store import SettingsError
 
@@ -386,10 +401,11 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 ):
                     window._login_succeeded("new-user", "new-token")
 
-                self.assertEqual(vault.state, previous)
-                self.assertEqual(vault.restore_count, 1)
-                self.assertFalse(window.settings.get("remember_credentials"))
-                self.assertFalse(window.remember_check.isChecked())
+                self.assertEqual(vault.state, StoredSession("new-user", "new-token"))
+                self.assertEqual(vault.restore_count, 0)
+                self.assertTrue(window.credential_journal.exists())
+                self.assertTrue(window.settings.get("remember_credentials"))
+                self.assertTrue(window.remember_check.isChecked())
                 self.assertEqual(window.access_token, "new-token")
                 self.assertEqual(window.session_username, "new-user")
                 warning.assert_called_once()
@@ -498,7 +514,7 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 ):
                     window._login_succeeded("new-user", "new-token")
 
-                self.assertEqual(vault.state, previous)
+                self.assertEqual(vault.state, expected)
                 self.assertFalse(window._session_persisted)
                 self.assertTrue(window.remember_check.isChecked())
 
@@ -511,6 +527,53 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 self.assertTrue(window.settings.get("remember_credentials"))
             finally:
                 self._close(window)
+
+    def test_failed_new_login_then_close_and_restart_never_loads_old_session(self):
+        from credential_vault import StoredSession
+        from settings_store import SettingsError
+
+        old = StoredSession("old-user", "old-token")
+        new = StoredSession("new-user", "new-token")
+        with tempfile.TemporaryDirectory() as root:
+            first = self.MainWindow(root)
+            vault = _MemoryVault()
+            first.vault = vault
+            first.remember_check.setChecked(True)
+            first._login_succeeded(old.username, old.access_token)
+            try:
+                with (
+                    mock.patch.object(
+                        first.settings,
+                        "save",
+                        side_effect=SettingsError("simulated settings failure"),
+                    ),
+                    mock.patch("ui_main_window.QMessageBox.warning"),
+                ):
+                    first._login_succeeded(new.username, new.access_token)
+                self.assertEqual(vault.state, new)
+                self.assertTrue(first.credential_journal.exists())
+
+                with mock.patch.object(
+                    first.settings, "save", wraps=first.settings.save
+                ) as close_save:
+                    first.close()
+                    self.app.processEvents()
+                close_save.assert_not_called()
+            finally:
+                first.deleteLater()
+                self.app.processEvents()
+
+            with mock.patch(
+                "ui_main_window.CredentialVault", return_value=vault
+            ):
+                second = self.MainWindow(root)
+            try:
+                self.assertEqual(second.access_token, new.access_token)
+                self.assertEqual(second.session_username, new.username)
+                self.assertNotEqual(second.access_token, old.access_token)
+                self.assertFalse(second.credential_journal.exists())
+            finally:
+                self._close(second)
 
     def test_explicit_clear_logs_out_even_when_settings_cannot_be_saved(self):
         from credential_vault import StoredSession

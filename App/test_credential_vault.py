@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
@@ -142,8 +143,9 @@ class CredentialVaultTests(unittest.TestCase):
 
         self.assertFalse(vault.exists())
         self.assertIsNone(vault.load())
-        vault.save(values)
+        receipt = vault.save(values)
         self.assertTrue(vault.exists())
+        self.assertTrue(vault.matches(receipt))
         self.assertEqual(len(clear_inputs), 1)
         decoded = json.loads(clear_inputs[0].decode("utf-8"))
         self.assertEqual(
@@ -168,7 +170,22 @@ class CredentialVaultTests(unittest.TestCase):
 
         vault.clear()
         self.assertFalse(vault.exists())
+        self.assertFalse(vault.matches(receipt))
         self.assertIsNone(vault.load())
+
+    def test_receipt_binds_one_exact_protected_file(self):
+        from credential_vault import VaultReceipt
+
+        first = self.vault.save(StoredSession("first-user", "first-token"))
+        self.assertEqual(len(first.sha256), 64)
+        self.assertTrue(self.vault.matches(first))
+        second = self.vault.save(StoredSession("second-user", "second-token"))
+        self.assertFalse(self.vault.matches(first))
+        self.assertTrue(self.vault.matches(second))
+        for value in ("", "A" * 64, "g" * 64, "0" * 63, "0" * 65):
+            with self.subTest(value=value):
+                with self.assertRaises(VaultError):
+                    self.vault.matches(VaultReceipt(value))
 
     def test_save_rejects_ephemeral_login_credentials(self):
         with self.assertRaises(VaultError):
@@ -480,6 +497,7 @@ class CredentialVaultTests(unittest.TestCase):
             {**valid, "unexpected": True},
             {key: value for key, value in valid.items() if key != "access_token"},
             {**valid, "schema_version": True},
+            {**valid, "schema_version": 2.0},
             {**valid, "schema_version": 3},
             {**valid, "username": "unit\nuser"},
             {**valid, "username": None},
@@ -492,6 +510,22 @@ class CredentialVaultTests(unittest.TestCase):
                 self._write_clear_payload(payload)
                 with self.assertRaises(VaultError):
                     self.vault.load()
+
+    def test_matching_load_rejects_non_integer_schema_even_with_exact_receipt(self):
+        from credential_vault import VaultReceipt
+
+        for schema in (True, 2.0):
+            with self.subTest(schema=schema):
+                stored = self._write_clear_payload(
+                    {
+                        "schema_version": schema,
+                        "username": "unit-user",
+                        "access_token": "unit-token",
+                    }
+                )
+                receipt = VaultReceipt(hashlib.sha256(stored).hexdigest())
+                with self.assertRaises(VaultError):
+                    self.vault.load_matching(receipt)
 
     def test_rejects_malformed_schema1_payloads_without_rewriting_them(self):
         valid = {

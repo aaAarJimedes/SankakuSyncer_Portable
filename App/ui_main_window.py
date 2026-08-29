@@ -54,6 +54,11 @@ from PySide6.QtWidgets import (
 )
 
 from credential_vault import CredentialVault, Credentials, StoredSession, VaultError
+from credential_persistence import (
+    CredentialJournal,
+    CredentialPersistence,
+    CredentialPersistenceError,
+)
 from sankaku_api import SankakuPost, SearchPage
 from sankaku_url_policy import (
     canonical_post_url,
@@ -123,9 +128,11 @@ class MainWindow(QMainWindow):
                 except SettingsError:
                     pass
         self.vault = CredentialVault(self.data_dir)
+        self.credential_journal = CredentialJournal(self.data_dir)
         self.access_token = ""
         self.session_username = ""
         self._session_persisted = False
+        self._credential_close_save_blocked = False
         try:
             self.task_store = TaskStore(self.data_dir)
         except TaskStoreCorruptError as exc:
@@ -865,21 +872,34 @@ class MainWindow(QMainWindow):
 
     # ------------------------------ login and settings ------------------------------
 
+    def _credential_persistence(self) -> CredentialPersistence:
+        """Build a coordinator around the current stores (also test-friendly)."""
+        return CredentialPersistence(
+            self.data_dir,
+            self.settings,
+            self.vault,
+            journal=self.credential_journal,
+        )
+
     def _load_credentials(self) -> None:
-        if not bool(self.settings.get("remember_credentials")):
-            if self.vault.exists():
-                try:
-                    self.vault.clear()
-                except VaultError as exc:
-                    self._log(f"未启用凭据记忆，但残留加密会话无法清理：{exc}")
-            self.login_status.setText("未启用本机凭据记忆")
-            return
         try:
-            values = self.vault.load()
-        except VaultError as exc:
-            self._log(f"本机加密凭据无法读取：{exc}")
+            recovery = self._credential_persistence().recover_and_load(
+                settings_write_allowed=self._settings_save_allowed
+            )
+        except CredentialPersistenceError as exc:
+            self.remember_check.setChecked(False)
+            self.login_status.setText("本机会话恢复被安全阻止")
+            self._log(f"本机会话恢复被安全阻止：{exc}")
             return
-        if values:
+        self.remember_check.setChecked(recovery.remember_credentials)
+        if recovery.message:
+            self._log(recovery.message)
+        if not recovery.resolved:
+            self.remember_check.setChecked(False)
+            self.login_status.setText("本机会话恢复待处理；本次不会自动载入")
+            return
+        values = recovery.session
+        if values is not None:
             # Keep only the bearer session in long-lived application state.
             self.access_token = values.access_token
             self.session_username = values.username
@@ -889,6 +909,10 @@ class MainWindow(QMainWindow):
             self.login_status.setText("本机会话已载入，尚未联网验证")
             self.account_badge.setText("本机会话已载入")
             self._log("已从 Windows DPAPI 保护文件载入本机会话；密码未保留在输入框。")
+        elif recovery.remember_credentials:
+            self.login_status.setText("已启用本机记忆，当前没有可载入会话")
+        else:
+            self.login_status.setText("未启用本机凭据记忆")
 
     def _start_login(self) -> None:
         if self.login_worker and self.login_worker.isRunning():
@@ -930,12 +954,20 @@ class MainWindow(QMainWindow):
                 remember,
                 session=session,
             )
-        except (SettingsError, VaultError) as exc:
-            self.remember_check.setChecked(previous_remember if remember else False)
+        except (CredentialPersistenceError, SettingsError, VaultError) as exc:
+            safe_barrier = self._credential_persistence().prevents_automatic_load_except(
+                session if remember else None
+            )
+            if remember:
+                self.remember_check.setChecked(True if safe_barrier else False)
+            else:
+                self.remember_check.setChecked(False)
+            if not safe_barrier:
+                self._credential_close_save_blocked = True
             persistence_note = (
-                "记忆设置已恢复旧状态"
-                if remember
-                else "已按选择停用本机记忆，但部分状态未能写盘"
+                "已验证安全恢复闸门，重启只会完成当前会话或保持禁用"
+                if safe_barrier
+                else "未能验证安全恢复闸门；重启前请恢复 Data 写权限并重试"
             )
             QMessageBox.warning(
                 self,
@@ -944,6 +976,7 @@ class MainWindow(QMainWindow):
             )
         else:
             self._session_persisted = remember
+            self._credential_close_save_blocked = False
         self.password_edit.clear()
         self.login_status.setText("登录已验证")
         self.account_badge.setText("已登录")
@@ -976,46 +1009,41 @@ class MainWindow(QMainWindow):
             "将删除 Data 中的 DPAPI 加密凭据并清空当前令牌。不会删除下载或任务。继续吗？",
         ) != QMessageBox.Yes:
             return
-        vault_failure = None
-        try:
-            self.vault.clear()
-        except VaultError as exc:
-            vault_failure = exc
-        settings_failure = None
-        try:
-            self.settings.set("remember_credentials", False)
-            if not self._settings_save_allowed:
-                raise SettingsError("当前设置文件无法安全覆盖")
-            self.settings.save()
-        except SettingsError as exc:
-            settings_failure = exc
-        self.remember_check.setChecked(False)
+        # Explicit logout is immediate in memory.  Durable cleanup follows and
+        # may be retried from its disable marker on the next start.
         self.access_token = ""
         self.session_username = ""
         self._session_persisted = False
+        self.remember_check.setChecked(False)
         self.username_edit.clear()
         self.password_edit.clear()
         self.login_status.setText("已清除")
         self.account_badge.setText("未登录")
-        if vault_failure:
-            self._log("当前会话已退出，但本机加密凭据文件未能删除；下载与任务未改动。")
-        else:
+        failure = None
+        try:
+            self._credential_persistence().disable(
+                settings_write_allowed=self._settings_save_allowed
+            )
+        except (CredentialPersistenceError, SettingsError, VaultError) as exc:
+            failure = exc
+        if failure is None:
             self._log("已退出并清除本机加密凭据；下载与任务未改动。")
-        if vault_failure or settings_failure:
-            details = []
-            if vault_failure and settings_failure:
-                details.append(
-                    "本次已退出，但加密文件和磁盘记忆开关均未更新；重启可能再次载入。"
-                    "请恢复写权限后重试，或手动删除 Data/.credentials"
-                )
-            elif vault_failure:
-                details.append("加密文件尚未删除，程序下次启动会继续忽略并尝试清理")
-            elif settings_failure:
-                details.append("记忆开关未能写回设置文件")
+        else:
+            safe_barrier = self._credential_persistence().prevents_automatic_load_except(
+                None
+            )
+            pending_note = (
+                "已留下禁用恢复标记，下次启动仍不会自动载入"
+                if safe_barrier
+                else "未能验证禁用恢复闸门；重启前请恢复 Data 写权限后重试"
+            )
+            self._log("当前会话已退出，但本机凭据清理尚未完全写盘。")
+            if not safe_barrier:
+                self._credential_close_save_blocked = True
             QMessageBox.warning(
                 self,
                 "当前会话已退出",
-                "；".join(details),
+                f"{pending_note}；下载与任务未改动。{failure}",
             )
 
     def _persist_remember_choice(
@@ -1024,59 +1052,20 @@ class MainWindow(QMainWindow):
         *,
         session: StoredSession | None = None,
     ) -> None:
-        """Persist a login choice without restoring secrets after opt-out."""
-        previous_values = dict(self.settings.values)
+        """Persist a login choice through the crash-consistent coordinator."""
+        previous_remember = bool(self.settings.get("remember_credentials"))
         if not remember:
-            failures = []
-            try:
-                self.vault.clear()
-            except VaultError:
-                failures.append("旧的本机加密会话未能删除")
-            self.settings.set("remember_credentials", False)
-            try:
-                if not self._settings_save_allowed:
-                    raise SettingsError("当前设置文件无法安全覆盖")
-                self.settings.save()
-            except SettingsError:
-                failures.append("记忆开关未能写回设置文件")
-            if failures:
-                raise SettingsError("；".join(failures))
+            self._credential_persistence().disable(
+                settings_write_allowed=self._settings_save_allowed
+            )
             return
-
-        if not self._settings_save_allowed:
-            raise SettingsError("当前设置文件无法安全覆盖")
-        snapshot = None
-        try:
-            snapshot = self.vault.snapshot()
-        except VaultError:
-            # A malformed/oversized old file must not permanently block a new
-            # verified login from healing the vault.  If the later settings
-            # write fails, the newly written session is removed best-effort.
-            pass
-        vault_replaced = False
-        try:
-            if session is not None:
-                self.vault.save(session)
-                vault_replaced = True
-            self.settings.set("remember_credentials", True)
-            self.settings.save()
-        except (SettingsError, VaultError) as exc:
-            self.settings.values = previous_values
-            if snapshot is not None:
-                try:
-                    self.vault.restore(snapshot)
-                except VaultError as rollback_error:
-                    raise SettingsError(
-                        "保存失败，且本机加密会话未能自动回滚；请重启程序后检查状态"
-                    ) from rollback_error
-            elif vault_replaced:
-                try:
-                    self.vault.clear()
-                except VaultError as rollback_error:
-                    raise SettingsError(
-                        "保存失败，且新加密会话未能自动清理；请重启程序后检查状态"
-                    ) from rollback_error
-            raise exc
+        if session is None:
+            raise CredentialPersistenceError("请先完成登录，再启用本机凭据记忆")
+        self._credential_persistence().enable(
+            session,
+            previous_remember=previous_remember,
+            settings_write_allowed=self._settings_save_allowed,
+        )
 
     def _choose_download_dir(self) -> None:
         directory = QFileDialog.getExistingDirectory(
@@ -1099,7 +1088,6 @@ class MainWindow(QMainWindow):
                     "max_retries": self.retries_spin.value(),
                     "page_size": self.page_size_spin.value(),
                     "proxy": self.proxy_edit.text(),
-                    "remember_credentials": remember,
                     "prefer_original": self.prefer_original_check.isChecked(),
                     "save_metadata": self.metadata_check.isChecked(),
                 }
@@ -1110,47 +1098,60 @@ class MainWindow(QMainWindow):
             )
         except (SettingsError, VaultError) as exc:
             self.settings.values = previous_values
+            credential_note = ""
             if not remember:
                 try:
-                    self.vault.clear()
-                except VaultError:
-                    pass
-                self.settings.set("remember_credentials", False)
+                    self._credential_persistence().disable(
+                        settings_write_allowed=self._settings_save_allowed
+                    )
+                except (
+                    CredentialPersistenceError,
+                    SettingsError,
+                    VaultError,
+                ) as credential_error:
+                    credential_note = f"；本机记忆禁用尚未完成：{credential_error}"
+                    if not self._credential_persistence().prevents_automatic_load_except(
+                        None
+                    ):
+                        self._credential_close_save_blocked = True
                 self.remember_check.setChecked(False)
                 self._session_persisted = False
             else:
                 self.remember_check.setChecked(previous_remember)
-            QMessageBox.warning(self, "设置未保存", str(exc))
+            QMessageBox.warning(self, "设置未保存", f"{exc}{credential_note}")
             return
 
         if not remember:
-            vault_failure = None
             try:
-                self.vault.clear()
-            except VaultError as exc:
-                vault_failure = exc
-            self._session_persisted = False
-            settings_failure = None
-            try:
-                if not self._settings_save_allowed:
-                    raise SettingsError("当前设置文件无法安全覆盖")
-                self.settings.save()
+                self._credential_persistence().disable(
+                    settings_write_allowed=self._settings_save_allowed
+                )
                 self._settings_save_allowed = True
-            except SettingsError as exc:
-                settings_failure = exc
-                self.settings.values = previous_values
-                self.settings.set("remember_credentials", False)
-            self.remember_check.setChecked(False)
-            if vault_failure or settings_failure:
-                notes = []
-                if vault_failure and settings_failure:
-                    notes.append("加密文件和记忆开关均未能写盘；再次启动前请手动检查 Data")
-                elif vault_failure:
-                    notes.append("加密文件未能删除，但已禁用后续载入")
-                elif settings_failure:
-                    notes.append("其余设置未能写入")
-                QMessageBox.warning(self, "设置未完全保存", "；".join(notes))
+            except (CredentialPersistenceError, SettingsError, VaultError) as exc:
+                safe_barrier = (
+                    self._credential_persistence().prevents_automatic_load_except(None)
+                )
+                if not safe_barrier:
+                    self.settings.values = previous_values
+                    self.settings.set("remember_credentials", False)
+                    self.settings.set("credential_vault_receipt", "")
+                    self._credential_close_save_blocked = True
+                self._session_persisted = False
+                self.remember_check.setChecked(False)
+                QMessageBox.warning(
+                    self,
+                    "设置未完全保存",
+                    (
+                        "本机记忆已请求禁用；安全恢复闸门已验证。"
+                        if safe_barrier
+                        else "本机记忆禁用未能建立安全闸门；重启前请恢复 Data 写权限并重试。"
+                    )
+                    + f"{exc}",
+                )
                 return
+            self._session_persisted = False
+            self._credential_close_save_blocked = False
+            self.remember_check.setChecked(False)
             self.status_label.setText("设置已安全保存")
             self._log("普通设置已保存；本机凭据记忆已禁用。")
             return
@@ -1171,53 +1172,58 @@ class MainWindow(QMainWindow):
                 self.remember_check.setChecked(previous_remember)
                 QMessageBox.warning(self, "设置未保存", str(exc))
                 return
-        orphan_exists = bool(
-            current_session is None
-            and not previous_remember
-            and self.vault.exists()
-        )
-        if not self._settings_save_allowed:
-            self.settings.values = previous_values
-            self.remember_check.setChecked(previous_remember)
-            QMessageBox.warning(self, "设置未保存", "当前设置文件无法安全覆盖")
-            return
-
-        snapshot = None
-        if current_session is not None:
-            try:
-                snapshot = self.vault.snapshot()
-            except VaultError:
-                pass
-        vault_replaced = False
+        needs_credential_write = current_session is not None or not previous_remember
         try:
-            if current_session is not None:
-                self.vault.save(current_session)
-                vault_replaced = True
-            elif orphan_exists:
-                # A stale vault must not become active merely because the flag
-                # was enabled without a verified live session.
-                self.vault.clear()
-            self.settings.save()
+            if needs_credential_write:
+                if current_session is None:
+                    raise CredentialPersistenceError(
+                        "请先完成登录，再启用本机凭据记忆"
+                    )
+                self._credential_persistence().enable(
+                    current_session,
+                    previous_remember=previous_remember,
+                    settings_write_allowed=self._settings_save_allowed,
+                )
+            else:
+                if not self._settings_save_allowed:
+                    raise SettingsError("当前设置文件无法安全覆盖")
+                # Receipt and remember flag are unchanged; this writes only
+                # the validated ordinary setting edits made above.
+                self.settings.save()
             self._settings_save_allowed = True
-        except (SettingsError, VaultError) as exc:
-            self.settings.values = previous_values
-            rollback_note = ""
-            if current_session is not None and snapshot is not None:
-                try:
-                    self.vault.restore(snapshot)
-                except VaultError:
-                    rollback_note = "；旧加密会话未能自动恢复，请重启检查"
-            elif current_session is not None and vault_replaced:
-                try:
-                    self.vault.clear()
-                except VaultError:
-                    rollback_note = "；新加密会话未能自动清理，请重启检查"
-            self.remember_check.setChecked(previous_remember)
-            QMessageBox.warning(self, "设置未保存", f"{exc}{rollback_note}")
+        except (CredentialPersistenceError, SettingsError, VaultError) as exc:
+            safe_barrier = (
+                self._credential_persistence().prevents_automatic_load_except(
+                    current_session
+                )
+                if needs_credential_write and current_session is not None
+                else False
+            )
+            pending = self.credential_journal.exists()
+            if not pending and not needs_credential_write:
+                self.settings.values = previous_values
+            elif not safe_barrier:
+                self.settings.values = previous_values
+                self.settings.set("remember_credentials", False)
+                self.settings.set("credential_vault_receipt", "")
+                self._credential_close_save_blocked = True
+            self.remember_check.setChecked(
+                True
+                if safe_barrier
+                else (False if needs_credential_write else previous_remember)
+            )
+            self._session_persisted = False
+            note = (
+                "；安全恢复闸门已验证"
+                if safe_barrier
+                else ("；现有标记不能证明当前会话，重启前请重试" if pending else "")
+            )
+            QMessageBox.warning(self, "设置未保存", f"{exc}{note}")
             return
 
-        if current_session is not None:
+        if needs_credential_write:
             self._session_persisted = True
+            self._credential_close_save_blocked = False
         self.status_label.setText("设置已安全保存")
         self._log("普通设置已保存；其中不含账号密码或令牌。")
 
@@ -1420,7 +1426,11 @@ class MainWindow(QMainWindow):
             event.ignore()
             self.status_label.setText("正在等待缩略图网络任务安全结束，请稍后再关闭")
             return
-        if self._settings_save_allowed:
+        if (
+            self._settings_save_allowed
+            and not self._credential_persistence().has_pending()
+            and not self._credential_close_save_blocked
+        ):
             try:
                 geometry = bytes(self.saveGeometry().toBase64()).decode("ascii")
                 self.settings.set("window_geometry", geometry)
