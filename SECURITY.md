@@ -11,7 +11,8 @@
 ## 凭据
 
 - 用户名、密码与 Bearer Token 不写入 `settings.json`、任务篮、元数据、日志、命令行或 Git。
-- 选择“本机保存”后，三者作为一个小型 JSON 载荷由 Windows DPAPI CurrentUser 加密，保存到 `Data/.credentials`；另一 Windows 用户或另一台机器不能直接解密。
+- 选择“本机保存”后，schema 2 载荷只包含用户名与 Bearer Token，由 Windows DPAPI CurrentUser 加密并保存到 `Data/.credentials`；密码只用于当前登录请求，不会持久化。另一 Windows 用户或另一台机器不能直接解密该载荷。
+- 设置与加密会话按一致事务更新；任一步写入失败都会尝试恢复本次变更，若恢复本身也失败则明确告警并要求重启检查。
 - DPAPI 不防护已经控制当前 Windows 用户会话的恶意程序。便携目录、Windows 账号与磁盘仍应使用适当访问控制和加密。
 - “清除本机凭据”只删除加密凭据，不删除任务和媒体；站点端令牌撤销需在站点提供的账号安全页面完成。
 - DPAPI CurrentUser 不是跨机器备份格式。携带个人 `Data/` 搬到另一 Windows 用户或电脑后，加密文件会保留但不能解密，需要清除后重新登录；正式发行包绝不能包含任何用户的 `Data/.credentials`。

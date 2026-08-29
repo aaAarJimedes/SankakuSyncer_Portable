@@ -90,6 +90,7 @@ class _LiveNetworkResources:
 class SearchWorker(QThread):
     succeeded = Signal(object)
     failed = Signal(str)
+    cancelled = Signal()
 
     def __init__(
         self,
@@ -124,7 +125,11 @@ class SearchWorker(QThread):
                 cursor=self.cursor,
                 limit=int(self.settings.get("page_size", 24)),
             )
+            if self.stop_event.is_set():
+                raise CancelledError("搜索已取消")
             self.succeeded.emit(result)
+        except CancelledError:
+            self.cancelled.emit()
         except SankakuAPIError as exc:
             self.failed.emit(str(exc))
         except Exception as exc:
@@ -410,6 +415,9 @@ class DownloadWorker(QThread):
                     else:
                         message = f"下载发生内部错误（{type(exc).__name__}）"
                     self.item_failed.emit(task.post_id, message)
+                    # Only process-wide authentication/rate-limit failures stop
+                    # the batch.  API/media access denial errors are per-item
+                    # SankakuAPIError/DownloadError values and continue safely.
                     if isinstance(exc, (AuthenticationError, RateLimitError)):
                         self.batch_blocked.emit(message or "站点要求停止当前批次")
                         self.stop_event.set()

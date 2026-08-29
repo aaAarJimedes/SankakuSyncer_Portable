@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from types import SimpleNamespace
 import threading
 import unittest
 from unittest import mock
 
 import workers
 from credential_vault import Credentials
+from download_engine import MediaAccessDeniedError
+from sankaku_api import AccessDeniedError
 from workers import (
     DownloadWorker,
     LoginWorker,
@@ -288,6 +291,51 @@ class WorkerLifecycleTests(unittest.TestCase):
         self.assertEqual(api.tokens, [""])
         self.assertEqual(worker.token, "")
 
+    def test_pre_cancelled_search_emits_cancelled_without_failure(self):
+        worker = SearchWorker({}, "secret-token", "tag", "", "")
+        cancelled: list[bool] = []
+        failures: list[str] = []
+        worker.cancelled.connect(lambda: cancelled.append(True))
+        worker.failed.connect(failures.append)
+        worker.cancel()
+
+        with mock.patch("workers._api_from_settings") as factory:
+            worker.run()
+
+        factory.assert_called_once()
+        self.assertEqual(cancelled, [True])
+        self.assertEqual(failures, [])
+        self.assertEqual(worker.token, "")
+
+    def test_search_cancelled_during_api_return_cannot_emit_success(self):
+        worker = SearchWorker({}, "secret-token", "tag", "", "")
+
+        class CancellingAPI:
+            def search_posts(self, *_args, **_kwargs):
+                worker.stop_event.set()
+                return SimpleNamespace(posts=(), next_cursor="cursor")
+
+            def set_access_token(self, _value: str) -> None:
+                pass
+
+            def close(self) -> None:
+                pass
+
+        succeeded: list[object] = []
+        cancelled: list[bool] = []
+        failures: list[str] = []
+        worker.succeeded.connect(succeeded.append)
+        worker.cancelled.connect(lambda: cancelled.append(True))
+        worker.failed.connect(failures.append)
+
+        with mock.patch("workers._api_from_settings", return_value=CancellingAPI()):
+            worker.run()
+
+        self.assertEqual(succeeded, [])
+        self.assertEqual(cancelled, [True])
+        self.assertEqual(failures, [])
+        self.assertEqual(worker.token, "")
+
     def test_constructor_failures_emit_errors_and_scrub_secrets(self):
         search = SearchWorker({}, "search-token", "tag", "", "")
         search_errors: list[str] = []
@@ -325,6 +373,69 @@ class WorkerLifecycleTests(unittest.TestCase):
         self.assertEqual(len(blocked), 1)
         self.assertEqual(finished, [(0, 0, False)])
         self.assertEqual(download.token, "")
+
+    def test_per_item_access_denial_does_not_block_the_next_download(self):
+        for denial in (
+            AccessDeniedError("当前账号无权访问该资源"),
+            MediaAccessDeniedError("当前作品的签名媒体地址不可用或无权访问"),
+        ):
+            with self.subTest(error_type=type(denial).__name__):
+                class FakeAPI:
+                    def __init__(self):
+                        self.tokens: list[str] = []
+                        self.closed = False
+
+                    def set_access_token(self, value: str) -> None:
+                        self.tokens.append(value)
+
+                    def close(self) -> None:
+                        self.closed = True
+
+                calls: list[str] = []
+
+                class FakeDownloader:
+                    def __init__(self, *_args, **_kwargs):
+                        self.closed = False
+
+                    def download(self, post_id: str, *, progress=None):
+                        del progress
+                        calls.append(post_id)
+                        if post_id == "Post_A":
+                            raise denial
+                        return SimpleNamespace(metadata_warning="")
+
+                    def close(self) -> None:
+                        self.closed = True
+
+                api = FakeAPI()
+                tasks = [
+                    workers.DownloadTask("Post_A", "").validated(),
+                    workers.DownloadTask("Post_B", "").validated(),
+                ]
+                worker = DownloadWorker({}, "download-token", tasks)
+                succeeded: list[tuple] = []
+                failed: list[tuple] = []
+                blocked: list[str] = []
+                finished: list[tuple] = []
+                worker.item_succeeded.connect(lambda *args: succeeded.append(args))
+                worker.item_failed.connect(lambda *args: failed.append(args))
+                worker.batch_blocked.connect(blocked.append)
+                worker.batch_finished.connect(lambda *args: finished.append(args))
+
+                with (
+                    mock.patch("workers._api_from_settings", return_value=api),
+                    mock.patch("workers.MediaDownloader", FakeDownloader),
+                ):
+                    worker.run()
+
+                self.assertEqual(calls, ["Post_A", "Post_B"])
+                self.assertEqual([value[0] for value in failed], ["Post_A"])
+                self.assertEqual([value[0] for value in succeeded], ["Post_B"])
+                self.assertEqual(blocked, [])
+                self.assertEqual(finished, [(1, 1, False)])
+                self.assertEqual(api.tokens, [""])
+                self.assertTrue(api.closed)
+                self.assertEqual(worker.token, "")
 
 if __name__ == "__main__":
     unittest.main()

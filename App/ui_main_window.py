@@ -53,7 +53,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from credential_vault import CredentialVault, Credentials, VaultError
+from credential_vault import CredentialVault, Credentials, StoredSession, VaultError
 from sankaku_api import SankakuPost, SearchPage
 from sankaku_url_policy import (
     canonical_post_url,
@@ -63,7 +63,7 @@ from sankaku_url_policy import (
     tag_search_url,
 )
 from settings_store import SettingsError, SettingsStore
-from task_store import DownloadTask, TaskStore, TaskStoreError
+from task_store import DownloadTask, TaskStore, TaskStoreCorruptError, TaskStoreError
 from version import APP_DISPLAY_NAME
 from workers import DownloadWorker, LoginWorker, SearchWorker, ThumbnailWorker
 
@@ -123,11 +123,12 @@ class MainWindow(QMainWindow):
                 except SettingsError:
                     pass
         self.vault = CredentialVault(self.data_dir)
-        self.credentials: Credentials | None = None
         self.access_token = ""
+        self.session_username = ""
+        self._session_persisted = False
         try:
             self.task_store = TaskStore(self.data_dir)
-        except TaskStoreError as exc:
+        except TaskStoreCorruptError as exc:
             task_path = os.path.join(self.data_dir, "tasks.json")
             stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
             recovery_path = os.path.join(self.data_dir, f"tasks.corrupt.{stamp}.json")
@@ -151,6 +152,11 @@ class MainWindow(QMainWindow):
         self._search_cursor = ""
         self._next_cursor = ""
         self._cursor_history: list[str] = []
+        self._search_query = ""
+        self._search_rating = ""
+        self._pending_search: dict[str, object] | None = None
+        self._search_cancel_requested = False
+        self._search_terminal_received = False
         self._search_posts: dict[str, SankakuPost] = {}
 
         self.setWindowTitle(APP_DISPLAY_NAME)
@@ -214,6 +220,7 @@ class MainWindow(QMainWindow):
 
         toolbar = QHBoxLayout()
         self.search_edit = QLineEdit()
+        self.search_edit.setAccessibleName("搜索标签")
         self.search_edit.setPlaceholderText("输入标签表达式，例如 landscape blue_hair")
         self.search_edit.setClearButtonEnabled(True)
         self.search_edit.returnPressed.connect(lambda: self._start_search(reset=True))
@@ -232,10 +239,17 @@ class MainWindow(QMainWindow):
         self.search_button = QPushButton("搜索")
         self.search_button.clicked.connect(lambda: self._start_search(reset=True))
         toolbar.addWidget(self.search_button)
+        self.stop_search_button = QPushButton("停止搜索")
+        self.stop_search_button.setAccessibleName("停止搜索")
+        self.stop_search_button.setEnabled(False)
+        self.stop_search_button.clicked.connect(self._stop_search)
+        toolbar.addWidget(self.stop_search_button)
         self.previous_button = QPushButton("上一页")
+        self.previous_button.setEnabled(False)
         self.previous_button.clicked.connect(self._search_previous)
         toolbar.addWidget(self.previous_button)
         self.next_button = QPushButton("下一页")
+        self.next_button.setEnabled(False)
         self.next_button.clicked.connect(self._search_next)
         toolbar.addWidget(self.next_button)
         layout.addLayout(toolbar)
@@ -248,6 +262,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(hint)
 
         self.result_list = QListWidget()
+        self.result_list.setAccessibleName("搜索结果")
         self.result_list.setViewMode(QListWidget.IconMode)
         self.result_list.setResizeMode(QListWidget.Adjust)
         self.result_list.setMovement(QListWidget.Static)
@@ -421,7 +436,7 @@ class MainWindow(QMainWindow):
 
         notice = QLabel(
             "请只访问和保存你有权使用的内容。本程序不会自动处理 CAPTCHA、不会轮换身份或代理、"
-            "不会绕过会员/年龄/地域限制；遇到 401、403、429 或站点挑战会停止并提示。"
+            "不会绕过会员/年龄/地域限制；认证或限流错误会停止并提示，单项 403 只失败该作品。"
         )
         notice.setWordWrap(True)
         notice.setObjectName("noticeLabel")
@@ -470,16 +485,45 @@ class MainWindow(QMainWindow):
         if callable(ensure_loaded):
             ensure_loaded()
 
-    def _start_search(self, *, reset: bool) -> None:
-        if self.search_worker and self.search_worker.isRunning():
+    def _start_search(
+        self,
+        *,
+        reset: bool,
+        cursor: str | None = None,
+        history: list[str] | None = None,
+    ) -> None:
+        # Keep ownership until the old QThread's queued finished signal has
+        # been handled.  isRunning() can already be false in that short window;
+        # accepting another Enter press there would let stale cleanup erase the
+        # new operation's pending state.
+        if self.search_worker is not None:
             self.status_label.setText("搜索正在进行，请稍候")
             return
         if reset:
-            self._search_cursor = ""
-            self._cursor_history.clear()
-        tags = self.search_edit.text()
-        rating = str(self.rating_combo.currentData())
+            tags = self.search_edit.text()
+            rating = str(self.rating_combo.currentData())
+            target_cursor = ""
+            target_history: list[str] = []
+        else:
+            if cursor is None or history is None:
+                return
+            # Pagination always continues the last committed search.  Editing
+            # the controls only takes effect when the user starts a new search.
+            tags = self._search_query
+            rating = self._search_rating
+            target_cursor = cursor
+            target_history = list(history)
+        self._pending_search = {
+            "query": tags,
+            "rating": rating,
+            "cursor": target_cursor,
+            "history": target_history,
+            "prior_summary": self.results_summary.text(),
+        }
+        self._search_cancel_requested = False
+        self._search_terminal_received = False
         self.search_button.setEnabled(False)
+        self.stop_search_button.setEnabled(True)
         self.previous_button.setEnabled(False)
         self.next_button.setEnabled(False)
         self.results_summary.setText("正在加载…")
@@ -488,53 +532,116 @@ class MainWindow(QMainWindow):
             self.access_token,
             tags,
             rating,
-            self._search_cursor,
+            target_cursor,
             self,
         )
         self.search_worker = worker
         worker.succeeded.connect(self._search_succeeded)
         worker.failed.connect(self._search_failed)
+        worker.cancelled.connect(self._search_cancelled)
         worker.finished.connect(self._search_finished)
         worker.start()
         self.status_label.setText("正在按保守节奏读取搜索结果")
 
     @Slot(object)
     def _search_succeeded(self, result: object) -> None:
+        if self._search_cancel_requested:
+            return
         if not isinstance(result, SearchPage):
             self._search_failed("搜索结果格式无效")
             return
+        pending = self._pending_search
+        if pending is None:
+            return
+        self._search_query = str(pending["query"])
+        self._search_rating = str(pending["rating"])
+        self._search_cursor = str(pending["cursor"])
+        self._cursor_history = list(pending["history"])
         self._next_cursor = result.next_cursor
         self._show_posts(result.posts)
         self.results_summary.setText(f"本页 {len(result.posts)} 项")
-        self.previous_button.setEnabled(bool(self._cursor_history))
-        self.next_button.setEnabled(bool(self._next_cursor))
+        self._pending_search = None
+        self._search_terminal_received = True
+        self.stop_search_button.setEnabled(False)
         self.status_label.setText("搜索完成")
 
     @Slot(str)
     def _search_failed(self, message: str) -> None:
-        self.results_summary.setText("加载失败")
+        if self._search_cancel_requested:
+            self._search_cancelled()
+            return
+        self._restore_pending_search_summary()
+        self._search_terminal_received = True
+        self.stop_search_button.setEnabled(False)
         self.status_label.setText(message)
         self._log(f"搜索失败：{message}")
 
     @Slot()
+    def _search_cancelled(self) -> None:
+        self._restore_pending_search_summary()
+        self._search_terminal_received = True
+        self.stop_search_button.setEnabled(False)
+        self.status_label.setText("搜索已取消，已保留当前结果")
+        self._log("搜索已取消；当前结果与分页位置保持不变。")
+        self.search_edit.setFocus(Qt.OtherFocusReason)
+
+    def _restore_pending_search_summary(self) -> None:
+        if self._pending_search is not None:
+            self.results_summary.setText(
+                str(self._pending_search.get("prior_summary", "输入标签后点击搜索"))
+            )
+        self._pending_search = None
+
+    def _restore_search_navigation(self) -> None:
+        busy = bool(self.search_worker and self.search_worker.isRunning())
+        self.previous_button.setEnabled(not busy and bool(self._cursor_history))
+        self.next_button.setEnabled(not busy and bool(self._next_cursor))
+
+    @Slot()
     def _search_finished(self) -> None:
+        if self._pending_search is not None:
+            if self._search_cancel_requested:
+                self._search_cancelled()
+            elif not self._search_terminal_received:
+                self._search_failed("搜索未返回结果")
         self.search_button.setEnabled(True)
+        self.stop_search_button.setEnabled(False)
         if self.search_worker:
             self.search_worker.deleteLater()
         self.search_worker = None
+        self._search_cancel_requested = False
+        self._search_terminal_received = False
+        self._restore_search_navigation()
+
+    def _stop_search(self) -> None:
+        if (
+            self.search_worker
+            and self.search_worker.isRunning()
+            and not self._search_cancel_requested
+            and not self._search_terminal_received
+        ):
+            self._search_cancel_requested = True
+            self.stop_search_button.setEnabled(False)
+            self.search_worker.cancel()
+            self.status_label.setText("正在安全停止搜索…")
 
     def _search_next(self) -> None:
         if not self._next_cursor:
             return
-        self._cursor_history.append(self._search_cursor)
-        self._search_cursor = self._next_cursor
-        self._start_search(reset=False)
+        self._start_search(
+            reset=False,
+            cursor=self._next_cursor,
+            history=[*self._cursor_history, self._search_cursor],
+        )
 
     def _search_previous(self) -> None:
         if not self._cursor_history:
             return
-        self._search_cursor = self._cursor_history.pop()
-        self._start_search(reset=False)
+        self._start_search(
+            reset=False,
+            cursor=self._cursor_history[-1],
+            history=self._cursor_history[:-1],
+        )
 
     def _show_posts(self, posts: Iterable[SankakuPost]) -> None:
         self._cancel_thumbnail_workers()
@@ -760,6 +867,11 @@ class MainWindow(QMainWindow):
 
     def _load_credentials(self) -> None:
         if not bool(self.settings.get("remember_credentials")):
+            if self.vault.exists():
+                try:
+                    self.vault.clear()
+                except VaultError as exc:
+                    self._log(f"未启用凭据记忆，但残留加密会话无法清理：{exc}")
             self.login_status.setText("未启用本机凭据记忆")
             return
         try:
@@ -769,10 +881,9 @@ class MainWindow(QMainWindow):
             return
         if values:
             # Keep only the bearer session in long-lived application state.
-            # The decrypted password is not needed again unless the user
-            # explicitly starts a fresh login.
-            self.credentials = None
             self.access_token = values.access_token
+            self.session_username = values.username
+            self._session_persisted = True
             self.username_edit.setText(values.username)
             self.password_edit.clear()
             self.login_status.setText("本机会话已载入，尚未联网验证")
@@ -794,22 +905,45 @@ class MainWindow(QMainWindow):
         self.login_status.setText("正在验证…")
         worker = LoginWorker(self._settings_snapshot(), credentials, self)
         self.login_worker = worker
-        worker.succeeded.connect(lambda token: self._login_succeeded(credentials, token))
+        worker.succeeded.connect(
+            lambda token, username=credentials.username: self._login_succeeded(
+                username, token
+            )
+        )
         worker.failed.connect(self._login_failed)
         worker.finished.connect(self._login_finished)
         worker.start()
 
-    def _login_succeeded(self, credentials: Credentials, token: str) -> None:
-        values = Credentials(credentials.username, credentials.password, token).validated()
-        self.credentials = None
-        self.access_token = token
+    def _login_succeeded(self, username: str, token: str) -> None:
         try:
-            if self.remember_check.isChecked():
-                self.vault.save(values)
-            elif self.vault.exists():
-                self.vault.clear()
-        except VaultError as exc:
-            QMessageBox.warning(self, "登录成功，但本机保存失败", str(exc))
+            session = StoredSession(username, token).validated()
+        except VaultError:
+            self._login_failed("站点返回了无效会话")
+            return
+        self.access_token = session.access_token
+        self.session_username = session.username
+        self._session_persisted = False
+        previous_remember = bool(self.settings.get("remember_credentials"))
+        remember = self.remember_check.isChecked()
+        try:
+            self._persist_remember_choice(
+                remember,
+                session=session,
+            )
+        except (SettingsError, VaultError) as exc:
+            self.remember_check.setChecked(previous_remember if remember else False)
+            persistence_note = (
+                "记忆设置已恢复旧状态"
+                if remember
+                else "已按选择停用本机记忆，但部分状态未能写盘"
+            )
+            QMessageBox.warning(
+                self,
+                "登录成功，但本机保存失败",
+                f"当前会话仍可使用；{persistence_note}。{exc}",
+            )
+        else:
+            self._session_persisted = remember
         self.password_edit.clear()
         self.login_status.setText("登录已验证")
         self.account_badge.setText("已登录")
@@ -842,18 +976,107 @@ class MainWindow(QMainWindow):
             "将删除 Data 中的 DPAPI 加密凭据并清空当前令牌。不会删除下载或任务。继续吗？",
         ) != QMessageBox.Yes:
             return
+        vault_failure = None
         try:
             self.vault.clear()
         except VaultError as exc:
-            QMessageBox.warning(self, "清除失败", str(exc))
-            return
-        self.credentials = None
+            vault_failure = exc
+        settings_failure = None
+        try:
+            self.settings.set("remember_credentials", False)
+            if not self._settings_save_allowed:
+                raise SettingsError("当前设置文件无法安全覆盖")
+            self.settings.save()
+        except SettingsError as exc:
+            settings_failure = exc
+        self.remember_check.setChecked(False)
         self.access_token = ""
+        self.session_username = ""
+        self._session_persisted = False
         self.username_edit.clear()
         self.password_edit.clear()
         self.login_status.setText("已清除")
         self.account_badge.setText("未登录")
-        self._log("已清除本机加密凭据；下载与任务未改动。")
+        if vault_failure:
+            self._log("当前会话已退出，但本机加密凭据文件未能删除；下载与任务未改动。")
+        else:
+            self._log("已退出并清除本机加密凭据；下载与任务未改动。")
+        if vault_failure or settings_failure:
+            details = []
+            if vault_failure and settings_failure:
+                details.append(
+                    "本次已退出，但加密文件和磁盘记忆开关均未更新；重启可能再次载入。"
+                    "请恢复写权限后重试，或手动删除 Data/.credentials"
+                )
+            elif vault_failure:
+                details.append("加密文件尚未删除，程序下次启动会继续忽略并尝试清理")
+            elif settings_failure:
+                details.append("记忆开关未能写回设置文件")
+            QMessageBox.warning(
+                self,
+                "当前会话已退出",
+                "；".join(details),
+            )
+
+    def _persist_remember_choice(
+        self,
+        remember: bool,
+        *,
+        session: StoredSession | None = None,
+    ) -> None:
+        """Persist a login choice without restoring secrets after opt-out."""
+        previous_values = dict(self.settings.values)
+        if not remember:
+            failures = []
+            try:
+                self.vault.clear()
+            except VaultError:
+                failures.append("旧的本机加密会话未能删除")
+            self.settings.set("remember_credentials", False)
+            try:
+                if not self._settings_save_allowed:
+                    raise SettingsError("当前设置文件无法安全覆盖")
+                self.settings.save()
+            except SettingsError:
+                failures.append("记忆开关未能写回设置文件")
+            if failures:
+                raise SettingsError("；".join(failures))
+            return
+
+        if not self._settings_save_allowed:
+            raise SettingsError("当前设置文件无法安全覆盖")
+        snapshot = None
+        try:
+            snapshot = self.vault.snapshot()
+        except VaultError:
+            # A malformed/oversized old file must not permanently block a new
+            # verified login from healing the vault.  If the later settings
+            # write fails, the newly written session is removed best-effort.
+            pass
+        vault_replaced = False
+        try:
+            if session is not None:
+                self.vault.save(session)
+                vault_replaced = True
+            self.settings.set("remember_credentials", True)
+            self.settings.save()
+        except (SettingsError, VaultError) as exc:
+            self.settings.values = previous_values
+            if snapshot is not None:
+                try:
+                    self.vault.restore(snapshot)
+                except VaultError as rollback_error:
+                    raise SettingsError(
+                        "保存失败，且本机加密会话未能自动回滚；请重启程序后检查状态"
+                    ) from rollback_error
+            elif vault_replaced:
+                try:
+                    self.vault.clear()
+                except VaultError as rollback_error:
+                    raise SettingsError(
+                        "保存失败，且新加密会话未能自动清理；请重启程序后检查状态"
+                    ) from rollback_error
+            raise exc
 
     def _choose_download_dir(self) -> None:
         directory = QFileDialog.getExistingDirectory(
@@ -863,6 +1086,9 @@ class MainWindow(QMainWindow):
             self.download_dir_edit.setText(directory)
 
     def _save_settings(self) -> None:
+        previous_values = dict(self.settings.values)
+        previous_remember = bool(previous_values.get("remember_credentials", False))
+        remember = self.remember_check.isChecked()
         try:
             self.settings.update(
                 {
@@ -873,7 +1099,7 @@ class MainWindow(QMainWindow):
                     "max_retries": self.retries_spin.value(),
                     "page_size": self.page_size_spin.value(),
                     "proxy": self.proxy_edit.text(),
-                    "remember_credentials": self.remember_check.isChecked(),
+                    "remember_credentials": remember,
                     "prefer_original": self.prefer_original_check.isChecked(),
                     "save_metadata": self.metadata_check.isChecked(),
                 }
@@ -882,16 +1108,116 @@ class MainWindow(QMainWindow):
                 "download_dir",
                 self._portable_download_value(self.download_dir_edit.text()),
             )
-            self.settings.save()
-            self._settings_save_allowed = True
-            if not self.remember_check.isChecked() and self.vault.exists():
-                self.vault.clear()
-        except SettingsError as exc:
+        except (SettingsError, VaultError) as exc:
+            self.settings.values = previous_values
+            if not remember:
+                try:
+                    self.vault.clear()
+                except VaultError:
+                    pass
+                self.settings.set("remember_credentials", False)
+                self.remember_check.setChecked(False)
+                self._session_persisted = False
+            else:
+                self.remember_check.setChecked(previous_remember)
             QMessageBox.warning(self, "设置未保存", str(exc))
             return
-        except VaultError as exc:
-            QMessageBox.warning(self, "设置已保存，但凭据清理失败", str(exc))
+
+        if not remember:
+            vault_failure = None
+            try:
+                self.vault.clear()
+            except VaultError as exc:
+                vault_failure = exc
+            self._session_persisted = False
+            settings_failure = None
+            try:
+                if not self._settings_save_allowed:
+                    raise SettingsError("当前设置文件无法安全覆盖")
+                self.settings.save()
+                self._settings_save_allowed = True
+            except SettingsError as exc:
+                settings_failure = exc
+                self.settings.values = previous_values
+                self.settings.set("remember_credentials", False)
+            self.remember_check.setChecked(False)
+            if vault_failure or settings_failure:
+                notes = []
+                if vault_failure and settings_failure:
+                    notes.append("加密文件和记忆开关均未能写盘；再次启动前请手动检查 Data")
+                elif vault_failure:
+                    notes.append("加密文件未能删除，但已禁用后续载入")
+                elif settings_failure:
+                    notes.append("其余设置未能写入")
+                QMessageBox.warning(self, "设置未完全保存", "；".join(notes))
+                return
+            self.status_label.setText("设置已安全保存")
+            self._log("普通设置已保存；本机凭据记忆已禁用。")
             return
+
+        current_session = None
+        if (
+            not self._session_persisted
+            and self.session_username
+            and self.access_token
+        ):
+            try:
+                current_session = StoredSession(
+                    self.session_username,
+                    self.access_token,
+                ).validated()
+            except VaultError as exc:
+                self.settings.values = previous_values
+                self.remember_check.setChecked(previous_remember)
+                QMessageBox.warning(self, "设置未保存", str(exc))
+                return
+        orphan_exists = bool(
+            current_session is None
+            and not previous_remember
+            and self.vault.exists()
+        )
+        if not self._settings_save_allowed:
+            self.settings.values = previous_values
+            self.remember_check.setChecked(previous_remember)
+            QMessageBox.warning(self, "设置未保存", "当前设置文件无法安全覆盖")
+            return
+
+        snapshot = None
+        if current_session is not None:
+            try:
+                snapshot = self.vault.snapshot()
+            except VaultError:
+                pass
+        vault_replaced = False
+        try:
+            if current_session is not None:
+                self.vault.save(current_session)
+                vault_replaced = True
+            elif orphan_exists:
+                # A stale vault must not become active merely because the flag
+                # was enabled without a verified live session.
+                self.vault.clear()
+            self.settings.save()
+            self._settings_save_allowed = True
+        except (SettingsError, VaultError) as exc:
+            self.settings.values = previous_values
+            rollback_note = ""
+            if current_session is not None and snapshot is not None:
+                try:
+                    self.vault.restore(snapshot)
+                except VaultError:
+                    rollback_note = "；旧加密会话未能自动恢复，请重启检查"
+            elif current_session is not None and vault_replaced:
+                try:
+                    self.vault.clear()
+                except VaultError:
+                    rollback_note = "；新加密会话未能自动清理，请重启检查"
+            self.remember_check.setChecked(previous_remember)
+            QMessageBox.warning(self, "设置未保存", f"{exc}{rollback_note}")
+            return
+
+        if current_session is not None:
+            self._session_persisted = True
         self.status_label.setText("设置已安全保存")
         self._log("普通设置已保存；其中不含账号密码或令牌。")
 

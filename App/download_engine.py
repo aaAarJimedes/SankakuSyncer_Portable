@@ -20,7 +20,6 @@ from urllib.parse import urljoin, urlsplit
 from http_transport import Response, Session, TransportError
 from request_gate import GateCancelled, MEDIA_REQUEST_GATE
 from sankaku_api import (
-    AuthenticationError,
     CancelledError,
     RateLimitError,
     SankakuAPI,
@@ -100,6 +99,10 @@ _FINAL_FILENAME_RE_TEMPLATE = (
 
 class DownloadError(RuntimeError):
     """A safe-to-display media download failure."""
+
+
+class MediaAccessDeniedError(DownloadError):
+    """One signed media URL is unavailable to the current account."""
 
 
 class _PartSlotCollision(DownloadError):
@@ -479,7 +482,13 @@ class MediaDownloader:
                             restarted_after_416 = True
                             continue
                         if response.status_code in {401, 403}:
-                            raise AuthenticationError("媒体访问认证已失效或当前账号无权访问")
+                            # Metadata was fetched successfully just before this
+                            # credential-free signed-CDN request.  A denial here
+                            # applies to this URL/item, not to the API token or
+                            # every remaining task in the batch.
+                            raise MediaAccessDeniedError(
+                                "当前作品的签名媒体地址不可用或无权访问"
+                            )
                         if response.status_code == 429:
                             wait_seconds = _retry_after_seconds(response.headers)
                             MEDIA_REQUEST_GATE.defer(wait_seconds)
@@ -1827,5 +1836,6 @@ __all__ = [
     "DownloadError",
     "DownloadResult",
     "MAX_MEDIA_BYTES",
+    "MediaAccessDeniedError",
     "MediaDownloader",
 ]

@@ -38,6 +38,10 @@ class AuthenticationError(SankakuAPIError):
     """Credentials or access token were rejected."""
 
 
+class AccessDeniedError(SankakuAPIError):
+    """The current account cannot access one requested resource."""
+
+
 class RateLimitError(SankakuAPIError):
     """The remote service requested a longer cooldown."""
 
@@ -371,8 +375,12 @@ class SankakuAPI:
             try:
                 if response.is_redirect:
                     raise SankakuAPIError("API 返回了意外跳转")
-                if response.status_code in {401, 403}:
+                if response.status_code == 401 or (
+                    response.status_code == 403 and path == "/auth/token"
+                ):
                     raise AuthenticationError("登录已失效或当前账号无权访问")
+                if response.status_code == 403:
+                    raise AccessDeniedError("当前账号无权访问该资源")
                 if response.status_code == 429:
                     wait_seconds = response_wait_seconds
                     if wait_seconds is None:
@@ -525,6 +533,7 @@ def _defer_global_api_requests_locked(seconds: float) -> None:
 
 __all__ = [
     "API_ROOT",
+    "AccessDeniedError",
     "AuthenticationError",
     "CancelledError",
     "RateLimitError",

@@ -13,6 +13,7 @@ from http_transport import TransportError
 
 from sankaku_api import (
     API_ROOT,
+    AccessDeniedError,
     AuthenticationError,
     CancelledError,
     RateLimitError,
@@ -261,6 +262,29 @@ class SankakuAPIOfflineTests(unittest.TestCase):
             client.search_posts("cat")
 
         self.assertNotIn("DO_NOT_LEAK", str(raised.exception))
+        self.assertTrue(response.closed)
+
+    def test_ordinary_403_is_per_item_access_denied_and_response_is_closed(self):
+        response = FakeResponse(status_code=403, payload={"error": "forbidden"})
+        client, _session = self._client(response, access_token="DO_NOT_LEAK")
+
+        with self.assertRaises(AccessDeniedError) as raised:
+            client.get_post("Post_1")
+
+        self.assertNotIsInstance(raised.exception, AuthenticationError)
+        self.assertNotIn("DO_NOT_LEAK", str(raised.exception))
+        self.assertTrue(response.closed)
+
+    def test_authenticate_403_remains_authentication_error_without_replay(self):
+        response = FakeResponse(status_code=403, payload={"error": "forbidden"})
+        unused = FakeResponse(payload={"success": True, "access_token": "UNUSED"})
+        client, session = self._client(response, unused, max_retries=4)
+
+        with self.assertRaises(AuthenticationError):
+            client.authenticate("user@example.test", "secret")
+
+        self.assertEqual(len(session.requests), 1)
+        self.assertEqual(session.responses, [unused])
         self.assertTrue(response.closed)
 
     def test_429_honors_retry_after_then_raises_when_retries_are_exhausted(self):

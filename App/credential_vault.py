@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
-"""DPAPI-protected Sankaku credentials and access-token persistence.
+"""DPAPI-protected Sankaku session persistence.
 
-The file never contains plaintext credentials.  Protection is scoped to the
-current Windows user and uses UI-forbidden mode so a background save cannot
-display a security prompt.
+Login passwords are accepted only by the in-memory :class:`Credentials` value.
+The persisted schema contains only a username and bearer token.  Its file never
+contains plaintext session data: protection is scoped to the current Windows
+user and uses UI-forbidden mode so a background save cannot display a security
+prompt.
 """
 
 from __future__ import annotations
 
 import ctypes
 from ctypes import wintypes
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import os
 import tempfile
@@ -33,11 +35,10 @@ class VaultError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class Credentials:
-    """Authentication values held in memory only after DPAPI decryption."""
+    """Ephemeral username/password input used only for a fresh login."""
 
     username: str
     password: str
-    access_token: str = ""
 
     def validated(self) -> "Credentials":
         username = _validate_secret_text(
@@ -46,10 +47,44 @@ class Credentials:
         password = _validate_secret_text(
             self.password, "password", _MAX_PASSWORD_CHARS, allow_empty=False
         )
-        token = _validate_secret_text(
-            self.access_token, "access token", _MAX_TOKEN_CHARS, allow_empty=True
+        return Credentials(username=username, password=password)
+
+
+@dataclass(frozen=True, slots=True)
+class StoredSession:
+    """DPAPI-protected, password-free session state persisted between runs."""
+
+    username: str
+    access_token: str
+
+    def validated(self) -> "StoredSession":
+        username = _validate_secret_text(
+            self.username, "username", _MAX_USERNAME_CHARS, allow_empty=False
         )
-        return Credentials(username=username, password=password, access_token=token)
+        token = _validate_secret_text(
+            self.access_token, "access token", _MAX_TOKEN_CHARS, allow_empty=False
+        )
+        return StoredSession(username=username, access_token=token)
+
+
+@dataclass(frozen=True, slots=True)
+class VaultSnapshot:
+    """Opaque rollback state containing bounded raw vault bytes or absence."""
+
+    _protected_payload: bytes | None = field(repr=False)
+
+    def __post_init__(self) -> None:
+        payload = self._protected_payload
+        if payload is not None and (
+            type(payload) is not bytes
+            or len(payload) > _MAX_FILE_BYTES
+        ):
+            raise VaultError("invalid credential snapshot")
+
+    @property
+    def existed(self) -> bool:
+        """Return whether the protected vault file existed when captured."""
+        return self._protected_payload is not None
 
 
 class _DataBlob(ctypes.Structure):
@@ -189,7 +224,28 @@ class CredentialVault:
     def exists(self) -> bool:
         return os.path.isfile(self.path)
 
-    def load(self) -> Credentials | None:
+    def snapshot(self) -> VaultSnapshot:
+        """Capture bounded raw bytes without interpreting or decrypting them."""
+        try:
+            with open(self.path, "rb") as file_obj:
+                payload = file_obj.read(_MAX_FILE_BYTES + 1)
+        except FileNotFoundError:
+            return VaultSnapshot(None)
+        except OSError as exc:
+            raise VaultError(f"credential snapshot failed ({type(exc).__name__})") from exc
+        return VaultSnapshot(self._validated_snapshot_payload(payload))
+
+    def restore(self, snapshot: VaultSnapshot) -> None:
+        """Atomically restore opaque raw bytes, or restore file absence."""
+        if not isinstance(snapshot, VaultSnapshot):
+            raise VaultError("invalid credential snapshot")
+        payload = snapshot._protected_payload
+        if payload is None:
+            self.clear()
+            return
+        self._atomic_write(self._validated_snapshot_payload(payload))
+
+    def load(self) -> StoredSession | None:
         if not self.exists():
             return None
         try:
@@ -198,33 +254,82 @@ class CredentialVault:
             if len(payload) > _MAX_FILE_BYTES or not payload.startswith(_MAGIC):
                 raise VaultError("unsupported credential file")
             clear = self._unprotect(payload[len(_MAGIC) :])
-            decoded = json.loads(clear.decode("utf-8"))
-            if not isinstance(decoded, dict) or set(decoded) != {
-                "schema_version",
-                "username",
-                "password",
-                "access_token",
-            }:
+            if type(clear) is not bytes or len(clear) > _MAX_FILE_BYTES:
                 raise VaultError("invalid credential payload")
-            if decoded["schema_version"] != 1:
+            decoded = json.loads(clear.decode("utf-8"))
+            if not isinstance(decoded, dict):
+                raise VaultError("invalid credential payload")
+            schema_version = decoded.get("schema_version")
+            if type(schema_version) is not int:
                 raise VaultError("unsupported credential schema")
-            return Credentials(
-                username=decoded["username"],
-                password=decoded["password"],
-                access_token=decoded["access_token"],
-            ).validated()
+            if schema_version == 2:
+                if set(decoded) != {
+                    "schema_version",
+                    "username",
+                    "access_token",
+                }:
+                    raise VaultError("invalid credential payload")
+                return StoredSession(
+                    username=decoded["username"],
+                    access_token=decoded["access_token"],
+                ).validated()
+            if schema_version == 1:
+                if set(decoded) != {
+                    "schema_version",
+                    "username",
+                    "password",
+                    "access_token",
+                }:
+                    raise VaultError("invalid credential payload")
+                login = Credentials(
+                    username=decoded["username"],
+                    password=decoded["password"],
+                ).validated()
+                legacy_token = _validate_secret_text(
+                    decoded["access_token"],
+                    "access token",
+                    _MAX_TOKEN_CHARS,
+                    allow_empty=True,
+                )
+                if not legacy_token:
+                    # Schema 1 explicitly allowed saving before a token was
+                    # obtained.  Such a record has no reusable session, so
+                    # remove the password-bearing legacy payload instead of
+                    # leaving it to fail migration on every startup.
+                    self.clear()
+                    return None
+                session = StoredSession(
+                    username=login.username,
+                    access_token=legacy_token,
+                ).validated()
+                # A legacy password must not remain at rest after a successful
+                # read.  save() protects the schema-2 bytes before its atomic
+                # replacement; any protection or replacement failure therefore
+                # leaves the original schema-1 ciphertext untouched and is
+                # propagated to the caller.
+                self.save(session)
+                return session
+            raise VaultError("unsupported credential schema")
         except VaultError:
             raise
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError, TypeError) as exc:
+        except (
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            TypeError,
+            ValueError,
+            RecursionError,
+        ) as exc:
             raise VaultError(f"credential load failed ({type(exc).__name__})") from exc
 
-    def save(self, credentials: Credentials) -> None:
-        values = credentials.validated()
+    def save(self, session: StoredSession) -> None:
+        if not isinstance(session, StoredSession):
+            raise VaultError("invalid stored session")
+        values = session.validated()
         payload = json.dumps(
             {
-                "schema_version": 1,
+                "schema_version": 2,
                 "username": values.username,
-                "password": values.password,
                 "access_token": values.access_token,
             },
             ensure_ascii=False,
@@ -264,11 +369,22 @@ class CredentialVault:
                 except OSError:
                     pass
 
+    @staticmethod
+    def _validated_snapshot_payload(payload: object) -> bytes:
+        if (
+            type(payload) is not bytes
+            or len(payload) > _MAX_FILE_BYTES
+        ):
+            raise VaultError("invalid credential snapshot")
+        return payload
+
 
 __all__ = [
     "CredentialVault",
     "Credentials",
+    "StoredSession",
     "VaultError",
+    "VaultSnapshot",
     "dpapi_protect",
     "dpapi_unprotect",
 ]

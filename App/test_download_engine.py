@@ -16,9 +16,13 @@ from unittest import mock
 
 import download_engine
 import request_gate
-from download_engine import DownloadError, DownloadResult, MediaDownloader
+from download_engine import (
+    DownloadError,
+    DownloadResult,
+    MediaAccessDeniedError,
+    MediaDownloader,
+)
 from sankaku_api import (
-    AuthenticationError,
     CancelledError,
     RateLimitError,
     SankakuPost,
@@ -865,15 +869,16 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
                 self.assertFalse(os.path.exists(self._paths()[0]))
                 self.assertTrue(os.path.exists(self._paths()[1]))
 
-    def test_media_authentication_status_raises_domain_error(self):
+    def test_signed_media_denial_is_per_item_download_error(self):
         for status_code in (401, 403):
             with self.subTest(status_code=status_code):
                 response = FakeMediaResponse(status_code)
                 downloader, _api, _session = self._downloader(_post(), response)
 
-                with self.assertRaises(AuthenticationError):
+                with self.assertRaises(MediaAccessDeniedError) as raised:
                     downloader.download("Post_1")
 
+                self.assertIsInstance(raised.exception, DownloadError)
                 self.assertTrue(response.closed)
 
     def test_long_rate_limit_raises_domain_error_without_retry_sleep(self):

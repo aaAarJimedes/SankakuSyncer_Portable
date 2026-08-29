@@ -14,7 +14,18 @@ from unittest import mock
 
 import task_store as task_module
 from sankaku_url_policy import canonical_post_url
-from task_store import DownloadTask, TaskStore, TaskStoreError
+from task_store import (
+    DownloadTask,
+    MAX_REVISION,
+    TaskStore,
+    TaskStoreConflictError,
+    TaskStoreCorruptError,
+    TaskStoreError,
+    TaskStoreFailure,
+    TaskStoreReadError,
+    TaskStoreRecoveryError,
+    TaskStoreWriteError,
+)
 
 
 _FIXED_TIME = "2026-08-29T01:02:03+00:00"
@@ -293,7 +304,7 @@ class TaskStoreTests(unittest.TestCase):
         os.makedirs(self.data_dir, exist_ok=True)
         with open(self.store.path, "w", encoding="utf-8") as file_obj:
             file_obj.write("{not-json")
-        with self.assertRaises(TaskStoreError):
+        with self.assertRaises(TaskStoreCorruptError):
             TaskStore(self.data_dir)
 
         valid_item = _task_record("valid_item")
@@ -312,7 +323,7 @@ class TaskStoreTests(unittest.TestCase):
         for payload in invalid_payloads:
             with self.subTest(payload=payload):
                 self._write_json(payload)
-                with self.assertRaises(TaskStoreError):
+                with self.assertRaises(TaskStoreCorruptError):
                     TaskStore(self.data_dir)
 
     def test_oversized_store_is_rejected_before_parsing(self):
@@ -322,8 +333,57 @@ class TaskStoreTests(unittest.TestCase):
             "getsize",
             return_value=16 * 1024 * 1024 + 1,
         ):
-            with self.assertRaisesRegex(TaskStoreError, "读取失败"):
+            with self.assertRaises(TaskStoreCorruptError):
                 TaskStore(self.data_dir)
+
+    def test_read_failure_is_distinct_from_corrupt_content(self):
+        self._write_json(self._payload([]))
+        with mock.patch.object(
+            task_module.os.path,
+            "getsize",
+            side_effect=PermissionError("simulated read failure"),
+        ):
+            with self.assertRaises(TaskStoreReadError):
+                TaskStore(self.data_dir)
+
+    def test_pathological_json_numbers_and_nesting_are_classified_as_corrupt(self):
+        os.makedirs(self.data_dir, exist_ok=True)
+        payloads = (
+            b'{"schema_version":1,"revision":' + b"9" * 5000 + b',"tasks":[]}',
+            (b"[" * 2000) + b"0" + (b"]" * 2000),
+        )
+        for payload in payloads:
+            with self.subTest(prefix=payload[:20]):
+                with open(self.store.path, "wb") as file_obj:
+                    file_obj.write(payload)
+                with self.assertRaises(TaskStoreCorruptError):
+                    TaskStore(self.data_dir)
+
+        self._write_json(self._payload([], revision=MAX_REVISION + 1))
+        with self.assertRaises(TaskStoreCorruptError):
+            TaskStore(self.data_dir)
+
+    def test_revision_limit_is_classified_for_recovery_and_normal_mutation(self):
+        interrupted = self._payload(
+            [_task_record("limit_recovery", status="running")],
+            revision=MAX_REVISION,
+        )
+        self._write_json(interrupted)
+        with open(self.store.path, "rb") as file_obj:
+            original = file_obj.read()
+
+        with self.assertRaises(TaskStoreRecoveryError) as raised:
+            TaskStore(self.data_dir)
+        self.assertIsInstance(raised.exception.__cause__, TaskStoreWriteError)
+        with open(self.store.path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), original)
+
+        self._write_json(self._payload([], revision=MAX_REVISION))
+        loaded = TaskStore(self.data_dir)
+        with self.assertRaises(TaskStoreWriteError):
+            loaded.add_many(["revision_limit"])
+        self.assertEqual(loaded.list(), [])
+        self.assertEqual(loaded.revision, MAX_REVISION)
 
     def test_failed_reload_preserves_current_in_memory_state(self):
         self.store.add_many(["preserved_id"])
@@ -332,7 +392,7 @@ class TaskStoreTests(unittest.TestCase):
         with open(self.store.path, "w", encoding="utf-8") as file_obj:
             file_obj.write("not-json")
 
-        with self.assertRaises(TaskStoreError):
+        with self.assertRaises(TaskStoreCorruptError):
             self.store.load()
         self.assertEqual(self.store.list(), before)
         self.assertEqual(self.store.revision, before_revision)
@@ -342,7 +402,7 @@ class TaskStoreTests(unittest.TestCase):
         stale = TaskStore(self.data_dir)
         first.add_many(["first_writer"])
 
-        with self.assertRaisesRegex(TaskStoreError, "另一个程序"):
+        with self.assertRaisesRegex(TaskStoreConflictError, "另一个程序"):
             stale.add_many(["stale_writer"])
         self.assertEqual(stale.list(), [])
         self.assertEqual(stale.revision, 0)
@@ -354,7 +414,7 @@ class TaskStoreTests(unittest.TestCase):
         stale = TaskStore(self.data_dir)
         first.update("shared_id", status="failed", error="new state")
 
-        with self.assertRaisesRegex(TaskStoreError, "另一个程序"):
+        with self.assertRaisesRegex(TaskStoreConflictError, "另一个程序"):
             stale.remove(["shared_id"])
         self.assertEqual(stale.get("shared_id").status, "pending")
         self.assertEqual(TaskStore(self.data_dir).get("shared_id").status, "failed")
@@ -365,7 +425,7 @@ class TaskStoreTests(unittest.TestCase):
         before_revision = self.store.revision
         os.remove(self.store.path)
 
-        with self.assertRaisesRegex(TaskStoreError, "另一个程序"):
+        with self.assertRaisesRegex(TaskStoreConflictError, "另一个程序"):
             self.store.update("delete_conflict", status="failed")
         self.assertEqual(self.store.list(), before)
         self.assertEqual(self.store.revision, before_revision)
@@ -378,7 +438,7 @@ class TaskStoreTests(unittest.TestCase):
         before_revision = self.store.revision
 
         with mock.patch.object(task_module.os, "replace", side_effect=PermissionError("locked")):
-            with self.assertRaisesRegex(TaskStoreError, "保存失败"):
+            with self.assertRaisesRegex(TaskStoreWriteError, "保存失败"):
                 self.store.update("atomic_id", status="completed")
 
         with open(self.store.path, "rb") as file_obj:
@@ -389,6 +449,48 @@ class TaskStoreTests(unittest.TestCase):
             [name for name in os.listdir(self.data_dir) if name.startswith(".tasks.")],
             [],
         )
+
+    def test_recovery_write_failures_preserve_valid_original_file(self):
+        self._write_json(
+            self._payload(
+                [
+                    _task_record("queued_recovery", status="queued"),
+                    _task_record("running_recovery", status="running"),
+                ],
+                revision=12,
+            )
+        )
+        with open(self.store.path, "rb") as file_obj:
+            original = file_obj.read()
+
+        failures = (
+            (task_module.os, "fsync", OSError("simulated fsync failure")),
+            (task_module.os, "replace", PermissionError("simulated replace failure")),
+        )
+        for target, attribute, failure in failures:
+            with self.subTest(operation=attribute), mock.patch.object(
+                target, attribute, side_effect=failure
+            ):
+                with self.assertRaisesRegex(
+                    TaskStoreRecoveryError, "恢复状态无法持久化"
+                ) as raised:
+                    TaskStore(self.data_dir)
+
+            self.assertIsInstance(raised.exception.__cause__, TaskStoreWriteError)
+            with open(self.store.path, "rb") as file_obj:
+                self.assertEqual(file_obj.read(), original)
+            self.assertEqual(
+                [
+                    name
+                    for name in os.listdir(self.data_dir)
+                    if name.startswith(".tasks.")
+                ],
+                [],
+            )
+
+    def test_recovery_error_bypasses_legacy_corrupt_file_handler(self):
+        self.assertTrue(issubclass(TaskStoreRecoveryError, TaskStoreFailure))
+        self.assertFalse(issubclass(TaskStoreRecoveryError, TaskStoreError))
 
     def test_one_store_serializes_simultaneous_thread_writers(self):
         worker_count = 8

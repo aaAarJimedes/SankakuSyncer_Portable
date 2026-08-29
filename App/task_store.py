@@ -16,14 +16,45 @@ from sankaku_url_policy import canonical_post_url, normalize_page_url, normalize
 
 MAX_TASKS = 10_000
 MAX_ERROR_CHARS = 1000
+MAX_REVISION = 2**63 - 1
 TASK_STATES = frozenset(
     {"pending", "queued", "running", "completed", "failed", "cancelled"}
 )
 RETRYABLE_STATES = frozenset({"pending", "failed", "cancelled"})
 
 
-class TaskStoreError(RuntimeError):
-    """Raised when the task store cannot be safely read or changed."""
+class TaskStoreFailure(RuntimeError):
+    """Common root for every task-store persistence failure."""
+
+
+class TaskStoreError(TaskStoreFailure):
+    """Application-handled task validation or persistence failure."""
+
+
+class TaskStoreCorruptError(TaskStoreError):
+    """The on-disk task store was read but failed structural validation."""
+
+
+class TaskStoreReadError(TaskStoreError):
+    """The task store or its file identity could not be read."""
+
+
+class TaskStoreWriteError(TaskStoreError):
+    """A normal task-store mutation could not be durably committed."""
+
+
+class TaskStoreConflictError(TaskStoreError):
+    """The on-disk task store changed after this instance loaded it."""
+
+
+class TaskStoreRecoveryError(TaskStoreFailure):
+    """A valid store was parsed but interrupted-state recovery failed.
+
+    This intentionally does not inherit :class:`TaskStoreError`.  The existing
+    window startup path quarantines every ``TaskStoreError`` as corrupt.  A
+    recovery write failure must instead abort startup while leaving the valid
+    original file in place.
+    """
 
 
 def _utc_now() -> str:
@@ -249,21 +280,38 @@ class TaskStore:
                 return True
             try:
                 if os.path.getsize(self.path) > 16 * 1024 * 1024:
-                    raise TaskStoreError("task store is too large")
+                    raise TaskStoreCorruptError("task store is too large")
                 with open(self.path, "r", encoding="utf-8") as file_obj:
                     payload = json.load(file_obj)
+            except OSError as exc:
+                raise TaskStoreReadError(
+                    f"任务篮读取失败（{type(exc).__name__}）"
+                ) from exc
+            except (
+                UnicodeDecodeError,
+                json.JSONDecodeError,
+                ValueError,
+                RecursionError,
+            ) as exc:
+                raise TaskStoreCorruptError(
+                    f"任务篮内容损坏（{type(exc).__name__}）"
+                ) from exc
+            try:
                 if not isinstance(payload, dict) or set(payload) != {
                     "schema_version",
                     "revision",
                     "tasks",
                 }:
-                    raise TaskStoreError("invalid task store shape")
+                    raise TaskStoreCorruptError("invalid task store shape")
                 if payload["schema_version"] != self.SCHEMA_VERSION:
-                    raise TaskStoreError("unsupported task schema")
-                if type(payload["revision"]) is not int or payload["revision"] < 0:
-                    raise TaskStoreError("invalid revision")
+                    raise TaskStoreCorruptError("unsupported task schema")
+                if (
+                    type(payload["revision"]) is not int
+                    or not 0 <= payload["revision"] <= MAX_REVISION
+                ):
+                    raise TaskStoreCorruptError("invalid revision")
                 if not isinstance(payload["tasks"], list) or len(payload["tasks"]) > MAX_TASKS:
-                    raise TaskStoreError("invalid task list")
+                    raise TaskStoreCorruptError("invalid task list")
                 tasks: dict[str, DownloadTask] = {}
                 for item in payload["tasks"]:
                     if not isinstance(item, dict) or set(item) != {
@@ -276,30 +324,60 @@ class TaskStore:
                         "error",
                         "output_files",
                     }:
-                        raise TaskStoreError("invalid task item")
+                        raise TaskStoreCorruptError("invalid task item")
                     task = DownloadTask(**item).validated(recover_interrupted=True)
                     if task.post_id in tasks:
-                        raise TaskStoreError("duplicate task")
+                        raise TaskStoreCorruptError("duplicate task")
                     tasks[task.post_id] = task
-                self._tasks = tasks
-                self._revision = payload["revision"]
-                self._signature = self._file_signature()
-                if any(item.get("status") in {"queued", "running"} for item in payload["tasks"]):
-                    self._commit(dict(tasks), check_signature=False)
-                return True
-            except (
-                OSError,
-                UnicodeDecodeError,
-                json.JSONDecodeError,
-                TypeError,
-                TaskStoreError,
-            ) as exc:
-                raise TaskStoreError(f"任务篮读取失败（{type(exc).__name__}）") from exc
+            except TaskStoreCorruptError:
+                raise
+            except (TaskStoreError, TypeError, ValueError, OverflowError) as exc:
+                raise TaskStoreCorruptError(
+                    f"任务篮内容损坏（{type(exc).__name__}）"
+                ) from exc
 
-    def _commit(self, tasks: dict[str, DownloadTask], *, check_signature: bool = True) -> None:
-        if check_signature and self._signature != self._file_signature():
-            raise TaskStoreError("任务篮已被另一个程序修改，请重新打开后再试")
+            revision = payload["revision"]
+            signature = self._file_signature()
+            interrupted = any(
+                item.get("status") in {"queued", "running"}
+                for item in payload["tasks"]
+            )
+            if interrupted:
+                try:
+                    if revision >= MAX_REVISION:
+                        raise TaskStoreWriteError("任务篮版本号已达到安全上限")
+                    recovered_revision = revision + 1
+                    encoded = self._encode(tasks, recovered_revision)
+                    if signature != self._file_signature():
+                        raise TaskStoreConflictError(
+                            "任务篮已被另一个程序修改，请重新打开后再试"
+                        )
+                    self._atomic_write(encoded)
+                    signature = self._file_signature()
+                except TaskStoreFailure as exc:
+                    raise TaskStoreRecoveryError(
+                        f"任务篮恢复状态无法持久化（{type(exc).__name__}）"
+                    ) from exc
+                revision = recovered_revision
+
+            self._tasks = tasks
+            self._revision = revision
+            self._signature = signature
+            return True
+
+    def _commit(self, tasks: dict[str, DownloadTask]) -> None:
+        if self._signature != self._file_signature():
+            raise TaskStoreConflictError("任务篮已被另一个程序修改，请重新打开后再试")
+        if self._revision >= MAX_REVISION:
+            raise TaskStoreWriteError("任务篮版本号已达到安全上限")
         revision = self._revision + 1
+        encoded = self._encode(tasks, revision)
+        self._atomic_write(encoded)
+        self._tasks = tasks
+        self._revision = revision
+        self._signature = self._file_signature()
+
+    def _encode(self, tasks: dict[str, DownloadTask], revision: int) -> bytes:
         payload = {
             "schema_version": self.SCHEMA_VERSION,
             "revision": revision,
@@ -308,11 +386,12 @@ class TaskStore:
                 for task in tasks.values()
             ],
         }
-        encoded = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
-        self._atomic_write(encoded)
-        self._tasks = tasks
-        self._revision = revision
-        self._signature = self._file_signature()
+        try:
+            return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise TaskStoreWriteError(
+                f"任务篮序列化失败（{type(exc).__name__}）"
+            ) from exc
 
     def _file_signature(self) -> tuple[int, int] | None:
         try:
@@ -320,7 +399,9 @@ class TaskStore:
         except FileNotFoundError:
             return None
         except OSError as exc:
-            raise TaskStoreError(f"任务篮状态读取失败（{type(exc).__name__}）") from exc
+            raise TaskStoreReadError(
+                f"任务篮状态读取失败（{type(exc).__name__}）"
+            ) from exc
         return stat.st_mtime_ns, stat.st_size
 
     def _atomic_write(self, data: bytes) -> None:
@@ -337,7 +418,9 @@ class TaskStore:
             os.replace(temp_path, self.path)
             temp_path = None
         except OSError as exc:
-            raise TaskStoreError(f"任务篮保存失败（{type(exc).__name__}）") from exc
+            raise TaskStoreWriteError(
+                f"任务篮保存失败（{type(exc).__name__}）"
+            ) from exc
         finally:
             if temp_path:
                 try:
@@ -348,9 +431,16 @@ class TaskStore:
 
 __all__ = [
     "DownloadTask",
+    "MAX_REVISION",
     "MAX_TASKS",
     "RETRYABLE_STATES",
     "TASK_STATES",
     "TaskStore",
+    "TaskStoreConflictError",
+    "TaskStoreCorruptError",
     "TaskStoreError",
+    "TaskStoreFailure",
+    "TaskStoreReadError",
+    "TaskStoreRecoveryError",
+    "TaskStoreWriteError",
 ]
