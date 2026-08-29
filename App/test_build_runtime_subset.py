@@ -102,6 +102,11 @@ class PeImportParserTests(unittest.TestCase):
 
 
 class RuntimeAllowlistTests(unittest.TestCase):
+    def test_mainwindow_smoke_uses_the_shared_tab_contract(self):
+        code = runtime_builder._OFFLINE_MAINWINDOW_SMOKE_CODE
+        self.assertIn("ui_main_window.MAIN_TAB_TITLES", code)
+        self.assertNotIn("tabs.count()==", code)
+
     def test_forbidden_cache_development_and_heavy_binaries(self):
         rejected = (
             "Lib/__pycache__/abc.pyc",

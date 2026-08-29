@@ -913,6 +913,20 @@ def _run_verification_step(
     )
 
 
+_OFFLINE_MAINWINDOW_SMOKE_CODE = (
+    "import os,sys; sys.path.insert(0, os.environ['SANKAKU_VERIFY_APP']); "
+    "from PySide6.QtCore import QCoreApplication,Qt; "
+    "QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts); "
+    "from PySide6.QtWidgets import QApplication; "
+    "import ui_main_window; "
+    "app=QApplication([]); root=os.environ['SANKAKU_VERIFY_ROOT']; "
+    "window=ui_main_window.MainWindow(root); "
+    "actual=tuple(window.tabs.tabText(index) for index in range(window.tabs.count())); "
+    "assert actual == ui_main_window.MAIN_TAB_TITLES; "
+    "window.close(); window.deleteLater(); app.processEvents(); print('mainwindow-ok')"
+)
+
+
 def verify_runtime(runtime: Path, app: Path) -> list[VerificationResult]:
     python = runtime / "python.exe"
     if not python.is_file():
@@ -973,14 +987,7 @@ def verify_runtime(runtime: Path, app: Path) -> list[VerificationResult]:
                 str(python),
                 "-B",
                 "-c",
-                "import os,sys; sys.path.insert(0, os.environ['SANKAKU_VERIFY_APP']); "
-                "from PySide6.QtCore import QCoreApplication,Qt; "
-                "QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts); "
-                "from PySide6.QtWidgets import QApplication; "
-                "from ui_main_window import MainWindow; "
-                "app=QApplication([]); root=os.environ['SANKAKU_VERIFY_ROOT']; "
-                "window=MainWindow(root); assert window.tabs.count()==4; "
-                "window.close(); window.deleteLater(); app.processEvents(); print('mainwindow-ok')",
+                _OFFLINE_MAINWINDOW_SMOKE_CODE,
             ),
             {
                 "SANKAKU_DISABLE_WEBENGINE": "1",
