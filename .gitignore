@@ -1,0 +1,36 @@
+# Portable runtime and private local state
+/Runtime/
+/Data/
+/Downloads/
+
+# Generated launchers, caches, and interrupted downloads
+/*.exe
+**/__pycache__/
+*.py[cod]
+*.part
+*.part.state.json
+*.log
+.env*
+.netrc
+.npmrc
+.pypirc
+id_ed25519
+id_rsa
+*.key
+*.kdbx
+*.p12
+*.pem
+*.pfx
+credentials.json
+secrets.json
+token.json
+PORTABLE_MANIFEST.sha256
+SHA256SUMS.txt
+/.portable-probe-*/
+/.release-build/
+/_runtime_source_build/
+
+# Local development environments
+/.venv/
+/.pytest_cache/
+/.coverage

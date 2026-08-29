@@ -1,0 +1,236 @@
+name: Portable release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sankaku-portable-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-verify-release:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13.15"
+
+      - name: Verify application and tag version contract
+        shell: pwsh
+        run: |
+          $appVersion = & python -B -c "import sys; sys.path.insert(0, 'App'); import version; print(version.APP_VERSION)"
+          if ($LASTEXITCODE -ne 0 -or $appVersion.Count -ne 1) {
+            throw "Application version could not be read"
+          }
+          if ($appVersion -cnotmatch '\A(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?\z') {
+            throw "APP_VERSION is not a safe semantic version"
+          }
+          if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME -cne "v$appVersion") {
+            throw "Release tag does not match APP_VERSION"
+          }
+
+      - name: Fetch locked official Runtime artifacts
+        shell: pwsh
+        run: >-
+          python -B App/tools/fetch_runtime_artifacts.py
+          --wheelhouse .release-build/runtime-wheelhouse
+
+      - name: Expand and authenticate full Runtime source
+        shell: pwsh
+        run: >-
+          python -B App/tools/prepare_runtime_source.py
+          --wheelhouse .release-build/runtime-wheelhouse
+          --destination .release-build/SankakuSyncer_Runtime_Source_Staging
+
+      - name: Build and verify lean Schannel Runtime
+        shell: pwsh
+        run: >-
+          python -B App/tools/build_runtime_subset.py
+          --source .release-build/SankakuSyncer_Runtime_Source_Staging
+          --destination .release-build/SankakuSyncer_Runtime_Lean_Staging
+          --app App
+
+      - name: Finalize Runtime builder boundary
+        shell: pwsh
+        run: |
+          $sentinel = Join-Path $PWD ".release-build/SankakuSyncer_Runtime_Lean_Staging/.sankakusyncer-runtime-subset-builder"
+          $expected = [Text.Encoding]::UTF8.GetBytes("SankakuSyncer runtime subset builder destination`nschema-version: 1`n")
+          $actual = [IO.File]::ReadAllBytes($sentinel)
+          if (-not [Linq.Enumerable]::SequenceEqual($expected, $actual)) {
+            throw "Runtime builder sentinel is not the exact expected file"
+          }
+          Remove-Item -LiteralPath $sentinel
+
+      - name: Verify committed frozen licenses, Runtime inventory, SPDX and OpenVEX
+        shell: pwsh
+        run: >-
+          python -B App/tools/collect_third_party_licenses.py
+          --check
+          --full-schema-check
+          --runtime .release-build/SankakuSyncer_Runtime_Lean_Staging
+
+      - name: Assemble explicit portable tree
+        id: assemble
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq "tag") {
+            $label = $env:GITHUB_REF_NAME
+            if ($label -cnotmatch '\Av(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?\z') {
+              throw "Release tag must be a safe semantic version such as v0.1.0"
+            }
+          }
+          else {
+            $label = "manual-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT"
+          }
+          $stage = Join-Path $env:RUNNER_TEMP "SankakuSyncer_Portable-$label"
+          python -B App/tools/assemble_portable.py --runtime .release-build/SankakuSyncer_Runtime_Lean_Staging --destination $stage
+          "label=$label" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "stage=$stage" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Run read-only release and production WebEngine gates
+        shell: pwsh
+        env:
+          SANKAKU_RELEASE_STAGE: ${{ steps.assemble.outputs.stage }}
+          QT_QPA_PLATFORM: offscreen
+          QTWEBENGINE_DISABLE_SANDBOX: "1"
+          QTWEBENGINE_CHROMIUM_FLAGS: "--no-sandbox --remote-debugging-port=9222"
+          QTWEBENGINE_REMOTE_DEBUGGING: "9222"
+          SSLKEYLOGFILE: "unsafe-keylog.txt"
+        run: |
+          $stage = $env:SANKAKU_RELEASE_STAGE
+          Push-Location -LiteralPath $stage
+          try {
+            & .\Runtime\python.exe -B .\App\tools\portable_self_check.py --release
+            if ($LASTEXITCODE -ne 0) { throw "portable release gate failed" }
+            & .\Runtime\python.exe -B -c "import os; from runtime_environment import sanitize_runtime_environment; sanitize_runtime_environment(); blocked=('QTWEBENGINE_DISABLE_SANDBOX','QTWEBENGINE_CHROMIUM_FLAGS','QTWEBENGINE_REMOTE_DEBUGGING','SSLKEYLOGFILE'); assert not any(os.environ.get(k) for k in blocked); from PySide6.QtCore import QCoreApplication,Qt; QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts); from PySide6.QtWidgets import QApplication; from ui_browser_tab import BrowserTab; app=QApplication([]); widget=BrowserTab(); assert widget.webengine_available; widget.close(); widget.deleteLater(); app.processEvents(); print('production-webengine-sandbox-env-ok')"
+            if ($LASTEXITCODE -ne 0) { throw "production WebEngine smoke failed" }
+            & .\Runtime\python.exe -B .\App\tools\probe_webengine_codecs.py --require-no-patented-video
+            if ($LASTEXITCODE -ne 0) { throw "Qt WebEngine codec policy failed" }
+            & .\Runtime\python.exe -B .\App\tools\build_manifest.py --root .
+            if ($LASTEXITCODE -ne 0) { throw "release manifest generation failed" }
+            & .\Runtime\python.exe -B .\App\tools\build_manifest.py --root . --check
+            if ($LASTEXITCODE -ne 0) { throw "release manifest verification failed" }
+          }
+          finally {
+            Pop-Location
+          }
+
+      - name: Package, extract under Unicode path, and independently re-verify
+        id: package
+        shell: pwsh
+        env:
+          SANKAKU_RELEASE_LABEL: ${{ steps.assemble.outputs.label }}
+          SANKAKU_RELEASE_STAGE: ${{ steps.assemble.outputs.stage }}
+        run: |
+          $label = $env:SANKAKU_RELEASE_LABEL
+          $stage = $env:SANKAKU_RELEASE_STAGE
+          $zip = Join-Path $PWD ".release-build/SankakuSyncer_Portable-$label.zip"
+          python -B App/tools/build_deterministic_zip.py --source $stage --output $zip
+          if ($LASTEXITCODE -ne 0) { throw "deterministic ZIP creation failed" }
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $smoke = Join-Path $PWD ".release-build/搬移 复验/SankakuSyncer Portable"
+          [IO.Compression.ZipFile]::ExtractToDirectory($zip, $smoke)
+          Push-Location -LiteralPath $smoke
+          try {
+            & .\Runtime\python.exe -B .\App\tools\build_manifest.py --root . --check
+            if ($LASTEXITCODE -ne 0) { throw "Unicode-path manifest verification failed" }
+            & .\Runtime\python.exe -B .\App\tools\portable_self_check.py --release
+            if ($LASTEXITCODE -ne 0) { throw "Unicode-path portable gate failed" }
+          }
+          finally {
+            Pop-Location
+          }
+          $digest = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $shaFile = "$zip.sha256"
+          [IO.File]::WriteAllText($shaFile, "$digest  $([IO.Path]::GetFileName($zip))`n", [Text.UTF8Encoding]::new($false))
+          "zip=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "sha=$shaFile" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Transfer verified assets to the publishing boundary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: portable-release-assets
+          path: |
+            ${{ steps.package.outputs.zip }}
+            ${{ steps.package.outputs.sha }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+          overwrite: true
+
+  publish-release:
+    if: github.ref_type == 'tag'
+    needs: build-verify-release
+    runs-on: windows-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the verified release assets
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: portable-release-assets
+          path: ${{ runner.temp }}/SankakuSyncer-release-assets
+
+      - name: Recheck digest and publish immutable tag assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SANKAKU_RELEASE_ASSETS: ${{ runner.temp }}/SankakuSyncer-release-assets
+        run: |
+          if ($env:GITHUB_REF_NAME -cnotmatch '\Av(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?\z') {
+            throw "Release tag is not a safe semantic version"
+          }
+          $zips = @(Get-ChildItem -LiteralPath $env:SANKAKU_RELEASE_ASSETS -File -Filter '*.zip')
+          $hashFiles = @(Get-ChildItem -LiteralPath $env:SANKAKU_RELEASE_ASSETS -File -Filter '*.zip.sha256')
+          if ($zips.Count -ne 1 -or $hashFiles.Count -ne 1) {
+            throw "Publishing boundary requires exactly one ZIP and one digest file"
+          }
+          $line = [IO.File]::ReadAllText($hashFiles[0].FullName, [Text.Encoding]::UTF8)
+          $match = [regex]::Match($line, '\A([0-9a-f]{64})  ([^\r\n\\/]+)\n\z', [Text.RegularExpressions.RegexOptions]::CultureInvariant)
+          if (-not $match.Success -or $match.Groups[2].Value -cne $zips[0].Name) {
+            throw "Release digest file is not canonical"
+          }
+          $actual = (Get-FileHash -LiteralPath $zips[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -cne $match.Groups[1].Value) {
+            throw "Release ZIP digest changed across the job boundary"
+          }
+          $reference = gh api "repos/$env:GITHUB_REPOSITORY/git/ref/tags/$env:GITHUB_REF_NAME" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw "Release tag reference could not be read" }
+          $object = $reference.object
+          for ($depth = 0; $depth -lt 5 -and $object.type -eq 'tag'; $depth++) {
+            $tagObject = gh api "repos/$env:GITHUB_REPOSITORY/git/tags/$($object.sha)" | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0) { throw "Annotated release tag could not be peeled" }
+            $object = $tagObject.object
+          }
+          if ($object.type -cne 'commit') { throw "Release tag does not resolve to a commit" }
+          $checkedOut = (git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $object.sha -cne $checkedOut) {
+            throw "Release tag moved after the verified build started"
+          }
+          gh release create $env:GITHUB_REF_NAME `
+            $zips[0].FullName `
+            $hashFiles[0].FullName `
+            --verify-tag `
+            --title "SankakuSyncer $env:GITHUB_REF_NAME" `
+            --notes-file CHANGELOG.md

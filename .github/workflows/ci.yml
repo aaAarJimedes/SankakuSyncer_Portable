@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sankaku-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-tests:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+      QT_QPA_PLATFORM: offscreen
+      QTWEBENGINE_DISABLE_SANDBOX: "1"
+      QTWEBENGINE_CHROMIUM_FLAGS: >-
+        --disable-gpu
+        --host-resolver-rules=MAP * ~NOTFOUND,EXCLUDE localhost
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13.15"
+      - name: Fetch hash-locked official wheels
+        run: >-
+          python -B App/tools/fetch_runtime_artifacts.py
+          --wheelhouse .release-build/ci-wheelhouse
+      - name: Install only the authenticated wheelhouse
+        run: >-
+          python -m pip install
+          --no-index
+          --find-links .release-build/ci-wheelhouse
+          -r App/requirements.lock.txt
+      - name: Check dependency consistency
+        run: python -m pip check
+      - name: Reject tracked private or generated state
+        shell: pwsh
+        run: |
+          $forbidden = git ls-files | Where-Object {
+            $_ -match '(^|/)(Runtime|Data|Downloads)/' -or
+            $_ -match '(^|/)__pycache__/' -or
+            $_ -match '\.(py[co]|part|log)$' -or
+            $_ -match '(^|/)\.env' -or
+            $_ -match '(^|/)(\.netrc|\.npmrc|\.pypirc|id_ed25519|id_rsa)$' -or
+            $_ -match '\.(key|kdbx|p12|pem|pfx)$' -or
+            $_ -match '(^|/)(credentials|secrets|token)\.json$' -or
+            $_ -match '(^|/)\.(credentials|app\.lock)$'
+          }
+          if ($forbidden) {
+            $forbidden | ForEach-Object { Write-Error "Forbidden tracked path: $_" }
+            exit 1
+          }
+      - name: Compile sources without creating cache files
+        shell: pwsh
+        run: >-
+          python -c "from pathlib import Path;
+          files=sorted(Path('App').rglob('*.py'));
+          [compile(path.read_text(encoding='utf-8-sig'), str(path), 'exec') for path in files];
+          print(f'compiled={len(files)}')"
+      - name: Import Qt WebEngine
+        run: python -c "from PySide6.QtWebEngineWidgets import QWebEngineView; print(QWebEngineView.__name__)"
+      - name: Run offline regression suite
+        run: python App/run_tests.py

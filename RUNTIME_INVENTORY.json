@@ -1,0 +1,1190 @@
+{
+  "artifact_lock_sha256": "34fbca5da2d17bdd7fa03ff1bc70fb24d261cb206944b0d740192e3295a618b2",
+  "components": {
+    "chromium": "140.0.7339.225",
+    "chromium_security_patch": "151.0.7922.71",
+    "expat": "expat_2.8.2",
+    "openssl": "not-present",
+    "python": "3.13.15",
+    "qt": "6.11.2",
+    "sqlite": "3.50.4",
+    "zlib_compile": "1.3.1",
+    "zlib_runtime": "1.3.1"
+  },
+  "external_pe_imports": [
+    "advapi32.dll",
+    "api-ms-win-core-handle-l1-1-0.dll",
+    "api-ms-win-core-path-l1-1-0.dll",
+    "api-ms-win-core-realtime-l1-1-1.dll",
+    "api-ms-win-core-synch-l1-2-0.dll",
+    "api-ms-win-core-winrt-error-l1-1-1.dll",
+    "api-ms-win-core-winrt-l1-1-0.dll",
+    "api-ms-win-core-winrt-string-l1-1-0.dll",
+    "api-ms-win-crt-conio-l1-1-0.dll",
+    "api-ms-win-crt-convert-l1-1-0.dll",
+    "api-ms-win-crt-environment-l1-1-0.dll",
+    "api-ms-win-crt-filesystem-l1-1-0.dll",
+    "api-ms-win-crt-heap-l1-1-0.dll",
+    "api-ms-win-crt-locale-l1-1-0.dll",
+    "api-ms-win-crt-math-l1-1-0.dll",
+    "api-ms-win-crt-process-l1-1-0.dll",
+    "api-ms-win-crt-runtime-l1-1-0.dll",
+    "api-ms-win-crt-stdio-l1-1-0.dll",
+    "api-ms-win-crt-string-l1-1-0.dll",
+    "api-ms-win-crt-time-l1-1-0.dll",
+    "api-ms-win-crt-utility-l1-1-0.dll",
+    "api-ms-win-power-base-l1-1-0.dll",
+    "api-ms-win-shcore-scaling-l1-1-1.dll",
+    "authz.dll",
+    "bcrypt.dll",
+    "bthprops.cpl",
+    "cfgmgr32.dll",
+    "comctl32.dll",
+    "comdlg32.dll",
+    "crypt32.dll",
+    "d3d11.dll",
+    "d3d12.dll",
+    "d3d9.dll",
+    "dbghelp.dll",
+    "dcomp.dll",
+    "dhcpcsvc.dll",
+    "dnsapi.dll",
+    "dwmapi.dll",
+    "dwrite.dll",
+    "dxgi.dll",
+    "fontsub.dll",
+    "gdi32.dll",
+    "hid.dll",
+    "icuuc.dll",
+    "imagehlp.dll",
+    "imm32.dll",
+    "iphlpapi.dll",
+    "kernel32.dll",
+    "mf.dll",
+    "mfplat.dll",
+    "mfreadwrite.dll",
+    "mmdevapi.dll",
+    "mpr.dll",
+    "ncrypt.dll",
+    "netapi32.dll",
+    "ntdll.dll",
+    "ole32.dll",
+    "oleaut32.dll",
+    "pdh.dll",
+    "propsys.dll",
+    "rpcrt4.dll",
+    "secur32.dll",
+    "setupapi.dll",
+    "shell32.dll",
+    "shlwapi.dll",
+    "uiautomationcore.dll",
+    "urlmon.dll",
+    "user32.dll",
+    "userenv.dll",
+    "uxtheme.dll",
+    "version.dll",
+    "winhttp.dll",
+    "winmm.dll",
+    "winspool.drv",
+    "winusb.dll",
+    "ws2_32.dll",
+    "wtsapi32.dll"
+  ],
+  "file_count": 113,
+  "files": [
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_asyncio.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "d2706f5140c9796bca1a5c8fc8c305ef5147e4e1",
+      "sha256": "6941e2aeed3aad1a4658774ecb60309170066a040c2118a5efd16458ac3bed00",
+      "size": 72928
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_bz2.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "e2eb7b2e642de5866b597533d100848d1e1d0644",
+      "sha256": "261545bd24f15a783fc0c82568b766a4ab569dde14507a81701cccf5293e6e54",
+      "size": 86752
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_ctypes.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "962545549964c61dfbd31ab7d52ed470f7c5a9d6",
+      "sha256": "9d6dccb4cd84a44a107f9b06b91c0a44e85766d9bf4debb6abbde8fda7494c2c",
+      "size": 134368
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_decimal.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "de28b556f1efaeedf50edfc53dd3f0482b54c9de",
+      "sha256": "1e6a5707163d3c103e0eb4695eefedbea4b855fb227c61cc265b168970d6c6f0",
+      "size": 286944
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_elementtree.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "7d32f99b498ed0f137a13fa8073d32a586096da9",
+      "sha256": "26c5c2f3f2b8dac1499f07a50d7afd14315c20a6a541abbe4e306bcd9df404f1",
+      "size": 135904
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_lzma.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "91e21fdecb5080d083df18d62b1a44e24929b1e6",
+      "sha256": "ee224aacf5cf9c9974a1b842aac8d89d5d9b7eeebbf4d76619ae0ce4da8ecd96",
+      "size": 159456
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_multiprocessing.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "66d19b4cc7213769c9c653e638d9fb96582c829c",
+      "sha256": "db19972cf033b598f5826f8219bc2608412b84061d294f5972b43c2ab95f7af5",
+      "size": 38112
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_overlapped.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "987041d5c53c0a9b1b24927c4db298cf515b9fc9",
+      "sha256": "9db08b5449e18088754ce57e315657d00b46575e0151cd379efef8847488a606",
+      "size": 57568
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_queue.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "9a2e70e4106ed0b358ce9625ab1e669ece7242ec",
+      "sha256": "4404c2569443ffb54e7cfffdca8ddf58c9a609175305970728ec12bc1c147b43",
+      "size": 35552
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_socket.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "7c1dca1be48a41344b8eb3a0dc29af3b1d3c60d2",
+      "sha256": "ccbd0f83df3784da08147b8e8765e28c978de28b5c0eddcfba5567b59d43fef9",
+      "size": 86752
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_sqlite3.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "474daf8b036d0d6aeaa4394341e9bb2e231b7b38",
+      "sha256": "4c5fa9341a76ac525fd36e2cb23260934ad9b9f6825725ff139b26c8dc72436d",
+      "size": 131296
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_uuid.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "76183a3b134e471dea77cde8d0c9ab1b94cbc9ab",
+      "sha256": "b93832742a2348d6659fd62e8a8aff061594693fc537da74c7d2d1cdf83a8475",
+      "size": 27872
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_wmi.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "79acfadd87dceaf2b222deca398afc1b6807f6d7",
+      "sha256": "db45362354fd4965329cb14bd974e60b26525045d09fb4fdfb1674a93b79d60c",
+      "size": 39648
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "_zoneinfo.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "eaa50ffe3bff506e66fcd7e7b22db04927d79837",
+      "sha256": "6650db91accc05e625d3c5d8a40e15127a040ea1135e40e875fd78d8a7665a84",
+      "size": 50912
+    },
+    {
+      "path": "Lib/site-packages/pyside6-6.11.2.dist-info/licenses/LicenseRef-Qt-Commercial.txt",
+      "provenance_artifacts": [
+        "pyside6@6.11.2"
+      ],
+      "sha1": "79394673e411701e8fbcd63fca28399b04a1692d",
+      "sha256": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3",
+      "size": 470
+    },
+    {
+      "path": "Lib/site-packages/pyside6-6.11.2.dist-info/METADATA",
+      "provenance_artifacts": [
+        "pyside6@6.11.2"
+      ],
+      "sha1": "2842494392cf55e808e0672c81f72be8d7a7e0a7",
+      "sha256": "bddd6d1e6f840de4ecf6464c1afe885491c76d1081c72ce30744deaa74949276",
+      "size": 5416
+    },
+    {
+      "path": "Lib/site-packages/pyside6-6.11.2.dist-info/RECORD",
+      "provenance_artifacts": [
+        "pyside6@6.11.2"
+      ],
+      "sha1": "86ec739c35433513bd9800c093541677cf9f629b",
+      "sha256": "d10dd2192623df90eb45964bbba65e1ef972caa6319dd1bd7fb033e9611e93d8",
+      "size": 5561
+    },
+    {
+      "path": "Lib/site-packages/pyside6-6.11.2.dist-info/top_level.txt",
+      "provenance_artifacts": [
+        "pyside6@6.11.2"
+      ],
+      "sha1": "75ce070a7b47df20de9c82eaaf590535f3bec6c9",
+      "sha256": "7238bb33d245c78ea5937065a6507f1319a484baa83e11b30ec97ac60d21e89f",
+      "size": 23
+    },
+    {
+      "path": "Lib/site-packages/pyside6-6.11.2.dist-info/WHEEL",
+      "provenance_artifacts": [
+        "pyside6@6.11.2"
+      ],
+      "sha1": "efa57ee61ddb2a173a9469c7380033113a8a5b6b",
+      "sha256": "9526c8d29c3958609101dfed90e2a08287d73bcaf50fca46fa97b90a310280e4",
+      "size": 100
+    },
+    {
+      "path": "Lib/site-packages/PySide6/__init__.py",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2",
+        "pyside6-essentials@6.11.2",
+        "pyside6@6.11.2"
+      ],
+      "sha1": "b2900c744111187230119e57c439f64d2f950010",
+      "sha256": "bf8ddd12eae52e8508f295d80459bb3478a015a663892850c74126812e12b7db",
+      "size": 6400
+    },
+    {
+      "path": "Lib/site-packages/PySide6/_config.py",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2",
+        "pyside6-essentials@6.11.2",
+        "pyside6@6.11.2"
+      ],
+      "sha1": "59c0478a3421c5c8c126c19db3787555edcb9b51",
+      "sha256": "833e9597f18cf5b9c3b41646e291a84aa2f0382275dcf0e10ee9ddb05117f200",
+      "size": 866
+    },
+    {
+      "path": "Lib/site-packages/PySide6/_git_pyside_version.py",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2",
+        "pyside6-essentials@6.11.2",
+        "pyside6@6.11.2"
+      ],
+      "sha1": "fe15814a7d20cbfb9b31122d1c03cec9a243febf",
+      "sha256": "71d227739736ff54b5fb425c291fdc5d199f4b4f0a3e74b25a06c6c9b62799cf",
+      "size": 713
+    },
+    {
+      "file_version": "14.44.35211.0",
+      "path": "Lib/site-packages/PySide6/msvcp140.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "a21d08aa4161a9afd4a9fa49c5d42c284f964ce3",
+      "sha256": "4c667b706893593812cd111b369ba6a77f54d1f1b1ae87cf3bf37692663cfba2",
+      "size": 549176
+    },
+    {
+      "file_version": "14.44.35211.0",
+      "path": "Lib/site-packages/PySide6/msvcp140_1.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "8b1d2d92d9bab5af2dfd861c3028a03208f89fd0",
+      "sha256": "d419d24b0a76366f5c9d908b0e45fe70e9e9154bb8ad5f3de42070f2337f857b",
+      "size": 27448
+    },
+    {
+      "file_version": "14.44.35211.0",
+      "path": "Lib/site-packages/PySide6/msvcp140_2.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "dab38fb397f538c2d5fa0125cca52ac6b3157cf0",
+      "sha256": "89917964abb6ca16a260cab258e180c3abc239b5af00eed659d0edf0efdd339c",
+      "size": 271672
+    },
+    {
+      "path": "Lib/site-packages/PySide6/opengl32sw.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "c2ff10edf65fa3cbfff348fa012417abd32fb18e",
+      "sha256": "34b444c016289b560662ff896deceb7f4b2c0723aed3d319ae167c9186ce42b3",
+      "size": 20639544
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/plugins/imageformats/qgif.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "6a195f900831abff2efd768031a460939a0869c5",
+      "sha256": "d301d7e9a68327692e4c76faa6b125517730b22c68f4de7f09fda9d4ac0ddee1",
+      "size": 47928
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/plugins/imageformats/qico.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "ce9368db51b01df16547d5439c9d221a18ef969f",
+      "sha256": "1684fd56f1758167f7b3ac011264ae5859b3cf6113e381626ec3dc1d3122fe52",
+      "size": 46904
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/plugins/imageformats/qjpeg.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "92265f9328d8e09c2906e872396c54741d5adcd4",
+      "sha256": "6517345ac19f5c489daeadc029d0018bbdc09d8e1031c60d714557972f22c6d4",
+      "size": 591672
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/plugins/imageformats/qwebp.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "207c486e11aa8053646390e784a72177a0ce064f",
+      "sha256": "6b2c53cc4423140c29a6a1eb6dd908016e09d794b5739a05a3a39c8c49a0df8a",
+      "size": 564536
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/plugins/networkinformation/qnetworklistmanager.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "142202fcdfc5c3e0b58e021ad6b0aa8cd73f5990",
+      "sha256": "e571a4b4e582738cd1bc4889cb2896635c2543baff408442701b6706a1b4a86e",
+      "size": 79160
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/plugins/platforms/qminimal.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "d1264586bde00deed03a1ba0dbe78847cb80d56a",
+      "sha256": "768a9c6dbb1c86abbefa2ff9d7e98cdfb4fdc9292eb8d64195bb6d23939a5344",
+      "size": 61752
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/plugins/platforms/qoffscreen.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "a09f3c0f2df27727021ba418ab3d5857bf4b10e8",
+      "sha256": "e776251668440169ed18a2fe1b236762d514ef5244639cbb559b5a77ddd38954",
+      "size": 110904
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/plugins/platforms/qwindows.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "0eaddb1230482d9cd2dc59c2d2f7d94364ef99d9",
+      "sha256": "bf6dbc3009f386fa22f0ced560bea6bbf3e0e0b4442d2fb855db67cffce49dbf",
+      "size": 991032
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/plugins/styles/qmodernwindowsstyle.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "596b10110330c4d6a6e5c471216be90851f21bf6",
+      "sha256": "a7a6424c23bf371bd28a404a196b210971726f6f2a87b63aac185a5e6e40da71",
+      "size": 240440
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/plugins/tls/qcertonlybackend.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "0199a5a374252a23975acdf1cf7cc3237160e21a",
+      "sha256": "67be4d333a0f489d02714169a6ec54eaa80efa649d733fcbeb81881ecb02b4f3",
+      "size": 104760
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/plugins/tls/qschannelbackend.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "5e9372aba93c766944cdea4db1c269fa4dd82a03",
+      "sha256": "14abc5b245c0f2e03f7bc0b474a8db2ecb441c7300a8a8b16fb865eaf2674619",
+      "size": 247608
+    },
+    {
+      "path": "Lib/site-packages/PySide6/pyside6.abi3.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "4dd45ac8b7e6bf414c5079e7fbe6ffa3de35a0c6",
+      "sha256": "d0b5c701fb3a8ea839e72b602058f3960935156ebeca084893c54c99e54dd707",
+      "size": 255288
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6Core.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "a4e82f844dfafee08fbe3079cfabad47f980753d",
+      "sha256": "d6a3c37c5263c5d418fc0e80b722bc9fca7c0859e6f635f9624a2fde00bdc653",
+      "size": 10363704
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6Gui.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "df5d61fa2063c80671f3ae17df8df474e2022043",
+      "sha256": "ae29b005f51b6850bf57fa06fced0dc8c7039fd6fafc3bfbcfe76e38adc7abf1",
+      "size": 9546552
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6Network.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "c9b9e8726df6be50cf16c6227a91b4050db6c2c0",
+      "sha256": "dd3512d1c5ed062d30c98426cd0a850f13e0cf31437afb5b0b474132b9c52922",
+      "size": 1751352
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6OpenGL.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "3d9c2b6af84ba505a58a0bae8148e8b171c98fc4",
+      "sha256": "d51088f16db8c96dba7ef3c1474e611adb3ebdb211fea35b8e755d2a7407f7ad",
+      "size": 1988408
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6Positioning.dll",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "7fd6b392aa640754b17ffb73b48c3bdc6aa61c73",
+      "sha256": "cc8e780dc080292ec8aee7e1a2c9661d14a344b5fd92f22cadcd82ab02245c59",
+      "size": 517432
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6PrintSupport.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "174a52eced7b0370ba37ca097fede123e5f405a2",
+      "sha256": "fccd235e7ceabb9ff7bb8c185b238bcb5cb553b2ef3894308adbab0fb4862b2f",
+      "size": 405304
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6Qml.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "0f29bc97d8cbc6aa639c88427a1b560b4c00e166",
+      "sha256": "514fc8d9ff0754d2bcb446bbe0f6cc421213d92c8c1870e4cf787e4e176d51f6",
+      "size": 5337912
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6QmlMeta.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "9dc8d2210e43be44f6d5da8c42b99a4f45330c55",
+      "sha256": "c6e8b02ad52e01e0e865a085b629b08629fbe5c68146425d4cefdcaaef7a8462",
+      "size": 159032
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6QmlModels.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "77a95260c6894500329e0016b146058b6fd31881",
+      "sha256": "066e72ad668ff02dcf530805d071313f9e89d9f1fb49a522aa4ed52712741bf2",
+      "size": 990008
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6QmlWorkerScript.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "b871e71a6947fb6c76978eb187976e57c7090992",
+      "sha256": "c037ab72fb9c1c1ebbe47f70b8a35d440537765ef6207424aae0c16fea26eda1",
+      "size": 79672
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6Quick.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "e79fb8c70f1243f8c8a9620b3bb758f5eef9a35f",
+      "sha256": "900a493625af1f7d9fe6071b9aaee15e560cc7afc122702656723539ed81975f",
+      "size": 6569272
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6QuickWidgets.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "5c09aded788c28c3eed8a3d9f8f21b8844d45336",
+      "sha256": "796cb30b50fb6f08c99658925a907ba8b3c4d042c8b85200d28fa9ab7ead9cff",
+      "size": 134456
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6WebChannel.dll",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "be92027a09429038c632900b9a5a2160628e37fe",
+      "sha256": "3c47f91df0b64bf178c56445b1bd4c6299b7d147b7d3765d51cf886c7eec7566",
+      "size": 254264
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6WebEngineCore.dll",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "935999288f5fb1039d05506d21127791ca1adf79",
+      "sha256": "0f80260d95d1dda217da75121f3caf5e2bacc765305c31426093d82088f2c2b2",
+      "size": 203448632
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6WebEngineWidgets.dll",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "f6728d8d08617d23a35dd4a38a5f8ba8559c889f",
+      "sha256": "86e5edd73d769a44588a8a5b4323fa04c1a2b34a9b0f05007c7053fb746ac03e",
+      "size": 187704
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/Qt6Widgets.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "ffd8d0bd099c9a655c9505c71e9ba8893a3c93d6",
+      "sha256": "ff0df9e2e6827e035f0731a4cedfc6333f4602bca00775e56346f27032406b74",
+      "size": 6497080
+    },
+    {
+      "path": "Lib/site-packages/PySide6/QtCore.pyd",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "739cd6c0e00f5bd5f914d48d423de86270464587",
+      "sha256": "74f96322c5e9cea73aefd2ed5870e5275336b31f552fcd32f12fc81d23f1bc6f",
+      "size": 3345720
+    },
+    {
+      "path": "Lib/site-packages/PySide6/QtGui.pyd",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "ee8966c84cfca7dad8104f7218ec2f837e11c818",
+      "sha256": "7bef20046045199c037b7cbfedaa1c5464730fa948b2c9ec8afbf718e63774d4",
+      "size": 3901240
+    },
+    {
+      "path": "Lib/site-packages/PySide6/QtNetwork.pyd",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "f58080b24791c543ee9016899c8112f9e44fe1f0",
+      "sha256": "c5038bb71fc9d57330fa2d8eeec65aab69fcf02687cc8f54dbfb5995cfec6a71",
+      "size": 1009464
+    },
+    {
+      "path": "Lib/site-packages/PySide6/QtPrintSupport.pyd",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "cc6fd419ebb1ce9b37759e1578cfc8c959a61abe",
+      "sha256": "5c4671afb67b53533848ad43d2f58e128b1603309cd89cb8eb11329d234b8e70",
+      "size": 279352
+    },
+    {
+      "path": "Lib/site-packages/PySide6/QtWebChannel.pyd",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "dcff19547643b3f76d2c067cd59dfdd4b673e428",
+      "sha256": "acb4e5f77f967c0c75d62fdaee1ca28402113ae853b173b236afda9526556d04",
+      "size": 93496
+    },
+    {
+      "path": "Lib/site-packages/PySide6/QtWebEngineCore.pyd",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "c4d5bf0d5b679456a5cd5a5671762f81e6122a36",
+      "sha256": "ec22d4cfa84677cd0903f07225fa8f1c3a523046e5fc7a7cd521a0f77591c963",
+      "size": 527672
+    },
+    {
+      "file_version": "6.11.2.0",
+      "path": "Lib/site-packages/PySide6/QtWebEngineProcess.exe",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "798440e69e089bfdd599e40b3bf5a7059c8bc77e",
+      "sha256": "408aaa8ba7fbf3e246cd0a85f4dcedb49634b1ca9070cf97b5f701bb6a5a4693",
+      "size": 802104
+    },
+    {
+      "path": "Lib/site-packages/PySide6/QtWebEngineWidgets.pyd",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "97f0ca696c21cde18b68ad4af918307b751250e1",
+      "sha256": "b240206826d00603975c05278f40bf3d3bbbe644055ca4d131dbd5ecb9156258",
+      "size": 131896
+    },
+    {
+      "path": "Lib/site-packages/PySide6/QtWidgets.pyd",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "1fcf8a610e4c35f24e858de70d0e7489900688d1",
+      "sha256": "f12f4ca641998e5706d5f7b0023147d573f0f2d2361e26dadf31bdbf05fbfd1d",
+      "size": 4857656
+    },
+    {
+      "path": "Lib/site-packages/PySide6/resources/icudtl.dat",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "aab98edda310e6ddd3e4b71f95b6225c4defa7fc",
+      "sha256": "5070de99fbd8a48378543511fb7a072f85bf36f94b4f4e1d420d54be1435d6f1",
+      "size": 10467680
+    },
+    {
+      "path": "Lib/site-packages/PySide6/resources/qtwebengine_devtools_resources.pak",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "63be438a0997ccff74efd2dd860ec286cd9a3cc4",
+      "sha256": "d6c2acb3088f2d5b640ec60db13939a03ef63c79dd4898f614ae61743225f040",
+      "size": 11609413
+    },
+    {
+      "path": "Lib/site-packages/PySide6/resources/qtwebengine_resources.pak",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "cfabdad98f226561eadd0eea7b9f218e65017d1e",
+      "sha256": "08fb7df0f298bb74e06dc623970b5179156910300762e5e4ead73232589dbcff",
+      "size": 2268263
+    },
+    {
+      "path": "Lib/site-packages/PySide6/resources/qtwebengine_resources_100p.pak",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "e60990caaad13b44881fc45539a174314c5cbbaf",
+      "sha256": "bcb53a053fe3c3f9e00d80f7da01e2eb77777e993271425a79e5115735da1cdb",
+      "size": 151066
+    },
+    {
+      "path": "Lib/site-packages/PySide6/resources/qtwebengine_resources_200p.pak",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "22a63e4cabb2be54c9d9ddcb78a246d0c7df9d19",
+      "sha256": "aaef9ae44bf93ed1c7537cfba76b9a1a738a33e9f25ff5f466f23722ba971aa3",
+      "size": 195754
+    },
+    {
+      "path": "Lib/site-packages/PySide6/resources/v8_context_snapshot.bin",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "eadffbf58f8d5cd8a82e20624c250a13e72e867e",
+      "sha256": "f21953533647ab5a79c155aeb22d7b6953cfcb31c8857896983e62cfe9461080",
+      "size": 693957
+    },
+    {
+      "path": "Lib/site-packages/PySide6/translations/qtwebengine_locales/en-US.pak",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "18feb54db355d696cdf7258ea6d217b5742e4860",
+      "sha256": "3d3967a20a78e66e73bd5293f431e8cd2f08a3275594d9e8aaa998e4b42e6e13",
+      "size": 550316
+    },
+    {
+      "path": "Lib/site-packages/PySide6/translations/qtwebengine_locales/zh-CN.pak",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "f7a256fcfca5fe79b0e055d93197740bb58e03f6",
+      "sha256": "10263179b8a0a6730945120098b48c817aae66e40d1973eec1f4d85c069efcc6",
+      "size": 556099
+    },
+    {
+      "path": "Lib/site-packages/PySide6/translations/qtwebengine_locales/zh-TW.pak",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "5d164ccbed78bc58fd0fb63782d88d358d723411",
+      "sha256": "3b9d21dd8324c4fcc123974cb9c821d9e0b20e6ce694c2d1a3505679b36ebaee",
+      "size": 549290
+    },
+    {
+      "file_version": "14.44.35211.0",
+      "path": "Lib/site-packages/PySide6/vcruntime140.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "1752bf995a7d6d88d5079b9a3ec110df51620782",
+      "sha256": "f893ae75a1a24eea174d982f94bc80ce2448201eaa919a73c0653a5657685de4",
+      "size": 116024
+    },
+    {
+      "file_version": "14.44.35211.0",
+      "path": "Lib/site-packages/PySide6/vcruntime140_1.dll",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "d144d436e16d5132a0056195ff211fc880e700fe",
+      "sha256": "48aa2783793ea18ab3c2c71d420d4fff9814e662a1ff810053c6e5250061a716",
+      "size": 41272
+    },
+    {
+      "path": "Lib/site-packages/pyside6_addons-6.11.2.dist-info/licenses/LicenseRef-Qt-Commercial.txt",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "79394673e411701e8fbcd63fca28399b04a1692d",
+      "sha256": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3",
+      "size": 470
+    },
+    {
+      "path": "Lib/site-packages/pyside6_addons-6.11.2.dist-info/METADATA",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "c53849eca6733821a4d3e66ede1eec6c7435f966",
+      "sha256": "6c14f94cb03f754a3d8e9ada4d726dbc08aff04d4f0b4377483f9921aa646952",
+      "size": 4168
+    },
+    {
+      "path": "Lib/site-packages/pyside6_addons-6.11.2.dist-info/RECORD",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "b253930573bce93f36ee0a03959eb230c829770d",
+      "sha256": "92112160f54427b032bb8c5be388ab2491af34bfdd2208219e251fc95757eafb",
+      "size": 140541
+    },
+    {
+      "path": "Lib/site-packages/pyside6_addons-6.11.2.dist-info/top_level.txt",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "e538427eea9aa7d4feecd34411227f5935fd0fc2",
+      "sha256": "1b74d636657e709b26a9adfa9a1d446fc19316c3c4acf1d685597ff1e1ec4e7b",
+      "size": 25
+    },
+    {
+      "path": "Lib/site-packages/pyside6_addons-6.11.2.dist-info/WHEEL",
+      "provenance_artifacts": [
+        "pyside6-addons@6.11.2"
+      ],
+      "sha1": "efa57ee61ddb2a173a9469c7380033113a8a5b6b",
+      "sha256": "9526c8d29c3958609101dfed90e2a08287d73bcaf50fca46fa97b90a310280e4",
+      "size": 100
+    },
+    {
+      "path": "Lib/site-packages/pyside6_essentials-6.11.2.dist-info/entry_points.txt",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "af8533a6c5ef77a5e36b83c1598a1474a1d40f00",
+      "sha256": "de8a2b30890aa67ff436780aa3727318720f03fe35c44452dfab7036216b574b",
+      "size": 1296
+    },
+    {
+      "path": "Lib/site-packages/pyside6_essentials-6.11.2.dist-info/licenses/LicenseRef-Qt-Commercial.txt",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "79394673e411701e8fbcd63fca28399b04a1692d",
+      "sha256": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3",
+      "size": 470
+    },
+    {
+      "path": "Lib/site-packages/pyside6_essentials-6.11.2.dist-info/METADATA",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "b14b934beacf97217276dcea0725e34f7694bf20",
+      "sha256": "a9bdd4937ee837eb46e0c38f9c0ab6c59a6f788d711b96b63c726247ca7a2379",
+      "size": 3802
+    },
+    {
+      "path": "Lib/site-packages/pyside6_essentials-6.11.2.dist-info/RECORD",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "62c4260da2e664a1936c100d0d85ca57240a8099",
+      "sha256": "5159fa91cc4d3e5299fad21da5766fc3d1a586d1bdd894316c7f18d1e81c2d03",
+      "size": 292484
+    },
+    {
+      "path": "Lib/site-packages/pyside6_essentials-6.11.2.dist-info/top_level.txt",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "26f9fcfecfd858527ee881e0349f6ff0ac1d31f3",
+      "sha256": "912a30fe58b326e0b31c0fe878ee11e7e587cf2766709fc34bbf01bc87621c3f",
+      "size": 17
+    },
+    {
+      "path": "Lib/site-packages/pyside6_essentials-6.11.2.dist-info/WHEEL",
+      "provenance_artifacts": [
+        "pyside6-essentials@6.11.2"
+      ],
+      "sha1": "efa57ee61ddb2a173a9469c7380033113a8a5b6b",
+      "sha256": "9526c8d29c3958609101dfed90e2a08287d73bcaf50fca46fa97b90a310280e4",
+      "size": 100
+    },
+    {
+      "path": "Lib/site-packages/shiboken6-6.11.2.dist-info/licenses/LicenseRef-Qt-Commercial.txt",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "79394673e411701e8fbcd63fca28399b04a1692d",
+      "sha256": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3",
+      "size": 470
+    },
+    {
+      "path": "Lib/site-packages/shiboken6-6.11.2.dist-info/METADATA",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "40e46b2c1eb2b45a129523ca5c6be19137c7f8a2",
+      "sha256": "d118511674eb858e7e0666fae0de10ac79ae31800ad1215ad57285953d4ad241",
+      "size": 2542
+    },
+    {
+      "path": "Lib/site-packages/shiboken6-6.11.2.dist-info/RECORD",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "09fa109a9fd207fe8907cfc67296ff1427525cd7",
+      "sha256": "433a020c5dc019bd68c014e4e77d409abb311ce8c7909ee972727942c7934955",
+      "size": 6211
+    },
+    {
+      "path": "Lib/site-packages/shiboken6-6.11.2.dist-info/top_level.txt",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "a524e00bb909fc46dc2dd18d7c7594e89b9763da",
+      "sha256": "fe5f171c4385cce9975111bacc15d22ba2d71bc044cc79fd001052305755d3df",
+      "size": 19
+    },
+    {
+      "path": "Lib/site-packages/shiboken6-6.11.2.dist-info/WHEEL",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "efa57ee61ddb2a173a9469c7380033113a8a5b6b",
+      "sha256": "9526c8d29c3958609101dfed90e2a08287d73bcaf50fca46fa97b90a310280e4",
+      "size": 100
+    },
+    {
+      "path": "Lib/site-packages/shiboken6/__init__.py",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "d2baee4967167f8ec23260247d65e95eee1bc77d",
+      "sha256": "86c675af8f2d10e80222d9148d22ba625fce1844009660c3290f418b777b7855",
+      "size": 697
+    },
+    {
+      "path": "Lib/site-packages/shiboken6/_config.py",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "573e8d9db0a8582df9b29717b51d87ce53d96dee",
+      "sha256": "1e6467c206c0df20f867a69d006d3921be6a2d31b546c257af2c48fb2b35eedf",
+      "size": 193
+    },
+    {
+      "path": "Lib/site-packages/shiboken6/_git_shiboken_module_version.py",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "fe15814a7d20cbfb9b31122d1c03cec9a243febf",
+      "sha256": "71d227739736ff54b5fb425c291fdc5d199f4b4f0a3e74b25a06c6c9b62799cf",
+      "size": 713
+    },
+    {
+      "file_version": "14.44.35211.0",
+      "path": "Lib/site-packages/shiboken6/msvcp140.dll",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "c31bb1547533f01bf15de749b59ae7accc9f151b",
+      "sha256": "fd4a8c046fa3fea9ca6132f50cf8a56cf1e783b2d3093ba5c85fa063bc6b3845",
+      "size": 549176
+    },
+    {
+      "path": "Lib/site-packages/shiboken6/Shiboken.pyd",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "463430a1b104ac3243c2c5405b652c1eeb2f4faf",
+      "sha256": "2f6f3a694f675b1dafdae26903191613c02866ab48e02591ae34ca1a3b1284f1",
+      "size": 33592
+    },
+    {
+      "path": "Lib/site-packages/shiboken6/shiboken6.abi3.dll",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "fa9d041b9081c126d33ce47c00ff86018d05accf",
+      "sha256": "de3c6b2ed5f75c9ac0de4a6844b653b3b9d09263ce68c2b5fc25a96c5c3e8469",
+      "size": 394040
+    },
+    {
+      "file_version": "14.44.35211.0",
+      "path": "Lib/site-packages/shiboken6/vcruntime140.dll",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "5ac07ae28a5a8d36553fd13f3b593ee5aab82349",
+      "sha256": "de617641d82eac15595d2e39394163ac33e49bb032cf2c2ea0044ed39d3675e9",
+      "size": 116024
+    },
+    {
+      "file_version": "14.44.35211.0",
+      "path": "Lib/site-packages/shiboken6/vcruntime140_1.dll",
+      "provenance_artifacts": [
+        "shiboken6@6.11.2"
+      ],
+      "sha1": "a2f3785b6faabd6d494f1fa725ae3b22e0e06981",
+      "sha256": "fa577d54bd10a91e52472da784a619da6cf241af45f0a0c48b27e91fa0fe6104",
+      "size": 41272
+    },
+    {
+      "path": "libffi-8.dll",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "c7300975df267b1d6adcbac0ac93fd7b1ab49bd2",
+      "sha256": "eff52743773eb550fcc6ce3efc37c85724502233b6b002a35496d828bd7b280a",
+      "size": 39696
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "pyexpat.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "b105a4e5d02abdf471429872abbc7f60f49f2600",
+      "sha256": "b9c9c5a9f52af559a7eb4e8ddfd60558185bfc7794f32840bed1747d1ec9026a",
+      "size": 221920
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "python.exe",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "4d9d259784c1cc78dcd96f63f4935c12bd524586",
+      "sha256": "85b71d8c6ec1905935f74be0c9869aae198d00e98f39df699ec66f9c5a84cecd",
+      "size": 105696
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "python3.dll",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "5590d644aada602bf0217d95a5510117d2c5f066",
+      "sha256": "76e7fd69a01081726308317d6e502721c2ba6792b48880dc1ef649c755788db7",
+      "size": 72416
+    },
+    {
+      "path": "python313._pth",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "provenance_transformation": "prepare_runtime_source.py deterministic embedded-path rewrite",
+      "sha1": "3c471798cd76b21cd524cc344230558502cf2837",
+      "sha256": "fa801d179c6f7ed8c0fdc334b1a6306b0748a5edc0abeefb84e9c12507058fa1",
+      "size": 57
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "python313.dll",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "6e3a63bf17c7c8c4cafe51fb648e4dd767220139",
+      "sha256": "e820bf024efd2b56bb2b82791e6b6ddc7303f070f8e72cba7637482a8a906238",
+      "size": 6135008
+    },
+    {
+      "path": "python313.zip",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "6be26912d6a130feda27a4313530296a219cc93a",
+      "sha256": "1916abd946d2044ec8c04c3319f96c8415d5b6fce01e125622827f2b7756cbab",
+      "size": 3825631
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "pythonw.exe",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "12e22d9a28ecd778fd15f84f4cea0effd6e0ba65",
+      "sha256": "146c01e5448a084ff15d63113a790b9aa75250baf862d984c51dd695ac4775bc",
+      "size": 104160
+    },
+    {
+      "path": "runtime_subset_manifest.sha256",
+      "provenance_artifacts": [],
+      "provenance_kind": "runtime-subset-builder-output",
+      "sha1": "28d21edeae19ea5a683bf30379ad84240d3460d7",
+      "sha256": "9be0919bd8f977ee3485d68c666a220225e1ad2889868af7e6e19ea7195dfb44",
+      "size": 12097
+    },
+    {
+      "path": "runtime_subset_report.json",
+      "provenance_artifacts": [],
+      "provenance_kind": "runtime-subset-builder-output",
+      "sha1": "8713d7af99403fd73ffb0df255bd20323a45da93",
+      "sha256": "b422d091793ae98442eebe9c271776ea772afd689514f9677faa7726c448d25e",
+      "size": 3506
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "select.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "9da39e5b883457c7d7cbeaa6e9bb8a4a81161575",
+      "sha256": "024f955349fe46cf1bb2c22c6b57fcf38cf5755d46166fbf63e7e5b92433b111",
+      "size": 32992
+    },
+    {
+      "file_version": "3.50.4.0",
+      "path": "sqlite3.dll",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "44000217f098f25eb96347c13b2cfe2e6187897d",
+      "sha256": "c6812eaf0f8605df273b9bf7e359b83fd65038ecc66455c3f7a933768cb92f3f",
+      "size": 1584864
+    },
+    {
+      "file_version": "3.13.15150.1013",
+      "path": "unicodedata.pyd",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "dbfc6979b9745ac060cc74fa4be8c3872515b488",
+      "sha256": "111e0fdfeef9887c04f6ebf1972ce1ccbec55b226012e4a288c2d4a0b17b216b",
+      "size": 712928
+    },
+    {
+      "file_version": "14.51.36247.0",
+      "path": "vcruntime140.dll",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "1098f2a834146995df7a91c78f72f210d8d2d12d",
+      "sha256": "d1f4225df2cd877dbf130d5668a021dce3f94118455ff5ec952061c30afc9ce7",
+      "size": 178616
+    },
+    {
+      "file_version": "14.51.36247.0",
+      "path": "vcruntime140_1.dll",
+      "provenance_artifacts": [
+        "cpython@3.13.15"
+      ],
+      "sha1": "b7b4b6e7045caccc0f790e3395e1f514d01f6b2f",
+      "sha256": "a7146c08f89fe5b04541ab507cdb59ff7b44534d4ba3c668a426c6450a03434e",
+      "size": 50112
+    }
+  ],
+  "payload_file_count": 111,
+  "payload_sha256": "838c0491e9e86afd3c104f462ddf7df9d85f086ea64e9ef46792fd9c0873199b",
+  "schema_version": 2,
+  "target": {
+    "architecture": "x86_64",
+    "os": "windows",
+    "pyside6": "6.11.2",
+    "python": "3.13.15",
+    "qt": "6.11.2",
+    "transport": "winhttp-schannel"
+  },
+  "total_bytes": 331240176
+}

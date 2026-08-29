@@ -1,0 +1,1 @@
+"""SankakuSyncer application package."""

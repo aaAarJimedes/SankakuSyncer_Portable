@@ -1,0 +1,361 @@
+{
+  "members": [
+    {
+      "path": "shiboken6-6.11.2.dist-info/licenses/LicenseRef-Qt-Commercial.txt",
+      "sha256": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3",
+      "size": 470
+    },
+    {
+      "path": "shiboken6-6.11.2.dist-info/METADATA",
+      "sha256": "d118511674eb858e7e0666fae0de10ac79ae31800ad1215ad57285953d4ad241",
+      "size": 2542
+    },
+    {
+      "path": "shiboken6-6.11.2.dist-info/RECORD",
+      "sha256": "433a020c5dc019bd68c014e4e77d409abb311ce8c7909ee972727942c7934955",
+      "size": 6211
+    },
+    {
+      "path": "shiboken6-6.11.2.dist-info/top_level.txt",
+      "sha256": "fe5f171c4385cce9975111bacc15d22ba2d71bc044cc79fd001052305755d3df",
+      "size": 19
+    },
+    {
+      "path": "shiboken6-6.11.2.dist-info/WHEEL",
+      "sha256": "9526c8d29c3958609101dfed90e2a08287d73bcaf50fca46fa97b90a310280e4",
+      "size": 100
+    },
+    {
+      "path": "shiboken6/__init__.py",
+      "sha256": "86c675af8f2d10e80222d9148d22ba625fce1844009660c3290f418b777b7855",
+      "size": 697
+    },
+    {
+      "path": "shiboken6/_config.py",
+      "sha256": "1e6467c206c0df20f867a69d006d3921be6a2d31b546c257af2c48fb2b35eedf",
+      "size": 193
+    },
+    {
+      "path": "shiboken6/_git_shiboken_module_version.py",
+      "sha256": "71d227739736ff54b5fb425c291fdc5d199f4b4f0a3e74b25a06c6c9b62799cf",
+      "size": 713
+    },
+    {
+      "path": "shiboken6/concrt140.dll",
+      "sha256": "b724ef089cb22625e3281da4b6f7513381eef726ea73e4ee8a875d6749e61a24",
+      "size": 315704
+    },
+    {
+      "path": "shiboken6/include/autodecref.h",
+      "sha256": "8f64a5f033bae5f66978c1c6b51452cb611e16cd18e863d02c48a63ac330e9e9",
+      "size": 2427
+    },
+    {
+      "path": "shiboken6/include/basewrapper.h",
+      "sha256": "924dd7ccd260b0775fb010c52b5580729c876292deb2091b496aa24c39f5b0f0",
+      "size": 24130
+    },
+    {
+      "path": "shiboken6/include/basewrapper_p.h",
+      "sha256": "b6a177525322ddac7a5cae63c197c82ff6b1e2331e1c75af577c9a7f9efb8099",
+      "size": 5034
+    },
+    {
+      "path": "shiboken6/include/bindingmanager.h",
+      "sha256": "eb50610b0af27955b25f58b5bb167f5645a5191ebff6c41b869496ec2b91414d",
+      "size": 3390
+    },
+    {
+      "path": "shiboken6/include/bufferprocs_py37.h",
+      "sha256": "730efc3f6b5b99a6aae8c6c7689e76ae00f7940b1bd128705c3544db3d5a4a9d",
+      "size": 5794
+    },
+    {
+      "path": "shiboken6/include/gilstate.h",
+      "sha256": "3a435dc96d692f54af8677ade7b5de0d57c165be3ca3629ab2c52b223d171c34",
+      "size": 794
+    },
+    {
+      "path": "shiboken6/include/helper.h",
+      "sha256": "6e387ed38698e458091529ec86eb9e3b2693c9f4585e7cd010471d0292b7ec87",
+      "size": 3920
+    },
+    {
+      "path": "shiboken6/include/pep384ext.h",
+      "sha256": "4ade93816a0b1b0cdc20fce84db0c25b732cf29120f36cd832a79dee7acab129",
+      "size": 2937
+    },
+    {
+      "path": "shiboken6/include/pep384impl.h",
+      "sha256": "5d1296ed6ecde9e896dfe3d44be901eb697b71f676c614f059c9932fb824b941",
+      "size": 17608
+    },
+    {
+      "path": "shiboken6/include/pyobjectholder.h",
+      "sha256": "acc213eebb4f335bd525c2559d0c7e16036f1d1ccfcd2456f573c81ca42c51da",
+      "size": 2552
+    },
+    {
+      "path": "shiboken6/include/sbkarrayconverter.h",
+      "sha256": "73b09b0a71d0cc013578282350a70f52749b4a0ce717b79447aed10c5d4846d9",
+      "size": 3852
+    },
+    {
+      "path": "shiboken6/include/sbkbindingutils.h",
+      "sha256": "9916bc1a911966221d8dce620f3b089467e0c646e4647cb63092edd88fb1a0ae",
+      "size": 1702
+    },
+    {
+      "path": "shiboken6/include/sbkcontainer.h",
+      "sha256": "9f036c44f1c411c3a38bf0c880a923cfa57424fc74d057623bfef4a37be0129c",
+      "size": 9255
+    },
+    {
+      "path": "shiboken6/include/sbkconverter.h",
+      "sha256": "6d682b9a4ba3c3ec1b11e3802bd73f614fb969deebbb3b5d60a3cbf8afc4c10a",
+      "size": 22474
+    },
+    {
+      "path": "shiboken6/include/sbkcppstring.h",
+      "sha256": "b765f5b10a5e953539b2869e7d66b7886ba65ee1670823d375249385fb2efcb2",
+      "size": 809
+    },
+    {
+      "path": "shiboken6/include/sbkcpptonumpy.h",
+      "sha256": "09b7bc5f97ebec8722076fdac647cfe861620b1ab047223867956182e48e9310",
+      "size": 1298
+    },
+    {
+      "path": "shiboken6/include/sbkdestructorentry.h",
+      "sha256": "e3e3d514abf8cbd2162d5c5c8e20509f5d28b4a066ac9c3e08bd1ffc2ded14a5",
+      "size": 544
+    },
+    {
+      "path": "shiboken6/include/sbkenum.h",
+      "sha256": "01714b3085cfd5a1b867fbdf4a41619d3895c45b638c779faead88b3234bb079",
+      "size": 4797
+    },
+    {
+      "path": "shiboken6/include/sbkenum_p.h",
+      "sha256": "88eb451a422939c9e163a0a376c2ec575fe398ef824f8a9f4a5ebaa0eb200c43",
+      "size": 437
+    },
+    {
+      "path": "shiboken6/include/sbkerrors.h",
+      "sha256": "a8512042c154a1789ff67e85254a8b5acf487f956bd82dcf2691e3dc2a86eadd",
+      "size": 4017
+    },
+    {
+      "path": "shiboken6/include/sbkfeature_base.h",
+      "sha256": "64d04865362fd59f1f4860e32826112be49b514743be3aa04ed0cbe431916c16",
+      "size": 782
+    },
+    {
+      "path": "shiboken6/include/sbkmodule.h",
+      "sha256": "81c31b3d964dbd9e3f97c4cddce6f73a8a1688e78ee4b937fe0fa016e4ee2b09",
+      "size": 3855
+    },
+    {
+      "path": "shiboken6/include/sbkmodule_p.h",
+      "sha256": "033890f012997283a7f1bc9bb6cddd57ae953897f6d5141526d2737e7c6c6a88",
+      "size": 485
+    },
+    {
+      "path": "shiboken6/include/sbknumpycheck.h",
+      "sha256": "5093dc42b57bc7777ba5e68ead07175db1f76ddffe7fda87f9204ceedd0f91d3",
+      "size": 950
+    },
+    {
+      "path": "shiboken6/include/sbknumpyview.h",
+      "sha256": "739757b47ffce3ed3b0d49f24eea59e4ecc4911769fb3040df536efe089a6998",
+      "size": 1418
+    },
+    {
+      "path": "shiboken6/include/sbkpep.h",
+      "sha256": "8be8797deea2313f4bc8389365aaeb28abd8768fe2fddaea074c9b49f8228d29",
+      "size": 331
+    },
+    {
+      "path": "shiboken6/include/sbkpepbuffer.h",
+      "sha256": "7f8a3fa14ee23ef998409d64b0d9333de390e2cdb427a8c75b3e9b6ba09227d8",
+      "size": 1092
+    },
+    {
+      "path": "shiboken6/include/sbkpython.h",
+      "sha256": "94e670366f70446366442b434e56118870de094b3081a4adb0f2002f502c9742",
+      "size": 1250
+    },
+    {
+      "path": "shiboken6/include/sbksmartpointer.h",
+      "sha256": "ffbdefdef1a5848bc9e9e5b21e400529ec89e4d00938a8d2468b7f70d9d1feef",
+      "size": 572
+    },
+    {
+      "path": "shiboken6/include/sbkstaticstrings.h",
+      "sha256": "242b05541a68444ebcf53ca2934cfb75686d2a5ab3cd7fb170f952de4b2dcee0",
+      "size": 1880
+    },
+    {
+      "path": "shiboken6/include/sbkstring.h",
+      "sha256": "f5ffa4335c115873efe49a8710940b361d4c46e1fc4088bad3536dc758ea7400",
+      "size": 1728
+    },
+    {
+      "path": "shiboken6/include/sbktypefactory.h",
+      "sha256": "753f453075a804e7a44d003fcbf24e2783a3fd8a6a17b29b0acc1b8faab219a9",
+      "size": 784
+    },
+    {
+      "path": "shiboken6/include/sbkversion.h",
+      "sha256": "5f19ef33ae9877703eb66c9b8e80742da18b9d2b02c5ec60d6a343eb13fcebe8",
+      "size": 506
+    },
+    {
+      "path": "shiboken6/include/sbkwindows.h",
+      "sha256": "d3ffa8cb155f9f4ea3972bf00a7dfa0c22375d5d601a43862b6017a13a84f2fb",
+      "size": 442
+    },
+    {
+      "path": "shiboken6/include/shiboken.h",
+      "sha256": "af596cf052ecd31cdc8cd659fcde375271dd0af44cff8cfe967c8950dbb43c6f",
+      "size": 796
+    },
+    {
+      "path": "shiboken6/include/shibokenbuffer.h",
+      "sha256": "724e26bf165a0739fd09f090b894dbaf5f317a99319b21a2174b0271604a4c39",
+      "size": 1711
+    },
+    {
+      "path": "shiboken6/include/shibokenmacros.h",
+      "sha256": "b451dc0f46365acd89cc221c5e9e132ab320c8756877f41f18a059b10ebe9610",
+      "size": 784
+    },
+    {
+      "path": "shiboken6/include/signature.h",
+      "sha256": "ece4fdd84a2cae857518c8c4bcc815c259398bda43c78b31eed78a32a934fc3d",
+      "size": 863
+    },
+    {
+      "path": "shiboken6/include/signature_p.h",
+      "sha256": "a84b7e839cdc290e8d9875eaecb5dfaca8765a55404abc3a0e0cdade42c9f853",
+      "size": 2933
+    },
+    {
+      "path": "shiboken6/include/threadstatesaver.h",
+      "sha256": "570194c7110b88629072828af9f91ba00584f6481d9825f0687d2ff6710d9e67",
+      "size": 841
+    },
+    {
+      "path": "shiboken6/include/voidptr.h",
+      "sha256": "d352cccfb4c63ca6ffa9f694468b8783cf1d08fc7bcfe6e73995e0deaead3699",
+      "size": 858
+    },
+    {
+      "path": "shiboken6/lib/cmake/Shiboken6/Shiboken6Config.abi3.cmake",
+      "sha256": "df456350130d0c760be1989fb60e95fa02c1924a041957ac46f224345e9fbee9",
+      "size": 2660
+    },
+    {
+      "path": "shiboken6/lib/cmake/Shiboken6/Shiboken6Config.cmake",
+      "sha256": "0ec481a4f0b0130bcd52b6698a1e02f26813e5a5494c86a02cc1c5662595aee0",
+      "size": 228
+    },
+    {
+      "path": "shiboken6/lib/cmake/Shiboken6/Shiboken6ConfigVersion.cmake",
+      "sha256": "d7b30bee1184601ebd5d944761041e7e1ae3b9b7f295b82bd359447482530c53",
+      "size": 489
+    },
+    {
+      "path": "shiboken6/lib/cmake/Shiboken6/Shiboken6Targets-release.cmake",
+      "sha256": "44ee8cff5ff25b37aa3b60d7c0142763b84a22ea93198de484d44c510fe0136d",
+      "size": 1002
+    },
+    {
+      "path": "shiboken6/lib/cmake/Shiboken6/Shiboken6Targets.cmake",
+      "sha256": "1c62a37459df39881ba5e3cadd9a8f8c68b4091a461eb4402924522a149b5a9a",
+      "size": 4400
+    },
+    {
+      "path": "shiboken6/lib/cmake/Shiboken6/ShibokenHelpers.cmake",
+      "sha256": "2c1aea24fccba77029f12bd9111c303eba51845261502b0656a391e4592f8e53",
+      "size": 37046
+    },
+    {
+      "path": "shiboken6/msvcp140.dll",
+      "sha256": "fd4a8c046fa3fea9ca6132f50cf8a56cf1e783b2d3093ba5c85fa063bc6b3845",
+      "size": 549176
+    },
+    {
+      "path": "shiboken6/msvcp140_1.dll",
+      "sha256": "7f556f0a0b944df7b64b916b344a070b7e6f6cf342194475594447ca88c07659",
+      "size": 27448
+    },
+    {
+      "path": "shiboken6/msvcp140_2.dll",
+      "sha256": "720091576d0e2669d16e8ad203a1f81a7c0811a6906452964d6e5fcb28a8de4d",
+      "size": 271672
+    },
+    {
+      "path": "shiboken6/msvcp140_codecvt_ids.dll",
+      "sha256": "e5fd27e8f57810eb40196a7ce5bff7bccc01ea4663e0d3af073539c26604cfa9",
+      "size": 23352
+    },
+    {
+      "path": "shiboken6/py.typed",
+      "sha256": "c39d141de78f9a4e8e4224b0c77dfaf12a540adbc562ceeb984af634a6911da5",
+      "size": 34
+    },
+    {
+      "path": "shiboken6/Shiboken.pyd",
+      "sha256": "2f6f3a694f675b1dafdae26903191613c02866ab48e02591ae34ca1a3b1284f1",
+      "size": 33592
+    },
+    {
+      "path": "shiboken6/Shiboken.pyi",
+      "sha256": "287285f85a0a41d3468e0f30babc4d273fcee564c4e9c65a5205c13995f98008",
+      "size": 1083
+    },
+    {
+      "path": "shiboken6/shiboken6.abi3.dll",
+      "sha256": "de3c6b2ed5f75c9ac0de4a6844b653b3b9d09263ce68c2b5fc25a96c5c3e8469",
+      "size": 394040
+    },
+    {
+      "path": "shiboken6/shiboken6.abi3.lib",
+      "sha256": "24cbe659a91465f51668bc37fabc0cf9965eb10756dfcdfd749a6b4e6b859b0f",
+      "size": 182138
+    },
+    {
+      "path": "shiboken6/vcamp140.dll",
+      "sha256": "ebbd56b4f03091a8bd074aa0de9f93f6884d8bb3da5d0375ec08cbe18eede619",
+      "size": 449848
+    },
+    {
+      "path": "shiboken6/vccorlib140.dll",
+      "sha256": "de937dcaf545a60a789c261143883de681be95a70789010b47c541d68cc25ec5",
+      "size": 343864
+    },
+    {
+      "path": "shiboken6/vcomp140.dll",
+      "sha256": "2407d7152d585a8ecc701454b2903db3b1abaca31b4288ae4fbf905f06d5a0f1",
+      "size": 155448
+    },
+    {
+      "path": "shiboken6/vcruntime140.dll",
+      "sha256": "de617641d82eac15595d2e39394163ac33e49bb032cf2c2ea0044ed39d3675e9",
+      "size": 116024
+    },
+    {
+      "path": "shiboken6/vcruntime140_1.dll",
+      "sha256": "fa577d54bd10a91e52472da784a619da6cf241af45f0a0c48b27e91fa0fe6104",
+      "size": 41272
+    }
+  ],
+  "schema_version": 1,
+  "source_artifact": {
+    "bytes": 1226578,
+    "filename": "shiboken6-6.11.2-cp310-abi3-win_amd64.whl",
+    "sha256": "6ab0eba1c904455df621f9a6df3ca2bb896bab8670572d2bc4e37804ae91f19a",
+    "url": "https://files.pythonhosted.org/packages/ce/6b/fee1b4814317e4664e318644c9c007676c65a71e5b2b9d3ac4121a94dc0a/shiboken6-6.11.2-cp310-abi3-win_amd64.whl"
+  }
+}

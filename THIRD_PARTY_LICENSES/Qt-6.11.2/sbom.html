@@ -1,0 +1,486 @@
+
+  <html lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta content="Qt package information in SPDX and CycloneDX formats" name="description"/>
+  <title>Software Bill of Materials | Qt 6.11</title>
+  <link rel="stylesheet" type="text/css" href="/style/online2.css" />
+  <link rel="stylesheet" href="https://www.qt.io/hubfs/qt-design-system/qt-design-system-1.1.0.css" />
+  <link rel="stylesheet" type="text/css" href="/style/font-awesome.min.css" />
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.17/themes/default/style.min.css" />
+<link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.17/themes/default-dark/style.min.css" />
+  <link href="images/htmltabs.css" rel="stylesheet" type="text/css"/>
+  <link rel="shortcut icon" href="//d33sqmjvzgs8hq.cloudfront.net/wp-content/themes/oneqt/assets/images/favicon.ico.gzip" />
+  <link rel="icon" type="image/png" href="//d33sqmjvzgs8hq.cloudfront.net/wp-content/themes/oneqt/assets/images/favicon-32x32.png" />
+  <link rel="icon" type="image/png" href="//d33sqmjvzgs8hq.cloudfront.net/wp-content/themes/oneqt/assets/images/favicon-16x16.png" />
+  <script type="text/javascript" src="//d33sqmjvzgs8hq.cloudfront.net/wp-includes/js/jquery/jquery.js.gzip"></script>
+  <script type="text/javascript" src="//d33sqmjvzgs8hq.cloudfront.net/wp-includes/js/jquery/jquery-migrate.min.js.gzip"></script>
+  <script type="text/javascript" src="//d33sqmjvzgs8hq.cloudfront.net/wp-content/themes/oneqt/js/combo.js.gzip"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jstree/3.3.17/jstree.min.js"></script>
+  <script type="text/javascript" src="/scripts/popper.min.js"></script>
+  <script type="text/javascript" src="/scripts/tippy.min.js"></script>
+  <script type="text/javascript" src="/scripts/qtds-extras.js"></script>
+  <script type="text/javascript"> wpThemeFolder = 'https://qt.io/wp-content/themes/oneqt'; </script>
+  <script type="text/javascript">
+ $(document).ready(function(){
+   $("input[type=radio]").on("click", function() {
+   var lbl = $(this).next().text();
+   $("input[type=radio]:not(checked)").filter(function() {
+     if ($(this).next().text() == lbl)
+         $(this).prop("checked", true);
+   });
+   });
+ });
+  </script>
+  <script type="text/javascript">
+    $(function () {
+      if (document.documentElement.getAttribute('data-theme') === 'dark')
+        $('input#th-toggle').prop('checked', true);
+      $('input#th-toggle').change(function() {
+        var theme = this.checked ? 'dark' : 'light';
+        localStorage.setItem('theme', theme);
+        document.documentElement.setAttribute('data-theme', theme);
+        $('#sidebar-toctree').jstree(true).set_theme('default' + `${theme === 'dark' ? '-dark' : ''}`);
+      });
+    });
+  </script>
+  <script type="text/javascript" src="/scripts/init-tree.js"></script>
+  <!-- Google Tag Manager -->
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','GTM-5QQXBTC');</script>
+  <!-- End Google Tag Manager -->
+  <script type="text/javascript" src="/scripts/qt-design-system-1.1.0-doc.js"></script>
+  <script src="/scripts/prettify.js" type="text/javascript"></script>
+</head>
+<body class="qt-design-system" style="background:var(--content-bg-color)" onload="prettyPrint()">
+<div class="qds-page-header" id="qds-page-header">
+<header class="b-header" data-float="true">
+    <div class="b-header__container">
+
+        <div class="b-header__secondary-level">
+            <div class="b-header__secondary-level__back">
+                <a class="c-link c-link--left" href="https://www.qt.io/">Back to Qt.io</a>
+            </div>
+            <div class="b-header__secondary-level__right">
+                <a href="https://www.qt.io/contact-us/" target="_blank">Contact Us</a>
+                <a href="https://blog.qt.io/" target="_blank">Blog</a>
+                <a href="https://www.qt.io/download/" target="_blank" class="c-button c-button--small">Download Q&#116;</a>
+            </div>
+        </div>
+
+        <div class="b-header__primary-level">
+            <div class="b-header__primary-level__left">
+                <a class="b-header__logo" href="/">
+                    <img src="/style/qt-logo-documentation.png" srcset="/style/qt-logo-documentation.png 1x, /style/qt-logo-documentation-2x.png 2x" alt="Qt documentation">
+                </a>
+            </div>
+            <div class="b-header__primary-level__navigation">
+            <ul class="c-navigation-header">
+                <li id="qds-trans" role="menu" class="has-children" style="display: none; margin: 0 20px 5px 0;top:7px">
+                <div class="lang-icon theme-icon"><a></a></div>
+                    <ul id="qds-trans-ul">
+                        <li class="tr-lang active" data-lang="en"><a>English</a></li>
+                    </ul>
+                </li>
+                <li role="menu" style="margin: 0 5px 5px 0;top:7px">
+                  <div title="Toggle light/dark theme" class="theme-switch-wrapper">
+                    <label class="theme-switch" for="th-toggle">
+                        <input type="checkbox" id="th-toggle" />
+                        <div class="theme-icon"></div>
+                    </label>
+                  </div>
+                </li>
+                <li role="menu">
+                    <a href="https://www.qt.io/academy" aria-haspopup="true" aria-expanded="false">Qt Academy</a>
+                </li>
+                <li role="menu">
+                    <a href="/archives" aria-haspopup="true" aria-expanded="false">Archives</a>
+                </li>
+                <li role="menu">
+                    <a href="https://doc-snapshots.qt.io/" aria-haspopup="true" aria-expanded="false">Snapshots</a>
+                </li>
+            </ul>
+            </div>
+            <div class="b-header__primary-level__hamburger">
+                <div class="c-hamburger"></div>
+            </div>
+        </div>
+    </div>
+</header>
+</div>
+<div data-global-resource-path="qt-design-system/components/b-sidebar.html">
+    <div class="b-sidebar b-sidebar--full-width">
+        <aside class="b-sidebar__sidebar">
+            <div id="qds-sbhandle"></div>
+            <div class="b-sidebar__sidebar__mobile-close"><div class="c-mobile-close"></div></div>
+            <div class="b-sidebar__sidebar__mobile-toggle" data-mobile-title="Topics"></div>
+                        <div class="b-sidebar__sidebar__content">
+                <div data-margin-bottom="md">
+                                        <select id="qds-vdropdown" class="c-form-select c-form-select--dark js-versioncontrol" style="visibility:hidden">
+                                            </select>
+                                    </div>
+                <div id="qds-ec-toggle" title="Expand/collapse all"></div>
+                <nav>
+                    <div id="sidebar-toctree"></div>
+                    <ul class="c-sidebar-navigation">
+                                                
+                    </ul>
+                </nav>
+            </div>
+        </aside>
+        <div class="b-sidebar__content">
+            <div class="b-sidebar__topbar" data-margin-bottom="sm">
+                <div class="b-topbar">
+                    <div class="b-topbar__search">
+                        <form id="site-search" role="search" style="width: 535px; max-width: 100%" autocomplete="off">
+                            <input accesskey="f" class="c-form-input-field c-form-input-field--search" placeholder="Search" id="search" name="search" onclick="(function(w,d,i){i.removeAttribute('on'+w.event.type);var j=d.createElement('script'),c=d.createElement('link');j.async=true;j.onload=function(){qtSearchInit(i,w.qtSearchNavigation)};j.src='//www.qt.io/hubfs/qt-design-system/qt-search-component-v2/qt-search-component-v2.js';c.rel='stylesheet';c.onload=function(){try{w.qtscs=1;qtSearchStyle(i)}catch(e){}};c.href='//www.qt.io/hubfs/qt-design-system/qt-search-component-v2/qt-search-component-v2.css';d.head.appendChild(c);d.head.appendChild(j)})(window,document,this)" required type="text">
+                            <button type="submit" style="display:none;">Search</button>
+                            <style>.js-qt-search-component{z-index:1000;}</style>
+                        </form>
+                    </div>                    <div class="b-topbar__breadcrump" translate="no">
+                        <ul class="c-breadcrump">
+                            <li><a href="index.html">Qt 6.11</a></li>
+                            <li><a href="licensing.html">Qt Licensing</a></li>
+                            <li><a>Software Bill of Materials</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="b-sidebar__content__wrapper">
+                <article class="b-sidebar__content__left">
+                    <div id="qds-toc-menu">On this page</div>
+                    <div class="context mainContent" style="margin: 0;padding: 0; background: 0;">
+                    
+<link href="license-changes.html" rel="prev"/>
+<link href="trademarks.html" rel="next"/>
+<p class="naviNextPrevious headerNavi">
+<a class="" href="license-changes.html">License Changes</a>
+<a class="" href="trademarks.html">Trademarks</a>
+</p>
+
+<div class="context">
+<h1 class="title">Software Bill of Materials</h1>
+<!-- $$$sbom.html-description -->
+<div class="descr" id="details">
+<p>A Software Bill of Materials (SBOM) document is a declaration of installed files, copyrights, licenses, versions, source repositories, and other relevant information about a Qt installation. The SBOM documents facilitate supply chain management by sharing component information to Qt users and other interested parties. Qt's SBOM documents are especially useful for license compliance and security vulnerability management.</p>
+<p>Starting from Qt 6.8, Qt's build system can generate SBOM documents tailored for different platforms and build configurations. The <a href="qt-online-installation.html">Qt Online Installer</a> places the SBOM documents in an <code translate="no">sbom</code> directory located in the installation directory of the respective Qt version. For example, for the Qt 6.11.2 Android arm64-v8a installation, the SBOM documents are at:</p>
+<div class="pre"><pre class="cpp plain" translate="no">&lt;INSTALL_DIR&gt;/6.11.2/android_arm64_v8a/sbom/</pre></div>
+<p>To generate SBOM documents from the Qt sources yourself, set <code translate="no">-sbom</code> as a <a href="configure-options.html">configure</a> option.</p>
+<p>For example, during the configure step:</p>
+<div class="pre"><pre class="cpp plain" translate="no">./configure  -sbom</pre></div>
+<p>Generation of SBOM documents then becomes a part of the regular Qt installation:</p>
+<div class="pre"><pre class="cpp plain" translate="no">ninja install
+cmake --install .</pre></div>
+<p>This build process creates SBOM documents in JSON and <code translate="no">tag:value</code> format as specified by the <a href="sbom.html#spdx-format">SPDX</a> format.</p>
+<p>Starting from Qt 6.11, the build process optionally creates <a href="sbom.html#cyclonedx-format">CycloneDX</a> SBOM documents.</p>
+<p>See <a href="build-sources.html">Building Qt Sources</a> and <a href="configure-options.html">Qt Configure Options</a> for more information about the Qt build procedure.</p>
+<p>For Qt developers and maintainers, the <a href="https://wiki.qt.io/SBOM">SBOM Wiki</a> has specific information for creating SBOM documents.</p>
+<h2 id="reuse-compliant-qt-modules">REUSE-compliant Qt modules<a class="plink" href="#reuse-compliant-qt-modules" title="Direct link to this headline"></a></h2>
+<p><a href="qtmodules.html">Qt modules</a> are <a href="https://reuse.software/">REUSE</a> compliant starting from Qt 6.9. Specifically, license documentation and license checks are part of Qt's development process. Various tools check Qt repositories for licenses in files or externally in REUSE.toml files.</p>
+<p>The <a href="https://github.com/fsfe/reuse-tool">reuse-tool</a> checks for REUSE compliance and generates source SBOMs. An internal tool checks that the generated source SBOM files comply with the Qt license specification.</p>
+<p>For more information about licenses documentation in the Qt sources, visit the following:</p>
+<ul>
+<li><a href="https://contribute.qt-project.org/quips/18">QUIP 18: License specification in Qt's modules</a></li>
+<li><a href="https://wiki.qt.io/Licensing_in_Qt%27s_modules">Licensing in Qt sources</a></li>
+</ul>
+<h2 id="spdx-format">SPDX Format<a class="plink" href="#spdx-format" title="Direct link to this headline"></a></h2>
+<p>The SBOM documents are in <a href="https://spdx.github.io/spdx-spec/v2.3">SPDX 2.3</a> format. A document begins with information about the Qt module. SPDX packages follow as separate entries.</p>
+<p>For a Qt installation, an SPDX package may be a:</p>
+<ul>
+<li><a href="qtmodules.html">Qt module</a></li>
+<li>Qt plugin - for example, <a href="supported-platforms.html">platform</a> plugins</li>
+<li>Qt tool - for example, <a href="moc.html">moc</a></li>
+<li>Qt application - for example, <a href="qtdesigner-manual.html">Qt Widgets Designer</a></li>
+<li>Third-party component - see <a href="licenses-used-in-qt.html">Third-Party Code Used in Qt</a></li>
+<li>System library dependency - <a href="configure-options.html">Qt Configure Options</a></li>
+</ul>
+<p>An SPDX package typically contains at least:</p>
+<ul>
+<li>Package name, version, supplier name, and build information</li>
+<li>Qt License Attribution - a Qt product may be under different commercial or open source licenses. For example, a package may list several concluded licenses:<div class="pre"><pre class="cpp plain" translate="no">LicenseRef-Qt-Commercial OR LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only</pre></div>
+<p>The <a href="licensing.html">Qt Licensing</a> has more information about licensing options.</p>
+</li>
+<li>Copyright notices - SBOM documents include Qt source copyrights and copyrights from third-party sources or authors.</li>
+<li>CPE (Common Platform Enumeration) - a naming scheme for package identification. For Qt, the SBOM CPE format is typically:<div class="pre"><pre class="cpp plain" translate="no">cpe:&lt;cpe_version&gt;:&lt;part&gt;:&lt;vendor&gt;:&lt;product&gt;:&lt;version&gt;:&lt;update&gt;:&lt;edition&gt;:&lt;language&gt;:&lt;sw_edition&gt;:&lt;target_sw&gt;:&lt;target_hw&gt;:&lt;other&gt;</pre></div>
+<p>An example identifier for a <a href="qtnetworkauth-index.html">Qt Network Authorization</a> package is:</p>
+<div class="pre"><pre class="cpp plain" translate="no">cpe:2.3:a:qt:qtnetworkauth:6.11.2:*:*:*:*:*:*:*</pre></div>
+<p>For more information, see <a href="https://cpe.mitre.org/specification/">CPE Specification</a> page.</p>
+</li>
+<li>PURL (Package URL) - an alternative to CPE, PURL is an identifier scheme that uses the following format:<div class="pre"><pre class="cpp plain" translate="no">scheme:type/namespace/name@version?qualifiers#subpath</pre></div>
+<p>An example PURL for a package is:</p>
+<div class="pre"><pre class="cpp plain" translate="no">pkg:generic/TheQtCompany/qtnetworkauth@6.11.2</pre></div>
+<p>For more information, <a href="https://github.com/package-url/purl-spec">Package URL</a> page.</p>
+</li>
+<li>Package relationships between packages such as dependencies.<p>For example, the <code translate="no">DEPENDS_ON</code> for listing a dependency relationship. Refer to Clause 11 of the <a href="https://spdx.github.io/spdx-spec/v2.3/relationships-between-SPDX-elements/">SPDX 2.3</a> for a list of valid relationship types.</p>
+</li>
+</ul>
+<h2 id="third-party-spdx-packages">Third-party SPDX Packages<a class="plink" href="#third-party-spdx-packages" title="Direct link to this headline"></a></h2>
+<p>An SPDX package for a third-party component typically contains at least:</p>
+<ul>
+<li>Name, version, and description</li>
+<li>Homepage and download location</li>
+<li>Usage in Qt</li>
+<li>License and copyright information</li>
+<li>Whether the component is security critical - the code may process untrusted code</li>
+</ul>
+<h2 id="spdx-sbom-example">SPDX SBOM Example<a class="plink" href="#spdx-sbom-example" title="Direct link to this headline"></a></h2>
+<p>The following is an example of an SPDX SBOM document for the <a href="qtnetworkauth-index.html">Qt Network Authorization</a> module. The SBOM filename is <code translate="no">qtnetworkauth-6.9.0.spdx</code> and is in the installation's <code translate="no">sbom</code> directory. Note that the SBOM document contains several other packages not listed in the following example.</p>
+<div class="pre"><pre class="cpp prettyprint" translate="no">SPDXVersion: SPDX<span class="operator">-</span><span class="number">2.3</span>
+DataLicense: CC0<span class="operator">-</span><span class="number">1.0</span>
+SPDXID: SPDXRef<span class="operator">-</span>DOCUMENT
+DocumentName: qtnetworkauth<span class="operator">-</span><span class="number">6.9.0</span>
+DocumentNamespace: https:<span class="comment">//qt.io/spdxdocs/qtnetworkauth-6.9.0</span>
+Creator: Organization: TheQtCompany
+Creator: Tool: <span class="type"><a href="qt.html" translate="no">Qt</a></span> Build System
+CreatorComment: <span class="operator">&lt;</span>text<span class="operator">&gt;</span>This SPDX document was created from CMake <span class="number">3.27.7</span><span class="operator">,</span> <span class="keyword">using</span> the qt
+build system from https:<span class="comment">//code.qt.io/cgit/qt/qtbase.git/tree/cmake/QtPublicSbomHelpers.cmake&lt;/text&gt;</span>
+Created: <span class="number">2024</span><span class="operator">-</span><span class="number">09</span><span class="operator">-</span><span class="number">19T11</span>:<span class="number">07</span>:<span class="number">23Z</span>
+ExternalDocumentRef: DocumentRef<span class="operator">-</span>qtbase https:<span class="comment">//qt.io/spdxdocs/qtbase-6.9.0 SHA1: 3dbc51259a07d458524a976da2e9607a76fab7e7</span>
+
+PackageName: NetworkAuth
+SPDXID: SPDXRef<span class="operator">-</span>Package<span class="operator">-</span>qtnetworkauth<span class="operator">-</span>qt<span class="operator">-</span>module<span class="operator">-</span>NetworkAuth
+PackageDownloadLocation: git:<span class="comment">//code.qt.io/qt/qtnetworkauth.git</span>
+PackageVersion: <span class="number">6.9.0</span>
+PackageSupplier: Organization: TheQtCompany
+PackageLicenseConcluded: LicenseRef<span class="operator">-</span><span class="type"><a href="qt.html" translate="no">Qt</a></span><span class="operator">-</span>Commercial OR GPL<span class="operator">-</span><span class="number">3.0</span><span class="operator">-</span>only
+PackageLicenseDeclared: LicenseRef<span class="operator">-</span><span class="type"><a href="qt.html" translate="no">Qt</a></span><span class="operator">-</span>Commercial OR GPL<span class="operator">-</span><span class="number">3.0</span><span class="operator">-</span>only
+ExternalRef: PACKAGE<span class="operator">-</span>MANAGER purl pkg:github<span class="operator">/</span>qt<span class="operator">/</span>qtnetworkauth<span class="operator">?</span>library_name<span class="operator">=</span>NetworkAuth<span class="preprocessor">#src/oauth</span>
+ExternalRef: PACKAGE<span class="operator">-</span>MANAGER purl pkg:generic<span class="operator">/</span>TheQtCompany<span class="operator">/</span>qtnetworkauth<span class="operator">-</span>NetworkAuth<span class="operator">?</span>vcs_url<span class="operator">=</span>https:<span class="comment">//code.qt.io/qt/qtnetworkauth.git&amp;library_name=NetworkAuth#src/oauth</span>
+FilesAnalyzed: <span class="keyword">true</span>
+PackageCopyrightText: <span class="operator">&lt;</span>text<span class="operator">&gt;</span>Copyright (C) <span class="number">2024</span> The <span class="type"><a href="qt.html" translate="no">Qt</a></span> Company Ltd<span class="operator">.</span><span class="operator">&lt;</span><span class="operator">/</span>text<span class="operator">&gt;</span>
+PrimaryPackagePurpose: LIBRARY
+ExternalRef: SECURITY cpe23Type cpe:<span class="number">2.3</span>:a:qt:qtnetworkauth:<span class="number">6.9.0</span>:<span class="operator">*</span>:<span class="operator">*</span>:<span class="operator">*</span>:<span class="operator">*</span>:<span class="operator">*</span>:<span class="operator">*</span>:<span class="operator">*</span>
+ExternalRef: SECURITY cpe23Type cpe:<span class="number">2.3</span>:a:qt:qt:<span class="number">6.9.0</span>:<span class="operator">*</span>:<span class="operator">*</span>:<span class="operator">*</span>:<span class="operator">*</span>:<span class="operator">*</span>:<span class="operator">*</span>:<span class="operator">*</span>
+Relationship: SPDXRef<span class="operator">-</span>Package<span class="operator">-</span>qtnetworkauth<span class="operator">-</span>qt<span class="operator">-</span>module<span class="operator">-</span>NetworkAuth DEPENDS_ON DocumentRef<span class="operator">-</span>qtbase:SPDXRef<span class="operator">-</span>Package<span class="operator">-</span>qtbase<span class="operator">-</span>qt<span class="operator">-</span>module<span class="operator">-</span>Core
+Relationship: SPDXRef<span class="operator">-</span>Package<span class="operator">-</span>qtnetworkauth<span class="operator">-</span>qt<span class="operator">-</span>module<span class="operator">-</span>NetworkAuth DEPENDS_ON DocumentRef<span class="operator">-</span>qtbase:SPDXRef<span class="operator">-</span>Package<span class="operator">-</span>qtbase<span class="operator">-</span>qt<span class="operator">-</span>module<span class="operator">-</span>PlatformModuleInternal
+Relationship: SPDXRef<span class="operator">-</span>Package<span class="operator">-</span>qtnetworkauth<span class="operator">-</span>qt<span class="operator">-</span>module<span class="operator">-</span>NetworkAuth DEPENDS_ON DocumentRef<span class="operator">-</span>qtbase:SPDXRef<span class="operator">-</span>Package<span class="operator">-</span>qtbase<span class="operator">-</span>qt<span class="operator">-</span>module<span class="operator">-</span>Gui
+Relationship: SPDXRef<span class="operator">-</span>Package<span class="operator">-</span>qtnetworkauth<span class="operator">-</span>qt<span class="operator">-</span>module<span class="operator">-</span>NetworkAuth DEPENDS_ON DocumentRef<span class="operator">-</span>qtbase:SPDXRef<span class="operator">-</span>Package<span class="operator">-</span>qtbase<span class="operator">-</span>qt<span class="operator">-</span>module<span class="operator">-</span>Network
+Relationship: SPDXRef<span class="operator">-</span>Package<span class="operator">-</span>qtnetworkauth CONTAINS SPDXRef<span class="operator">-</span>Package<span class="operator">-</span>qtnetworkauth<span class="operator">-</span>qt<span class="operator">-</span>module<span class="operator">-</span>NetworkAuth</pre></div>
+<h2 id="cyclonedx-format">CycloneDX Format<a class="plink" href="#cyclonedx-format" title="Direct link to this headline"></a></h2>
+<p>Starting from Qt 6.11, the build process optionally creates SBOM documents in <a href="https://cyclonedx.org/docs/1.6/json/">CycloneDX v1.6</a> format.</p>
+<p>To require CycloneDX generation, configure Qt with:</p>
+<div class="pre"><pre class="cpp plain" translate="no">./configure -sbom -sbom-cyclonedx-v1_6 -sbom-cyclonedx-v1_6-required</pre></div>
+<p>Generating CycloneDX documents requires the following dependencies:</p>
+<ul>
+<li><a href="https://www.python.org/downloads/">Python</a> version 3.9 or newer</li>
+<li>Python packages:<ul>
+<li>cyclonedx-python-lib[json-validation]</li>
+<li>tomli</li>
+</ul>
+</li>
+</ul>
+<p>You can use Python's <code translate="no">pip</code> tool to install the required packages:</p>
+<div class="pre"><pre class="cpp plain" translate="no">pip install 'cyclonedx-python-lib[json-validation]' tomli</pre></div>
+<p>CycloneDX documents provide similar information as SPDX documents, including components, licenses, dependencies, and security metadata.</p>
+<p>Compared to SPDX, the CycloneDX information contains less detail about some areas like licenses and relationship types.</p>
+<p>Installed CycloneDX SBOM documents have filenames in the format: <code translate="no">&lt;module&gt;-&lt;version&gt;.cdx.json</code>.</p>
+<h2 id="cyclonedx-sbom-example">CycloneDX SBOM Example<a class="plink" href="#cyclonedx-sbom-example" title="Direct link to this headline"></a></h2>
+<p>The following is an example of a CycloneDX SBOM document for the <a href="qtnetworkauth-index.html">Qt Network Authorization</a> module. The SBOM filename is <code translate="no">qtnetworkauth-6.11.0.cdx.json</code> and is in the installation's <code translate="no">sbom</code> directory. Note that the SBOM document contains several other components not listed in the following example.</p>
+<div class="pre"><pre class="cpp prettyprint" translate="no">{
+  <span class="string">"components"</span>: <span class="operator">[</span>
+    {
+      <span class="string">"bom-ref"</span>: <span class="string">"SPDXRef-Package-qtnetworkauth-qt-module-NetworkAuth"</span><span class="operator">,</span>
+      <span class="string">"copyright"</span>: <span class="string">"Copyright (C) The Qt Company Ltd. and other contributors."</span><span class="operator">,</span>
+      <span class="string">"cpe"</span>: <span class="string">"cpe:2.3:a:qt:qt:6.11.0:*:*:*:*:*:*:*"</span><span class="operator">,</span>
+      <span class="string">"licenses"</span>: <span class="operator">[</span>
+        {
+          <span class="string">"license"</span>: {
+            <span class="string">"acknowledgement"</span>: <span class="string">"concluded"</span><span class="operator">,</span>
+            <span class="string">"id"</span>: <span class="string">"GPL-3.0-only"</span>
+          }
+        }
+      <span class="operator">]</span><span class="operator">,</span>
+      <span class="string">"name"</span>: <span class="string">"NetworkAuth"</span><span class="operator">,</span>
+      <span class="string">"properties"</span>: <span class="operator">[</span>
+        {
+          <span class="string">"name"</span>: <span class="string">"qt:sbom:entity_type"</span><span class="operator">,</span>
+          <span class="string">"value"</span>: <span class="string">"QT_MODULE"</span>
+        }<span class="operator">,</span>
+        {
+          <span class="string">"name"</span>: <span class="string">"qt:sbom:is_qt_entity_type"</span><span class="operator">,</span>
+          <span class="string">"value"</span>: <span class="string">"true"</span>
+        }<span class="operator">,</span>
+        {
+          <span class="string">"name"</span>: <span class="string">"spdx:external-reference:package-manager:purl"</span><span class="operator">,</span>
+          <span class="string">"value"</span>: <span class="string">"pkg:github/qt/qtnetworkauth?library_name=NetworkAuth#src/oauth"</span>
+        }<span class="operator">,</span>
+        {
+          <span class="string">"name"</span>: <span class="string">"spdx:external-reference:security:cpe23"</span><span class="operator">,</span>
+          <span class="string">"value"</span>: <span class="string">"cpe:2.3:a:qt:qtnetworkauth:6.11.0:*:*:*:*:*:*:*"</span>
+        }
+      <span class="operator">]</span><span class="operator">,</span>
+      <span class="string">"purl"</span>: <span class="string">"pkg:generic/TheQtCompany/qtnetworkauth-NetworkAuth?library_name=NetworkAuth&amp;vcs_url=https://code.qt.io/qt/qtnetworkauth.git#src/oauth"</span><span class="operator">,</span>
+      <span class="string">"supplier"</span>: {
+        <span class="string">"name"</span>: <span class="string">"TheQtCompany"</span><span class="operator">,</span>
+        <span class="string">"url"</span>: <span class="operator">[</span>
+          <span class="string">"https://qt.io"</span>
+        <span class="operator">]</span>
+      }<span class="operator">,</span>
+      <span class="string">"type"</span>: <span class="string">"library"</span><span class="operator">,</span>
+      <span class="string">"version"</span>: <span class="string">"6.11.0"</span>
+    }
+  <span class="operator">]</span><span class="operator">,</span>
+  <span class="string">"dependencies"</span>: <span class="operator">[</span>
+    {
+      <span class="string">"dependsOn"</span>: <span class="operator">[</span>
+        <span class="string">"SPDXRef-Package-qtbase-qt-module-Core"</span><span class="operator">,</span>
+        <span class="string">"SPDXRef-Package-qtbase-qt-module-Gui"</span><span class="operator">,</span>
+        <span class="string">"SPDXRef-Package-qtbase-qt-module-Network"</span><span class="operator">,</span>
+        <span class="string">"SPDXRef-Package-qtbase-qt-module-PlatformModuleInternal"</span>
+      <span class="operator">]</span><span class="operator">,</span>
+      <span class="string">"ref"</span>: <span class="string">"SPDXRef-Package-qtnetworkauth-qt-module-NetworkAuth"</span>
+    }
+  <span class="operator">]</span><span class="operator">,</span>
+  <span class="string">"serialNumber"</span>: <span class="string">"urn:uuid:ce0d41b5-0fe8-5383-bf31-ff353a05b8be"</span><span class="operator">,</span>
+  <span class="string">"version"</span>: <span class="number">1</span><span class="operator">,</span>
+  <span class="string">"$schema"</span>: <span class="string">"http://cyclonedx.org/schema/bom-1.6.schema.json"</span><span class="operator">,</span>
+  <span class="string">"bomFormat"</span>: <span class="string">"CycloneDX"</span><span class="operator">,</span>
+  <span class="string">"specVersion"</span>: <span class="string">"1.6"</span>
+}</pre></div>
+<h2 id="yocto-builds-with-meta-qt6">Yocto builds with meta-qt6<a class="plink" href="#yocto-builds-with-meta-qt6" title="Direct link to this headline"></a></h2>
+<p><a href="https://doc.qt.io/Boot2Qt/">Boot to Qt</a> uses the meta-qt6 layer to build all Qt modules and the generated SBOM documents are available as SPDX files when installing Boot to Qt through the <a href="qt-online-installation.html">Qt Online Installer</a>. The install path depends on the Qt version and the target hardware.</p>
+<p>For example, for the Raspberry Pi target, the SBOM .spdx documents are at:</p>
+<div class="pre"><pre class="cpp plain" translate="no">&lt;INSTALL_DIR&gt;/6.11.2/Boot2Qt/raspberrypi-armv8/toolchain/sysroots/cortexa53-poky-linux/usr/lib/sbom/</pre></div>
+<p>For more information, visit the following pages:</p>
+<ul>
+<li><a href="https://doc.qt.io/Boot2Qt/b2qt-meta-qt6.html">Using meta-qt6</a></li>
+<li><a href="https://code.qt.io/cgit/yocto/meta-qt6.git/">meta-qt6 repository</a></li>
+</ul>
+<h2 id="related-topics">Related Topics<a class="plink" href="#related-topics" title="Direct link to this headline"></a></h2>
+<ul>
+<li><a href="https://spdx.github.io/spdx-spec/v2.3/">SPDX 2.3</a></li>
+<li><a href="https://wiki.qt.io/SBOM">Qt Wiki - SBOM</a> - generating SBOM documents from Qt sources</li>
+<li><a href="licenses-used-in-qt.html">Third-Party Code Used in Qt</a></li>
+</ul>
+</div>
+<!-- @@@sbom.html -->
+<p class="naviNextPrevious footerNavi">
+<a class="prevPage" href="license-changes.html">License Changes</a>
+<a class="nextPage" href="trademarks.html">Trademarks</a>
+</p>
+</div>
+<p class="copy-notice">
+<abbr title="Copyright">©</abbr> 2026 The Qt Company Ltd.
+   Documentation contributions included herein are the copyrights of
+   their respective owners.     The documentation provided herein is licensed under the terms of the    <a href="http://www.gnu.org/licenses/fdl.html">GNU Free Documentation    License version 1.3</a> as published by the Free Software Foundation.     Qt and respective logos are <a href="https://doc.qt.io/qt/trademarks.html">    trademarks</a> of The Qt Company Ltd. in Finland and/or other countries
+   worldwide. All other trademarks are property of their respective owners. </p>
+
+                    </div>
+                </article>
+                <aside class="b-sidebar__content__right">
+                    <div class="h-wysiwyg-html" data-scheme>
+                                                <h6><strong>Contents</strong></h6>
+                        <nav>
+                            <ul class="c-tableofcontents js-c-tableofcontents" data-tableofcontents-id="wrapperid" data-margin-top="sm">
+<li class="level1"><p><a href="#reuse-compliant-qt-modules">REUSE-compliant Qt modules</a></p></li>
+<li class="level1"><p><a href="#spdx-format">SPDX Format</a></p></li>
+<li class="level1"><p><a href="#third-party-spdx-packages">Third-party SPDX Packages</a></p></li>
+<li class="level1"><p><a href="#spdx-sbom-example">SPDX SBOM Example</a></p></li>
+<li class="level1"><p><a href="#cyclonedx-format">CycloneDX Format</a></p></li>
+<li class="level1"><p><a href="#cyclonedx-sbom-example">CycloneDX SBOM Example</a></p></li>
+<li class="level1"><p><a href="#yocto-builds-with-meta-qt6">Yocto builds with meta-qt6</a></p></li>
+<li class="level1"><p><a href="#related-topics">Related Topics</a></p></li>
+</ul>
+                        </nav>
+                                            </div>
+                                        <div class="h-wysiwyg-html" data-margin-top="md">
+                                                <h6><strong>Next</strong></h6>
+                        <nav>
+                            <ul class="c-tableofcontents js-c-tableofcontents" data-tableofcontents-id="wrapperid" data-margin-top="sm"><li class="level1"><p><a class="" href="trademarks.html">Trademarks</a></p></li></ul>
+                        </nav>
+                                                <h6><strong>Previous</strong></h6>
+                        <nav>
+                            <ul class="c-tableofcontents js-c-tableofcontents" data-tableofcontents-id="wrapperid" data-margin-top="sm"><li class="level1"><p><a class="" href="license-changes.html">License Changes</a></p></li></ul>
+                        </nav>
+                                            </div>
+                                    </aside>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="footer">
+<div class="l-footer">
+    <div class="l-footer__container">
+        <div class="l-footer__row l-footer__row--no-padding-bottom">
+            <div class="l-footer__column l-footer__company">
+                <div class="l-footer__logo">
+                    <a href="https://www.qt.io/?hsLang=en" class="c-logo-footer">
+                    <img src="/images/qtgroup.svg">
+                    </a>
+                </div>
+                <div class="c-social-media-links">
+                    <a href="https://twitter.com/qtproject" target="_blank" rel="noopener" class="fm_button fm_twitter"><span></span></a>
+                    <a href="https://www.facebook.com/qt/" target="_blank" rel="noopener" class="fm_button fm_facebook"><span></span></a>
+                    <a href="https://www.youtube.com/user/QtStudios" target="_blank" rel="noopener" class="fm_button fm_youtube"><span></span></a>
+                    <a href="https://www.linkedin.com/company/qtgroup/" target="_blank" rel="noopener" class="fm_button fm_linkedin"><span></span></a>
+                </div>
+                <div class="l-footer__contact">
+                        <a class="c-btn " href="https://www.qt.io/contact-us?hsLang=en">Contact Us</a>
+                </div>
+
+            </div>
+            <div class="l-footer__column l-footer__navigation">
+                <div class="c-footer-navigation">
+
+                        <span><div class="hs-menu-wrapper" role="navigation" aria-label="Navigation Menu">
+<ul role="menu">
+  <li class="hs-menu-item hs-menu-depth-1 hs-item-has-children" role="none"><a href="javascript:;" aria-haspopup="true" aria-expanded="false" role="menuitem">Qt Group</a>
+   <ul role="menu" class="hs-menu-children-wrapper">
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/group" role="menuitem">Our Story</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/brand" role="menuitem">Brand</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/newsroom" role="menuitem">News</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/careers" role="menuitem">Careers</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/investors" role="menuitem">Investors</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/product" role="menuitem">Qt Products</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/product/quality-assurance" role="menuitem">Software Quality Products</a></li>
+   </ul></li>
+  <li class="hs-menu-item hs-menu-depth-1 hs-item-has-children" role="none"><a href="javascript:;" aria-haspopup="true" aria-expanded="false" role="menuitem">Licensing</a>
+   <ul role="menu" class="hs-menu-children-wrapper">
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/terms-conditions" role="menuitem">License Agreement</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/licensing/open-source-lgpl-obligations" role="menuitem">Open Source</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/pricing" role="menuitem">Plans and pricing</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/download" role="menuitem">Download</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/faq/overview" role="menuitem">FAQ</a></li>
+   </ul></li>
+  <li class="hs-menu-item hs-menu-depth-1 hs-item-has-children" role="none"><a href="javascript:;" aria-haspopup="true" aria-expanded="false" role="menuitem">Learn Qt</a>
+   <ul role="menu" class="hs-menu-children-wrapper">
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/academy" role="menuitem">For Learners</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/qt-educational-license" role="menuitem">For Students and Teachers</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://doc.qt.io/" role="menuitem" target="_blank" rel="noopener">Qt Documentation</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://forum.qt.io/" role="menuitem" target="_blank" rel="noopener">Qt Forum</a></li>
+   </ul></li>
+  <li class="hs-menu-item hs-menu-depth-1 hs-item-has-children" role="none"><a href="javascript:;" aria-haspopup="true" aria-expanded="false" role="menuitem">Support &amp; Services</a>
+   <ul role="menu" class="hs-menu-children-wrapper">
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/qt-professional-services" role="menuitem">Professional Services</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/customer-success" role="menuitem">Customer Success</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/qt-support/" role="menuitem">Support Services</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/contact-us/partners" role="menuitem">Partners</a></li>
+    <li class="hs-menu-item hs-menu-depth-2" role="none"><a href="https://www.qt.io/qt-world" role="menuitem" target="_blank" rel="noopener">Qt World</a></li>
+   </ul></li>
+ </ul>
+</div></span>
+      </div>
+   </div>
+</div>
+        <div class="l-footer__row">
+            <div class="l-footer__column l-footer__legal">
+                <div class="c-footer-secondary-navigation">
+                    <span><div class="hs-menu-wrapper" role="navigation"  aria-label="Navigation Menu">
+ <ul role="menu">
+  <li class="hs-menu-item hs-menu-depth-1" role="none"><a href="javascript:;" role="menuitem">© 2026 The Qt Company</a></li>
+  <li class="hs-menu-item hs-menu-depth-1" role="none"><a href="mailto:feedback@qt.io?Subject=Feedback%20about%20doc.qt.io%20site">Feedback</a></li>
+ </ul>
+</div></span>
+                    <p class="c-footer-secondary-navigation__group-notice">Qt Group includes The Qt Company Oy and its global subsidiaries and affiliates.</p>
+                </div>
+            </div>
+            <div class="l-footer__column l-footer__some-links">
+            </div>
+        </div>
+    </div>
+</div>
+</div></body></html>

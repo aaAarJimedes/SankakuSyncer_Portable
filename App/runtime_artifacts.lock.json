@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "target": {
+    "os": "windows",
+    "architecture": "x86_64",
+    "python": "3.13.15",
+    "python_abi": "cp313",
+    "pyside6": "6.11.2",
+    "transport": "winhttp-schannel"
+  },
+  "artifacts": [
+    {
+      "kind": "python_embed",
+      "distribution": "CPython",
+      "version": "3.13.15",
+      "filename": "python-3.13.15-embed-amd64.zip",
+      "url": "https://www.python.org/ftp/python/3.13.15/python-3.13.15-embed-amd64.zip",
+      "bytes": 11009825,
+      "sha256": "d1f04d990aee1253d8569e8e5104e30fa9f5fa830899f14843448872d936a2cf",
+      "member_inventory_sha256": "d1705496362949de3c086f676f5e6c284e8521659e30eef2ebb56e03e59aa074"
+    },
+    {
+      "kind": "wheel",
+      "distribution": "PySide6",
+      "version": "6.11.2",
+      "filename": "pyside6-6.11.2-cp310-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/94/fe/4aea9d30300fff4cda9bb729c1363b9e1095a8544e0d6b57065465e16599/pyside6-6.11.2-cp310-abi3-win_amd64.whl",
+      "bytes": 578382,
+      "sha256": "3201d67e3c10be2eaedd3910ff0f02351eca7e88c95a291cde5e7f2f55ef207f",
+      "member_inventory_sha256": "47eeaa7b33a1ba8bbb7744c3c642fc36c2e3250d36b2bf0b74968c61b036c4b3"
+    },
+    {
+      "kind": "wheel",
+      "distribution": "PySide6-Addons",
+      "version": "6.11.2",
+      "filename": "pyside6_addons-6.11.2-cp310-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/fb/c1/08bf6594101b42fc88834009f1dac59a983c5b6805c62c5081f077d09b4a/pyside6_addons-6.11.2-cp310-abi3-win_amd64.whl",
+      "bytes": 168208836,
+      "sha256": "f449ea4431da20e7b86752cca8d166f93434516fe417f981c27e5f8e1b554407",
+      "member_inventory_sha256": "cca211a30e46d70561cb89dbae50a57508159ff82306c4c0146ada353af1cfa9"
+    },
+    {
+      "kind": "wheel",
+      "distribution": "PySide6-Essentials",
+      "version": "6.11.2",
+      "filename": "pyside6_essentials-6.11.2-cp310-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/dc/09/d2662684aee4d3f027ff9b1e965f22301bc28ffc5b7f167658508e4475dc/pyside6_essentials-6.11.2-cp310-abi3-win_amd64.whl",
+      "bytes": 76913043,
+      "sha256": "c8a29def77032773a30879f7f24415b5395ad08592d147c170824ef4c735dfc1",
+      "member_inventory_sha256": "8047321a249e80d2b58cac62992037c8ae8d115d9d5a458dc668cf645806c4c7"
+    },
+    {
+      "kind": "wheel",
+      "distribution": "shiboken6",
+      "version": "6.11.2",
+      "filename": "shiboken6-6.11.2-cp310-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/ce/6b/fee1b4814317e4664e318644c9c007676c65a71e5b2b9d3ac4121a94dc0a/shiboken6-6.11.2-cp310-abi3-win_amd64.whl",
+      "bytes": 1226578,
+      "sha256": "6ab0eba1c904455df621f9a6df3ca2bb896bab8670572d2bc4e37804ae91f19a",
+      "member_inventory_sha256": "0afdef5f0141b7a204143bd7cf9142cb84b8ffce425d3b2f05e829351ea0d292"
+    }
+  ]
+}

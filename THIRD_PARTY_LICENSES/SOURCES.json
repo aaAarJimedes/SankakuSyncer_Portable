@@ -1,0 +1,1323 @@
+{
+  "components": {
+    "application": "0.1.0",
+    "pyside6": "6.11.2",
+    "python": "3.13.15",
+    "python_packages": {
+      "PySide6": "6.11.2",
+      "PySide6_Addons": "6.11.2",
+      "PySide6_Essentials": "6.11.2",
+      "shiboken6": "6.11.2"
+    },
+    "qt": "6.11.2",
+    "transport": "winhttp-schannel"
+  },
+  "documents": {
+    "runtime_artifact_lock": {
+      "path": "App/runtime_artifacts.lock.json",
+      "sha256": "34fbca5da2d17bdd7fa03ff1bc70fb24d261cb206944b0d740192e3295a618b2",
+      "size": 2858
+    },
+    "runtime_inventory": {
+      "path": "RUNTIME_INVENTORY.json",
+      "sha256": "e23c48fec5f1a4bdca3c1d8c6c9e9ce08ff28c9ed8242c63abd67cce70367f97",
+      "size": 40004
+    },
+    "sbom": {
+      "path": "SBOM.spdx.json",
+      "sha256": "3659bf06857308f56fcdd784fe00d9d53646f52b2530de26a782528202784292",
+      "size": 159608
+    },
+    "vex": {
+      "path": "VEX.openvex.json",
+      "sha256": "27361f00026edc9d27dd1a764125e236f3c7b1494389a53ca89d6c98a330e6ed",
+      "size": 4059
+    }
+  },
+  "files": [
+    {
+      "path": "Artifact-Members/pyside6-6.11.2.wheel-members.json",
+      "sha256": "47eeaa7b33a1ba8bbb7744c3c642fc36c2e3250d36b2bf0b74968c61b036c4b3",
+      "size": 11323,
+      "source_sha256": "3201d67e3c10be2eaedd3910ff0f02351eca7e88c95a291cde5e7f2f55ef207f",
+      "source_url": "https://files.pythonhosted.org/packages/94/fe/4aea9d30300fff4cda9bb729c1363b9e1095a8544e0d6b57065465e16599/pyside6-6.11.2-cp310-abi3-win_amd64.whl"
+    },
+    {
+      "path": "Artifact-Members/pyside6-addons-6.11.2.wheel-members.json",
+      "sha256": "cca211a30e46d70561cb89dbae50a57508159ff82306c4c0146ada353af1cfa9",
+      "size": 242110,
+      "source_sha256": "f449ea4431da20e7b86752cca8d166f93434516fe417f981c27e5f8e1b554407",
+      "source_url": "https://files.pythonhosted.org/packages/fb/c1/08bf6594101b42fc88834009f1dac59a983c5b6805c62c5081f077d09b4a/pyside6_addons-6.11.2-cp310-abi3-win_amd64.whl"
+    },
+    {
+      "path": "Artifact-Members/pyside6-essentials-6.11.2.wheel-members.json",
+      "sha256": "8047321a249e80d2b58cac62992037c8ae8d115d9d5a458dc668cf645806c4c7",
+      "size": 483226,
+      "source_sha256": "c8a29def77032773a30879f7f24415b5395ad08592d147c170824ef4c735dfc1",
+      "source_url": "https://files.pythonhosted.org/packages/dc/09/d2662684aee4d3f027ff9b1e965f22301bc28ffc5b7f167658508e4475dc/pyside6_essentials-6.11.2-cp310-abi3-win_amd64.whl"
+    },
+    {
+      "path": "Artifact-Members/shiboken6-6.11.2.wheel-members.json",
+      "sha256": "0afdef5f0141b7a204143bd7cf9142cb84b8ffce425d3b2f05e829351ea0d292",
+      "size": 12055,
+      "source_sha256": "6ab0eba1c904455df621f9a6df3ca2bb896bab8670572d2bc4e37804ae91f19a",
+      "source_url": "https://files.pythonhosted.org/packages/ce/6b/fee1b4814317e4664e318644c9c007676c65a71e5b2b9d3ac4121a94dc0a/shiboken6-6.11.2-cp310-abi3-win_amd64.whl"
+    },
+    {
+      "path": "Microsoft/Visual-C-Runtime-2015-2022-License.docx",
+      "sha256": "f1e3d56ceb2ad68aae0711b910375009e651ac5530fa0760f0dea6e81e54fae1",
+      "size": 39644,
+      "source_url": "https://visualstudio.microsoft.com/wp-content/uploads/2021/09/Visual-C-Runtime-2015-2022-License-1.docx"
+    },
+    {
+      "path": "Microsoft/VS2022-CRuntime-License.html",
+      "sha256": "7462481197d5514913666e9ae0f0b6d1f47b3694061d98736557b3e4a9f4e49b",
+      "size": 240264,
+      "source_url": "https://visualstudio.microsoft.com/license-terms/vs2022-cruntime/"
+    },
+    {
+      "path": "PySide6-6.11.2/LICENSES/Apache-2.0.txt",
+      "sha256": "e3ba223bb1423f0aad8c3dfce0fe3148db48926d41e6fbc3afbbf5ff9e1c89cb",
+      "size": 10398,
+      "source_url": "https://code.qt.io/cgit/pyside/pyside-setup.git/plain/LICENSES/Apache-2.0.txt?h=v6.11.2"
+    },
+    {
+      "path": "PySide6-6.11.2/LICENSES/BSD-3-Clause.txt",
+      "sha256": "62803a6fcceef9091a129d7293d2469ea332b35d30f5e1bc4c628a9f35f3d29c",
+      "size": 1478,
+      "source_url": "https://code.qt.io/cgit/pyside/pyside-setup.git/plain/LICENSES/BSD-3-Clause.txt?h=v6.11.2"
+    },
+    {
+      "path": "PySide6-6.11.2/LICENSES/GFDL-1.3-no-invariants-only.txt",
+      "sha256": "110535522396708cea37c72a802c5e7e81391139f5f7985631c93ef242b206a4",
+      "size": 22955,
+      "source_url": "https://code.qt.io/cgit/pyside/pyside-setup.git/plain/LICENSES/GFDL-1.3-no-invariants-only.txt?h=v6.11.2"
+    },
+    {
+      "path": "PySide6-6.11.2/LICENSES/GPL-2.0-only.txt",
+      "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
+      "size": 18092,
+      "source_url": "https://code.qt.io/cgit/pyside/pyside-setup.git/plain/LICENSES/GPL-2.0-only.txt?h=v6.11.2"
+    },
+    {
+      "path": "PySide6-6.11.2/LICENSES/GPL-3.0-only.txt",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+      "size": 35147,
+      "source_url": "https://code.qt.io/cgit/pyside/pyside-setup.git/plain/LICENSES/GPL-3.0-only.txt?h=v6.11.2"
+    },
+    {
+      "path": "PySide6-6.11.2/LICENSES/LGPL-3.0-only.txt",
+      "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768",
+      "size": 7651,
+      "source_url": "https://code.qt.io/cgit/pyside/pyside-setup.git/plain/LICENSES/LGPL-3.0-only.txt?h=v6.11.2"
+    },
+    {
+      "path": "PySide6-6.11.2/LICENSES/LicenseRef-Qt-Commercial.txt",
+      "sha256": "9b1f50aae6267f9d5e0ceb6775ee86450262c25ec7c0573e151fe5d3f18a4700",
+      "size": 462,
+      "source_url": "https://code.qt.io/cgit/pyside/pyside-setup.git/plain/LICENSES/LicenseRef-Qt-Commercial.txt?h=v6.11.2"
+    },
+    {
+      "path": "PySide6-6.11.2/LICENSES/Qt-GPL-exception-1.0.txt",
+      "sha256": "40678d338ce53cd93f8b22b281a2ecbcaa3ee65ce60b25ffb0c462b0530846b2",
+      "size": 965,
+      "source_url": "https://code.qt.io/cgit/pyside/pyside-setup.git/plain/LICENSES/Qt-GPL-exception-1.0.txt?h=v6.11.2"
+    },
+    {
+      "path": "Python-3.13.15/embed-members.sha256.json",
+      "sha256": "d1705496362949de3c086f676f5e6c284e8521659e30eef2ebb56e03e59aa074",
+      "size": 5333,
+      "source_sha256": "d1f04d990aee1253d8569e8e5104e30fa9f5fa830899f14843448872d936a2cf",
+      "source_url": "https://www.python.org/ftp/python/3.13.15/python-3.13.15-embed-amd64.zip"
+    },
+    {
+      "path": "Python-3.13.15/LICENSE.txt",
+      "sha256": "78b12c3a81360b357002334f0e70ea0e92eebf7a9b358805c03c48484945f3bb",
+      "size": 13809,
+      "source_url": "https://raw.githubusercontent.com/python/cpython/v3.13.15/LICENSE"
+    },
+    {
+      "path": "Python-3.13.15/python-3.13.15-embed-amd64.zip.spdx.json",
+      "sha256": "ba428f93acb06764f0005246f8ca48bb1c04feef64ce7db0b177fb2fd371c423",
+      "size": 15341,
+      "source_url": "https://www.python.org/ftp/python/3.13.15/python-3.13.15-embed-amd64.zip.spdx.json"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qt-attribution-llvmpipe.html",
+      "sha256": "81e68c4a33a7ed651785015760b04689bfbe4d789fb217cd92fd765fdb07a517",
+      "size": 22516,
+      "source_url": "https://doc.qt.io/qt-6.11/qt-attribution-llvmpipe.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-blake2.html",
+      "sha256": "a24fbf5ee3eeb54c08025bcdda1d9aa19abe55eecbe94c271b1cdf2e8a3c95a0",
+      "size": 35901,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-blake2.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-doubleconversion.html",
+      "sha256": "23c545168e779f704dd77cdb6b1bee0af00d3592a251c928b533c0472fc000a7",
+      "size": 19269,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-doubleconversion.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-easing.html",
+      "sha256": "c16c616d04513c889e505a5e38a6618b1dc7b12582b3c881dc754166135b664e",
+      "size": 18893,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-easing.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-forkfd.html",
+      "sha256": "70abb2ef2f7aa7f7b62742888a5761e09328d8e50e1987fdb023b0d678f75e18",
+      "size": 18451,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-forkfd.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-md4.html",
+      "sha256": "f564d268fcaa3c3423b3a97978fd354458d808121332b49b49362ba292282b70",
+      "size": 24445,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-md4.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-md5.html",
+      "sha256": "14da17da04d447ad429daa1ff2187003774301537742186eb10f833d10a05a62",
+      "size": 24317,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-md5.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-pcre2-sljit.html",
+      "sha256": "63f37926b0bb1be66803032c9632f06c272822afb50a8615b1f24557d640ce88",
+      "size": 19164,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-pcre2-sljit.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-pcre2.html",
+      "sha256": "4e9171ce48dc19f45653e40fd46f33eb25650d7ccafd57b0293546e59af98546",
+      "size": 21734,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-pcre2.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-qeventdispatcher-cf.html",
+      "sha256": "2a71e33918531424d9403e7fc515f48230a15355230197c16ca50d0546948be4",
+      "size": 18917,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-qeventdispatcher-cf.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-rfc6234.html",
+      "sha256": "7a5bec8769c2c3b1c7084310b330c319c3eb4a85fe281a2e9c2b2e36547d39ad",
+      "size": 19122,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-rfc6234.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-sha1.html",
+      "sha256": "55247b30719a9532645108aa07c0055cfcef545ccc65d651c8084e14d260cacf",
+      "size": 17536,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-sha1.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-sha3-endian.html",
+      "sha256": "d39dced83ff2b431465b85318ff4de95851297489b76ae5cbc66f3b064cb2378",
+      "size": 18194,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-sha3-endian.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-sha3-keccak.html",
+      "sha256": "c39d36e7338d26c6e04beb0686724f8358ec357d37111b8cab378cdeb1cd3d8d",
+      "size": 25174,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-sha3-keccak.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-siphash.html",
+      "sha256": "7789420feb292ac0c6b2780dc9fc29bb473d6e88729a4314cc81aedd8b80306a",
+      "size": 24541,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-siphash.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-tika-mimetypes.html",
+      "sha256": "2f0ab49adf7ef53c12ee2331ff44a9034bb7955b10d1d909d79928070a76db8b",
+      "size": 28396,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-tika-mimetypes.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-tinycbor.html",
+      "sha256": "884f78234b699608d360e46f0a3057c7560a86e3e7adea1749660137a73330ed",
+      "size": 18607,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-tinycbor.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-tlexpected.html",
+      "sha256": "4f92bc26a0d0c1af6c19eadd200ad1819a374c3742167bac559c3334e3ec53e2",
+      "size": 24912,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-tlexpected.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-unicode-character-database.html",
+      "sha256": "75101cd8625601ad712b818d8be2728bceb962b98301d8d60e75b8d8dc598119",
+      "size": 19723,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-unicode-character-database.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-unicode-cldr.html",
+      "sha256": "03e65411b485f2fa1682d51e12ae61ca88246569561a00e0c1517f1f861dd3f0",
+      "size": 20000,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-unicode-cldr.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtcore-attribution-zlib.html",
+      "sha256": "49d610fd3e1397936d024de0499a2b8618685ce972185e84d7eb7438f594990c",
+      "size": 18988,
+      "source_url": "https://doc.qt.io/qt-6.11/qtcore-attribution-zlib.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-aglfn.html",
+      "sha256": "9a1452b799da27dc41104493db76d421e733bc360429c8a90441afef7fcea743",
+      "size": 18989,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-aglfn.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-android-native-style.html",
+      "sha256": "9b4e3e3c67d5b1de84c7fcac27fd009cd795cfd7159e865c2012a7100f82308f",
+      "size": 17771,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-android-native-style.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-cocoa-platform-plugin.html",
+      "sha256": "8e4e4ff9c55d14f10561cc3fe34dab9c9e16f5642e487e6b27b971e95425b987",
+      "size": 19365,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-cocoa-platform-plugin.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-d3d12memoryallocator.html",
+      "sha256": "0f19e8c8bedf5872eae06e556cf99bacb3f02aa2ea5cb17722fd535fe3310b7c",
+      "size": 18752,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-d3d12memoryallocator.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-dejayvu.html",
+      "sha256": "7d4c078229b9117f3e8c9c44de2d12a8ccf47f566d6964e57b6144abd651dd36",
+      "size": 26332,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-dejayvu.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-emoji-segmenter.html",
+      "sha256": "719effac5c419ce29dea8d31d7d55b9275be98a628cd68ace2d1e5cf51a75134",
+      "size": 27964,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-emoji-segmenter.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-freetype-bdf.html",
+      "sha256": "b1172eebbea7d021dc110aa6625ff20f3f4179ba60abe93553e452175c783a56",
+      "size": 19880,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-freetype-bdf.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-freetype-pcf.html",
+      "sha256": "44424d3c7de60aafbd0331bba0fcbb5a295afdcc1f92e7106a9bee7d983ee482",
+      "size": 19840,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-freetype-pcf.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-freetype-zlib.html",
+      "sha256": "a361e3ed513c4a8e9676c316cfff3bc3fd90f743a5ee6f44731f13942feeb133",
+      "size": 18371,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-freetype-zlib.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-freetype.html",
+      "sha256": "e086da10883f00c768453f9af7d934b4665b56b45f270039867816ac9cba2894",
+      "size": 45887,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-freetype.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-grayraster.html",
+      "sha256": "79e8bb53806e8778cdff9a589b0e3a50eb18b9df052e98a8975e036844b528fe",
+      "size": 43823,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-grayraster.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-harfbuzz-ng.html",
+      "sha256": "b72ed7a114006b6b355bffbd3e4cf7aefb938b697bc2698ee32fa0bc39933b43",
+      "size": 20257,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-harfbuzz-ng.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-icc-srgb-color-profile.html",
+      "sha256": "59d72821fd583b7e593935dc04ca6764022e56f2e9bec47376a28f28369a09ba",
+      "size": 17971,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-icc-srgb-color-profile.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-libjpeg.html",
+      "sha256": "22f255606d4352485968e4b7e347dea46b23b52ab0bcdea296f24a6d0bc6fb85",
+      "size": 26117,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-libjpeg.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-libpng.html",
+      "sha256": "99ecc6605b320bb8f49b32b1906a3548f006399db7215635243a2034f5eecdd6",
+      "size": 23672,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-libpng.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-md4c.html",
+      "sha256": "f059ffad4b606fcbdc8642ab79df5f35630f2a749d44a445303bfc5436330d60",
+      "size": 18537,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-md4c.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-opengl-es2-headers.html",
+      "sha256": "5aed663c872f72c5c910700fc36276a75f6475a25da1fb49c493f391484c5b3b",
+      "size": 18587,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-opengl-es2-headers.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-opengl-headers.html",
+      "sha256": "aae16a41b0f8b759ca59c9c82f2be6efd11fb12ce6091448b6f65af9a8c4b160",
+      "size": 18552,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-opengl-headers.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-pixman.html",
+      "sha256": "717a62976162e7246cae9ba3f0446c39a64c21668a70e9bb7f4d466d26b0fe3b",
+      "size": 18473,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-pixman.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-rhi-miniengine-d3d12-mipmap.html",
+      "sha256": "c1ea8498d5da80fa586902381b2223f458b71381bdf8b011498eaff6b864a96a",
+      "size": 18721,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-rhi-miniengine-d3d12-mipmap.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-smooth-scaling-algorithm.html",
+      "sha256": "560c96917ef0581be92860c12196c7a292ca5f2bcdb447ab30f82309a27fdf28",
+      "size": 20502,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-smooth-scaling-algorithm.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-vulkan-xml-spec.html",
+      "sha256": "84dfd8b73949fac0d9ce42a8c309c2f5464c372fd48ee3f01223ddd0d6d3bd27",
+      "size": 28883,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-vulkan-xml-spec.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-vulkanmemoryallocator.html",
+      "sha256": "71cbbfe511fba1fbaa215af6ace32500be83f79a0132d20dd47857db12c264aa",
+      "size": 18622,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-vulkanmemoryallocator.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-webgradients.html",
+      "sha256": "2baf0bb406728a55e8d95724ed29cc00f939e2084d8b5ccfeb449906b32d16f9",
+      "size": 18404,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-webgradients.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-wintab.html",
+      "sha256": "624dea0dd7f0c11033852bab829c65a02ed7c78abcad814d122e341a47a640b1",
+      "size": 17420,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-wintab.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-xcb-xinput.html",
+      "sha256": "18a951cc57978deda9cb7b43452df7fc3621636289df6f635729b1ed40a8bf97",
+      "size": 18801,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-xcb-xinput.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtgui-attribution-xserverhelper.html",
+      "sha256": "16eb2317afb9e22b0715a36e0e509b97bd1be3585d3a45637ddd3435a5298cf9",
+      "size": 19749,
+      "source_url": "https://doc.qt.io/qt-6.11/qtgui-attribution-xserverhelper.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtimageformats-attribution-libtiff.html",
+      "sha256": "6ec58dee5979a654a4cebec3e472bf1e863323d07e7fded1c542588a7e21c9e6",
+      "size": 18702,
+      "source_url": "https://doc.qt.io/qt-6.11/qtimageformats-attribution-libtiff.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtimageformats-attribution-libwebp.html",
+      "sha256": "fcfa1257fd5144b0b9a73594d50940361c6639268cc00ab7df09f59353c76b46",
+      "size": 19160,
+      "source_url": "https://doc.qt.io/qt-6.11/qtimageformats-attribution-libwebp.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtnetwork-attribution-libpsl.html",
+      "sha256": "53e14c6ef25677c438f1675db83e4881638626865355f920f095ea5b77e2bcd7",
+      "size": 19514,
+      "source_url": "https://doc.qt.io/qt-6.11/qtnetwork-attribution-libpsl.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtnetwork-attribution-psl-data.html",
+      "sha256": "cf9e2b2938bfcd81466836ec9c6e2aace95207744f3f854871960f153ae0f911",
+      "size": 34956,
+      "source_url": "https://doc.qt.io/qt-6.11/qtnetwork-attribution-psl-data.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtpositioning-attribution-clip2tri.html",
+      "sha256": "594611718725ecc4546c2ac8bfef0cfd7d489693b05d56aa18c27fb1a3ff6dfd",
+      "size": 18772,
+      "source_url": "https://doc.qt.io/qt-6.11/qtpositioning-attribution-clip2tri.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtpositioning-attribution-clipper.html",
+      "sha256": "8fa1497256c967ac2f26691e914bac36aba7a1562e5489d92e321399b9197418",
+      "size": 19884,
+      "source_url": "https://doc.qt.io/qt-6.11/qtpositioning-attribution-clipper.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtpositioning-attribution-poly2tri.html",
+      "sha256": "edf05c840e541d3844c3332b3282be307a3a33a363ccde11c16429b90e89344d",
+      "size": 19306,
+      "source_url": "https://doc.qt.io/qt-6.11/qtpositioning-attribution-poly2tri.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtqml-attribution-masm.html",
+      "sha256": "c42bac1f728f3b815fca7c9c43c44dd72486dcc784c5666a405cfc2e1340ab80",
+      "size": 19334,
+      "source_url": "https://doc.qt.io/qt-6.11/qtqml-attribution-masm.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtquick-attribution-yoga.html",
+      "sha256": "da44084fc6ace9dd106d10a4ae0919ec9b3622c6489cdfad389c7386d3f1bbfa",
+      "size": 18781,
+      "source_url": "https://doc.qt.io/qt-6.11/qtquick-attribution-yoga.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-abseil.html",
+      "sha256": "2f3e26e89ea3a290e1d51863242981ddcc039ec678fd2bbe1213f9dfb69b773a",
+      "size": 28233,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-abseil.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-acorn-a-tiny-fast-javascript-parser-written-in-javascript.html",
+      "sha256": "2318c515b032aca58ff5683f939c2c7b885d2e4eb52bcf56e0e46000c868e9fd",
+      "size": 18406,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-acorn-a-tiny-fast-javascript-parser-written-in-javascript.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-alliance-for-open-media-video-codec.html",
+      "sha256": "62bc8786e96653abd443370f1bcea49d4492b861774e291c5ffa1f1095566dc4",
+      "size": 24462,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-alliance-for-open-media-video-codec.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-almost-native-graphics-layer-engine.html",
+      "sha256": "53356e3676dc531bc4f38f3a1b4c9eaaec58f37db977636d5d97c3730331c00f",
+      "size": 18821,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-almost-native-graphics-layer-engine.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-android-explicit-synchronization.html",
+      "sha256": "1c33bea225650c2ba181a6493226080ddaaf20ecac144cf9462c5ef611149a87",
+      "size": 28350,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-android-explicit-synchronization.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-boringssl.html",
+      "sha256": "1f02c8c92f7d40bfc3d255cabf496be8d13a77372ed549f57286d08a9b7a8974",
+      "size": 30565,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-boringssl.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-brotli.html",
+      "sha256": "17075008539cd7545ae894fd216a3283b365953ddfd68ab0ceecd4ba4397fcc7",
+      "size": 18121,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-brotli.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-c-signal-slot-library.html",
+      "sha256": "ad97dde70701060021f574891b1630232ece34fc9395d45c0881d8ff088a7b68",
+      "size": 17353,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-c-signal-slot-library.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-chromium-global.html",
+      "sha256": "b18e0775f61446ec6a831c56ab0329a2a8200d5dded4bcc7f5b57bfb1d5d5023",
+      "size": 19519,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-chromium-global.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-cityhash.html",
+      "sha256": "161bbfc64528744b83710301c1e1ffb99145bf93561f52ab2a333b350ad2dace",
+      "size": 18159,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-cityhash.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-codemirror-5.html",
+      "sha256": "e73ee4b0e87eac4d8b6970268d86695c7683a323b3ab9059758be06d38918f40",
+      "size": 18197,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-codemirror-5.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-codemirror-6.html",
+      "sha256": "b2d5966d131b034f80ba606a74b11633be8242b28bb0a2dfabd067770267b266",
+      "size": 18207,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-codemirror-6.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-compact-encoding-detection.html",
+      "sha256": "aa1b640d6a9e585a5b98eb5e1fab44c8a4eedbbff3b2334127a177b9abc0baa1",
+      "size": 28336,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-compact-encoding-detection.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-compact-language-detector-v3.html",
+      "sha256": "80a877bcd235f84aabdf3e803a9e26b1ddc1be206b2367d6026d767b1faafa07",
+      "size": 28877,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-compact-language-detector-v3.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-cpuinfo.html",
+      "sha256": "6de9004de35f3d41d24c16c1c2af8ea46cb3a72a8b5253a86fa8a2ab174ef190",
+      "size": 18459,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-cpuinfo.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-crashpad.html",
+      "sha256": "1e4d9f45ff9efebb054c61ae2d6d5f410e254646c75bf16a8a280e0b2a8ae605",
+      "size": 28235,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-crashpad.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-crc32c.html",
+      "sha256": "7298795a48113e5e753f771e51275058179e2893db94c829c13186f6d63a8159",
+      "size": 18488,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-crc32c.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-csp-evaluator-core-library-a-tool-that-allows-developers-to-check-if-a-content-security-policy-csp-serves-as-mitigation-against-xss-attacks.html",
+      "sha256": "14800de84f6711c21e309a62dfdf37e66d7347a12a9a062583919e9b5e04d99e",
+      "size": 28918,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-csp-evaluator-core-library-a-tool-that-allows-developers-to-check-if-a-content-security-policy-csp-serves-as-mitigation-against-xss-attacks.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-d3.html",
+      "sha256": "076e2efdb2e4241d91ce035c82efd3dfa8d03259a94eeebf63f4c3e1576f1c02",
+      "size": 17722,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-d3.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-dav1d-is-an-av1-decoder.html",
+      "sha256": "011adbe73f1f4519f875935713bcb938d9ea45d23ba3662b0fcfa38144ee8c99",
+      "size": 18448,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-dav1d-is-an-av1-decoder.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-dawn.html",
+      "sha256": "f628f3f45a428527dabe2d9d22f444736986fbac47b3b0f16587a152e094f1b7",
+      "size": 18589,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-dawn.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-devtools-frontend.html",
+      "sha256": "9f0d9bcfc9d4b1d1f12833fa77cae19fd5c083d81da80ec34fef1f0fffd55761",
+      "size": 18670,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-devtools-frontend.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-dragonbox.html",
+      "sha256": "d9c02d82d6a0990afa5b7a2b9c55cab1868e7ee2baa85ce10809c20cd4a083d5",
+      "size": 18398,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-dragonbox.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-emoji-segmenter.html",
+      "sha256": "904145e08628d696ee57c0ff49ae16290defdef60091fa3ce3525fc0a5875d1e",
+      "size": 28285,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-emoji-segmenter.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-expat-xml-parser.html",
+      "sha256": "bf17a8b73d97aeb8ff56e5936a2a805ca1ef7ee3167e42d82860808452a9beaf",
+      "size": 18235,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-expat-xml-parser.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-fast-float.html",
+      "sha256": "f79e532d959fbacda7fda0eb3ee3e1acd52c6d4c5e6598563d0f0aea609e7ad2",
+      "size": 18143,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-fast-float.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-ffmpeg.html",
+      "sha256": "9389d34d596d3a1e50e6a5b8981fe7d03ca2e34b5ae18c0f32941966a4e286b4",
+      "size": 62841,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-ffmpeg.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-fft.html",
+      "sha256": "4ab3bd6ee9988e8aebe32878d174c54d2c33f83b4ece593b455199550186ed86",
+      "size": 18135,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-fft.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-fiat-crypto-synthesizing-correct-by-construction-code-for-cryptographic-primitives.html",
+      "sha256": "b3ff72de57e23db2d1f5d3e1ead58fd463911f15a50f241e8dc5e79ff1b1a736",
+      "size": 18073,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-fiat-crypto-synthesizing-correct-by-construction-code-for-cryptographic-primitives.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-flac.html",
+      "sha256": "a15654a87bd299d502a5254b0306b13270b7c81bd9694a9c4e327864420f7400",
+      "size": 18542,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-flac.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-flatbuffers.html",
+      "sha256": "f437f1ea8c403baac6aa44dc84b07026b86daef7c5c8104e3f8e33c5dbea8d87",
+      "size": 28241,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-flatbuffers.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-fontconfig.html",
+      "sha256": "3e0f29bcf802c73e3be6136cdee358c4293e131eede96ed30d81be550d057aac",
+      "size": 25938,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-fontconfig.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-fp16.html",
+      "sha256": "bb47ddbc59645b81c55062b67391077872bde457b4c49e49f9186b207e5a077c",
+      "size": 18187,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-fp16.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-general-purpose-fft-fast-fourier-cosine-sine-transform-package.html",
+      "sha256": "0d9165fa0ae0df2593a5f748be125cbd61badc7475eda76e810b502c685efc69",
+      "size": 17599,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-general-purpose-fft-fast-fourier-cosine-sine-transform-package.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-google-double-conversion.html",
+      "sha256": "1e731f0d46c8e12d4e47273249160820669d1b9c79e4a889469662d2111aa7d0",
+      "size": 18656,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-google-double-conversion.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-google-glog-x27-s-symbolization-library.html",
+      "sha256": "70ccfed1813be1c76fdfd1edac62edaaeeaad1a6a4e5a85fa6981dd0a652f6ad",
+      "size": 18764,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-google-glog-x27-s-symbolization-library.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-harfbuzz.html",
+      "sha256": "e9af3611b2e3a06d6f7293b67ae1177c256d23da621b7f50e3fa2f19dee4e6a8",
+      "size": 19020,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-harfbuzz.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-headers-for-the-windows-10-webauthn-api-webauthn-dll.html",
+      "sha256": "f40e67c843d5ff35e4a57fea1e524e5e3d7b863e06942af2d5a0a0fe87086ee9",
+      "size": 18377,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-headers-for-the-windows-10-webauthn-api-webauthn-dll.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-highway-c-library-for-simd.html",
+      "sha256": "7e6af93678ea636c5bf2df043f6362967b62ddf6f09102dea99e6945ccddc586",
+      "size": 28343,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-highway-c-library-for-simd.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-hunspell.html",
+      "sha256": "68aa2a66a3c5b8b9f958177e7af0c6a73cce17c3a2d6198ffc30f32824060a83",
+      "size": 43552,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-hunspell.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-icu.html",
+      "sha256": "fc3f885c3af303fadb0e0e8f8f7b7758e2fd7f92ac9c54a51fe143064e9ce76e",
+      "size": 42518,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-icu.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-implementation-of-webdriver-bidi-standard.html",
+      "sha256": "872d5ba4e178b96ba242d5ff1970c6c9e9f71b1f895ba4219252533d2f990366",
+      "size": 28436,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-implementation-of-webdriver-bidi-standard.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-in-line-a-law-and-u-law-conversion-routines.html",
+      "sha256": "1e68ebcf9fa4dcdac4dd4a4b4e811fb670d430b7b5049d9637e6c8aa7371b76f",
+      "size": 17655,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-in-line-a-law-and-u-law-conversion-routines.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-ink-stroke-modeler.html",
+      "sha256": "d02590f55451d014add234315adfdcfdcd0b50fbb08165a3056c1d7f30b6afa8",
+      "size": 28299,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-ink-stroke-modeler.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-ink.html",
+      "sha256": "7012057d07c937e69da0354fc91df94d89bbdf31e5ae4c0ab4703e441c9b8782",
+      "size": 28213,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-ink.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-inspector-protocol.html",
+      "sha256": "85593bfc00e58dde0b9f088de1c1ec084869dff3e20882f7c4908186c68ed21a",
+      "size": 18673,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-inspector-protocol.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-intl-messageformat.html",
+      "sha256": "a940439c41df5ca19bc344b7ec39fcf135e6c74f7d93a16cccbbd1dc42249e2c",
+      "size": 18652,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-intl-messageformat.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-ipcz.html",
+      "sha256": "d90199b48db90ef613d04cb711c3a7b84244ebe5e5f275ec7ecaecacc63930d4",
+      "size": 18576,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-ipcz.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-json5.html",
+      "sha256": "27f2b3a75d1a3eef908319eb87239314781774b4465a4d381587608a4f9f6402",
+      "size": 18175,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-json5.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-jsoncpp.html",
+      "sha256": "91eba0c389e1b4bffb7547dc7b95a56a3ff2a9924fdbb29a63b4bbf87b67f10f",
+      "size": 19743,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-jsoncpp.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-legacy-javascript.html",
+      "sha256": "756025fb451b0c263272768493f0e381aa3667b4e1aaa660efa359ed3ff067b3",
+      "size": 28325,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-legacy-javascript.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-leveldb-a-fast-persistent-key-value-store.html",
+      "sha256": "2fdf87ac9b46c8ee5df752670500eb24beadd788204a2132464c383e6de7f6fc",
+      "size": 18697,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-leveldb-a-fast-persistent-key-value-store.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-libaddressinput.html",
+      "sha256": "ed0368f8ee395ba681f5bb502136aeb1e29f29c188967535cb5bf76353261478",
+      "size": 28281,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-libaddressinput.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-libavif-library-for-encoding-and-decoding-avif-files.html",
+      "sha256": "482daf4c726aee814b3b0f8c7452cf184021eaccc6a9dbdbc59e77fc6c2c3632",
+      "size": 38276,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-libavif-library-for-encoding-and-decoding-avif-files.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-libgav1.html",
+      "sha256": "6a0b7be43d40328149f6619a60e7cb5901873fc0a0ce5147186d3e4759573eb2",
+      "size": 28249,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-libgav1.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-libpng.html",
+      "sha256": "23347e420370eff501fd44299d768de44fe5a5134e600b851c625e750c96715f",
+      "size": 22437,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-libpng.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-libsrtp.html",
+      "sha256": "5724350fc4b3ea060c461df85744cf08ffcab4742c55b1485114f5c580b63793",
+      "size": 18642,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-libsrtp.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-libtess2.html",
+      "sha256": "18c9981f0cad07e49eb28a6e28826197d21bbd0055483228f7957fd7bb1d4bca",
+      "size": 18631,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-libtess2.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-libvpx.html",
+      "sha256": "3f7d2b866241bbb944769b10eb33f449da4d9c4a4d2e4aad786c7d69be3118ce",
+      "size": 20055,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-libvpx.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-libxml.html",
+      "sha256": "6f4c4409607591a4282060488efd0c26bdcad055ea81fc47181636f2d5285382",
+      "size": 18337,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-libxml.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-libxslt.html",
+      "sha256": "f3077595439aa28727027ff0b5dcf83e0249c53aa11393a48149b0566b2bae53",
+      "size": 20037,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-libxslt.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-libyuv.html",
+      "sha256": "6a279fe3594ffbfe8a0f2dcc4fb304667ac79b3bb732de12c70e6d97e43817a6",
+      "size": 18550,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-libyuv.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-lighthouse-i18n-js.html",
+      "sha256": "d0840602dad1820e9b9f41bd30d100fde94425bbd2c94913fc5814919660a89d",
+      "size": 28281,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-lighthouse-i18n-js.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-lighthouse.html",
+      "sha256": "b21eda69b71deb8658d4fd78a91365d4c0840d09c8f5d7f5a9768c6e3d75ee78",
+      "size": 28249,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-lighthouse.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-lit.html",
+      "sha256": "ffb80a7d637a1bf26b7b77b3d7930aa8a3c18d96179223ba200410e7476197bb",
+      "size": 18514,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-lit.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-lzma-sdk.html",
+      "sha256": "f22d086e3a2643b4ff1bd756aaf85f6b43358d519a524dbd3869c8b39b7bb6aa",
+      "size": 17280,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-lzma-sdk.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-marked.html",
+      "sha256": "961b36c009b20d7db8d22f487ab2f7c35768ad5d9d250216b0faa4f13162cc46",
+      "size": 19671,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-marked.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-material-color-utilities.html",
+      "sha256": "d0fd782b1123548d1c258f795f1742ceff295a2dc11a1bf62b6aad65d5a4d2d5",
+      "size": 28348,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-material-color-utilities.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-metrics-protos.html",
+      "sha256": "e0deb767f99cd6a683ff8a99b4821113210d0f1474bf3f770b58093d0d8d7a61",
+      "size": 18574,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-metrics-protos.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-minigbm.html",
+      "sha256": "e92dd865c85f8733ce5e6d9fa53e5be67a7f7979494e9c9ca4050d090074cae6",
+      "size": 18624,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-minigbm.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-mitt.html",
+      "sha256": "8d992a8fb66453b57d6a1307f7341db1f185c12a3a9250b7e89ddc151c773928",
+      "size": 18097,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-mitt.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-modp-base64-decoder.html",
+      "sha256": "b1ed70e16caaa86b618b87651c76ce17ef85cf4276b45be392b2871cec098e4a",
+      "size": 18790,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-modp-base64-decoder.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-nvidia-control-x-extension-library.html",
+      "sha256": "b816b5cea66790efc3c62edf541d261d9a37c121f28f2a18cab6a149aa142657",
+      "size": 18360,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-nvidia-control-x-extension-library.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-one-euro-filter.html",
+      "sha256": "a3e37fe1ccd4f94e7c16a9be0305aaa37742458aaeb4e9a0306265485281203d",
+      "size": 18644,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-one-euro-filter.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-opus.html",
+      "sha256": "3b9ecc3141b5ff189a1a9d07dd8445e09633fcdffd61ad914fefc66d7d31629f",
+      "size": 18976,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-opus.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-ots-opentype-sanitizer.html",
+      "sha256": "ea0959e44e3a7d00ad255cfce5970be72e9b3bceb3f579c61a753c8f83e9b5a2",
+      "size": 18609,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-ots-opentype-sanitizer.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-paul-hsieh-x27-s-superfasthash.html",
+      "sha256": "f7f58aba801af279afe2fb505129a60044d64781ac5e67221e1a16538ce3603e",
+      "size": 18700,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-paul-hsieh-x27-s-superfasthash.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-pdfium.html",
+      "sha256": "c883f94be9979746c2287444e36e558c68b8aa7a178252dbdfe7b18c06166a03",
+      "size": 30291,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-pdfium.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-perfetto.html",
+      "sha256": "435b733d563201a6bd9375bc9ee6fd5e70dede3983d54402225017e7b5b47acd",
+      "size": 31588,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-perfetto.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-pffft-a-pretty-fast-fft.html",
+      "sha256": "e6bc1ea15f45f2d55fdcf06e0b91186247a833ecaf1c06eddea8e96a25f50f68",
+      "size": 19076,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-pffft-a-pretty-fast-fft.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-polymer.html",
+      "sha256": "48332ae7ae16a27d8ff0b9bce3dbb78bc1cbdd0a7631b846633ec53cae210c62",
+      "size": 18606,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-polymer.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-private-join-and-compute-subset.html",
+      "sha256": "d5c09c56eb6c37af70ebac17f55f5214ab1284b408ef06b5c101ec8f3f20ba29",
+      "size": 28370,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-private-join-and-compute-subset.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-protocol-buffers-javascript.html",
+      "sha256": "59766af34ed8a85c53b51c75fda4d493ebafa8d4b0fddfb8bd99ec43de0cc903",
+      "size": 18684,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-protocol-buffers-javascript.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-protocol-buffers.html",
+      "sha256": "23c6924b3dc0e818cf03b5487c59bff46d8c1679977ce8cf6e744266f8a7a12f",
+      "size": 18812,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-protocol-buffers.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-puppeteer-core.html",
+      "sha256": "7b27fb495f02780adb16f7ebf327c9e48d674350441b39a90fdc2e3d3af79d5b",
+      "size": 28293,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-puppeteer-core.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-puppeteer-replay.html",
+      "sha256": "6378d814ffd450bdff90fe0110527dd185659790f45967045f05ac9df6ed67f7",
+      "size": 28285,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-puppeteer-replay.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-quiche.html",
+      "sha256": "fdc547a90ecda7b1be75788aa7cae8313f045eb99a58192078244906a0250bfa",
+      "size": 18593,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-quiche.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-rapidhash.html",
+      "sha256": "bfc6e3fa03f389306c4054381f2edf2cb3ca4d523ddd838a9d4f642ba53dd8e2",
+      "size": 18810,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-rapidhash.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-re2-an-efficient-principled-regular-expression-library.html",
+      "sha256": "67edc34c19b712283e62a4ac6f9c407a21ed283b805686a703cf23e572aca476",
+      "size": 18838,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-re2-an-efficient-principled-regular-expression-library.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-recurrent-neural-network-for-audio-noise-reduction.html",
+      "sha256": "1d3214045c29b42a098909e0907a3dc37d31931f8b132e9d2cab7b36dcf9d6b4",
+      "size": 18828,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-recurrent-neural-network-for-audio-noise-reduction.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-search-engines-resources.html",
+      "sha256": "9d4f3d8858c96dd1acdd0b6faf5477de972c6f57b5c4d06f6ed98f25cd3a3125",
+      "size": 18623,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-search-engines-resources.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-selenium-atoms.html",
+      "sha256": "032f2bcc326798d6f48256d38be3218b42f50de88990cb862176d3a6868cd897",
+      "size": 28291,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-selenium-atoms.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-simdutf-unicode-transcoder.html",
+      "sha256": "63d15ff520874983241893c08cd47df89691f2f8716abecf7cae4520cab88889",
+      "size": 18198,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-simdutf-unicode-transcoder.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-sizzle.html",
+      "sha256": "7fe41b8d8532f9ceef574f387dc40f6a5ec99cb33ff8eb6d9a64b3c037822051",
+      "size": 18098,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-sizzle.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-snappy-a-fast-compressor-decompressor.html",
+      "sha256": "c4b5fe4713bd28b78693d653f297fa79116cd2142f56b87b709e527eb4f73da2",
+      "size": 19859,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-snappy-a-fast-compressor-decompressor.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-source-map-scopes-codec.html",
+      "sha256": "4f4e53b8272873456fa268a4703866d8aaae24c3f60dafdcea1301bb44299d4b",
+      "size": 18618,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-source-map-scopes-codec.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-speech-dispatcher.html",
+      "sha256": "6527a96407b324b515292d05240f98fb47fa548a6865a3e17dea97e68a2e355b",
+      "size": 44109,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-speech-dispatcher.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-spir-v-headers.html",
+      "sha256": "ef2a2a36786298bc8881a2b7cbd6a51556c01a32455cd561bd2ea69c85608ad0",
+      "size": 28284,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-spir-v-headers.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-spir-v-tools.html",
+      "sha256": "6ff47af396525c5bf8a78b13e2d8bfa7525416945fd104016d9a233d2f6c9a13",
+      "size": 28272,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-spir-v-tools.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-spl-sqrt-floor.html",
+      "sha256": "a095c8215c03a7f5a19c427c346eaf04d9f6b76c43a50d9786910e0bf3106909",
+      "size": 18054,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-spl-sqrt-floor.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-sqlite.html",
+      "sha256": "f09fd78dde48e76ed8002e42d5dd2ae2db9d3f3343019e0da50b9e75fbab5af5",
+      "size": 17260,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-sqlite.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-the-chromium-project.html",
+      "sha256": "69bf9c6fd939aa40bbf04997f7c8b0bf7a1c54f4e7697e75a40325aec04d58c9",
+      "size": 18689,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-the-chromium-project.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-the-diff-match-and-patch-libraries-offer-robust-algorithms-to-perform-the-operations-required-for-synchronizing-plain-text.html",
+      "sha256": "99bc696a8fc19dd61560b57cd83eb47cfa4b14ab03f426750a9d789f3fb0c1e8",
+      "size": 28845,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-the-diff-match-and-patch-libraries-offer-robust-algorithms-to-perform-the-operations-required-for-synchronizing-plain-text.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-the-itu-g-722-codec-encode-and-decode-part.html",
+      "sha256": "4062500d83ae8f58225c024c1861d54efa0cbd98f3649731edb4bc9d5de743a3",
+      "size": 17842,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-the-itu-g-722-codec-encode-and-decode-part.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-third-party-web.html",
+      "sha256": "cef279a11d236c3725477e449e2ebafd938f80c31357e4e9faf20ed928b7c16a",
+      "size": 18176,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-third-party-web.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-uri-template-parser.html",
+      "sha256": "ebbe1fc24398404a51c955f9dbc4a14e24747391716e611a712525800e1c431b",
+      "size": 28308,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-uri-template-parser.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-url-pattern-library.html",
+      "sha256": "3693e0a6a0366e381c0e1b97c995dd2efcd4aad7ac8e5b405a19f61591b6ac99",
+      "size": 18210,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-url-pattern-library.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-v8-fork-of-fdlibm.html",
+      "sha256": "33b7dfee897eac3e7fa3d3de63416c758e01e4d1dbc8dd41d1db90fc8ad68aa6",
+      "size": 17358,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-v8-fork-of-fdlibm.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-volk-meta-loader-for-vulkan-api.html",
+      "sha256": "78d64b06f0ee844c7f40273a4df818816370ca32e8712dd693e21dc35441028e",
+      "size": 18224,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-volk-meta-loader-for-vulkan-api.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-vscode-web-custom-data.html",
+      "sha256": "41e0ffafc009632e2a73025cc96fe3d70b44636daf9f8c2eb901d75b5efc4e9b",
+      "size": 18210,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-vscode-web-custom-data.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-vulkan-api-headers.html",
+      "sha256": "b957a8bd35d63cc6929240914cf867f4a90cb804187febdaefe61e69fb6aff4f",
+      "size": 28301,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-vulkan-api-headers.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-vulkan-loader-components.html",
+      "sha256": "ec471cde781ab0a0aaaabf2cdb3e303a8c80d0f05e379c0e7efde155224dcd0e",
+      "size": 29159,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-vulkan-loader-components.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-vulkanmemoryallocator.html",
+      "sha256": "d915c42378187d266ab8fec9dfa4e75747aea2cabef60a1d41b3353d6a24e571",
+      "size": 18244,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-vulkanmemoryallocator.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-wasmparser.html",
+      "sha256": "4e5a0ccb2abaf5c71bdf4b60ccd918fd40f99ad6ce5711838b4d30a9e0e7f483",
+      "size": 27042,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-wasmparser.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-web-vitals.html",
+      "sha256": "cef00523c0e229765df22ec124a5ff57e3f87a548fa6f6db98e58ee3c47cb1cd",
+      "size": 28241,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-web-vitals.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-webkit.html",
+      "sha256": "83cbbe47eb41ba29fa525be03089d7952496a1bc8fcbcb3839fef308ced95a60",
+      "size": 69316,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-webkit.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-webm-container-parser-and-writer.html",
+      "sha256": "6bb15e064aac35805866c346d41603eccd3107b684713f231a2bc9c5f1b32745",
+      "size": 20137,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-webm-container-parser-and-writer.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-webp-image-encoder-decoder.html",
+      "sha256": "fef7fbe0c9493956593b1a0ada4dda79530d2fcb096d4950b31c5754acbbd083",
+      "size": 20102,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-webp-image-encoder-decoder.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-webrtc.html",
+      "sha256": "c10fcd0f962e0ea301e0ae11d793f848d3187b48758dacec46285435917143da",
+      "size": 18519,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-webrtc.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-wicked-good-xpath.html",
+      "sha256": "65d85accea6708bf91444fe70a03fc0c8e5d5ad96ab72ae4535c0af6d640cb27",
+      "size": 18212,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-wicked-good-xpath.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-woff2.html",
+      "sha256": "94a7cd1bb471d10f3c5a07d0a7e98a228ceedb662fe733a4687177f51fbc087d",
+      "size": 18102,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-woff2.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-wuffs-wrangling-untrusted-file-formats-safely.html",
+      "sha256": "2221b32e11f7a86b6eeb80525d15eabbac3f922212f9c77b58cc8b124898cef6",
+      "size": 28448,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-wuffs-wrangling-untrusted-file-formats-safely.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-xdg-user-dirs.html",
+      "sha256": "1bd87cba7b729b773c3f2b5ecd748f7c97458417ba9ff3eafc1ecad2fea99a3c",
+      "size": 18150,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-xdg-user-dirs.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-zlib.html",
+      "sha256": "ca20b58a64fa9cf040725be87650f23041efe50e7f0ada8b9e96cf63a758cba0",
+      "size": 17904,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-zlib.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-zod.html",
+      "sha256": "d2c8480102e3ed6a3272373750667bca9dfe3c85d58dd402ddc79c8137030b1f",
+      "size": 18067,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-zod.html"
+    },
+    {
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-zstandard.html",
+      "sha256": "393ccc79c45162c4782abb269f5db22a2b25b58e11efa20102498a4b3c15d148",
+      "size": 18592,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-zstandard.html"
+    },
+    {
+      "path": "Qt-6.11.2/licenses-used-in-qt.html",
+      "sha256": "22527567a5432951bc76438b77962ff90cd7bc09797dd8e0929fa70f2cb125cf",
+      "size": 100163,
+      "source_url": "https://doc.qt.io/qt-6.11/licenses-used-in-qt.html"
+    },
+    {
+      "path": "Qt-6.11.2/licensing.html",
+      "sha256": "a18411b58d96f15ded33e93032bb0b65b92ca334eefbaabd2e50374425938b5e",
+      "size": 24113,
+      "source_url": "https://doc.qt.io/qt-6.11/licensing.html"
+    },
+    {
+      "path": "Qt-6.11.2/qtwebengine-licensing.html",
+      "sha256": "dc3fc4a73cce79c1070d9b5f752907e629ddb3f1b5b828103a01dbc9ab99d1e7",
+      "size": 59384,
+      "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-licensing.html"
+    },
+    {
+      "path": "Qt-6.11.2/sbom.html",
+      "sha256": "ba8d6cf1dc03fe18e0d1f8763fd9acb410ff598582a35005e5d22776a25d778b",
+      "size": 40913,
+      "source_url": "https://doc.qt.io/qt-6.11/sbom.html"
+    },
+    {
+      "path": "Qt-6.11.2/source-archives/qtbase-everywhere-src-6.11.2.tar.xz.sha256",
+      "sha256": "4d6fb6ed17d89b879abd45ee79f0db1b9ae5c9ef3dd6a50f35a2a69818ca083d",
+      "size": 102,
+      "source_url": "https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtbase-everywhere-src-6.11.2.tar.xz.sha256"
+    },
+    {
+      "path": "Qt-6.11.2/source-archives/qtdeclarative-everywhere-src-6.11.2.tar.xz.sha256",
+      "sha256": "e087c2c00bba2d7abfdfe8beeec63c452c046e87048548c19d02c1ae8fd08808",
+      "size": 109,
+      "source_url": "https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtdeclarative-everywhere-src-6.11.2.tar.xz.sha256"
+    },
+    {
+      "path": "Qt-6.11.2/source-archives/qtimageformats-everywhere-src-6.11.2.tar.xz.sha256",
+      "sha256": "fe68c9c382d8b8ebd51f8bea9a2f157c3b4270f80b6c8397437ef884881a4da2",
+      "size": 110,
+      "source_url": "https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtimageformats-everywhere-src-6.11.2.tar.xz.sha256"
+    },
+    {
+      "path": "Qt-6.11.2/source-archives/qtpositioning-everywhere-src-6.11.2.tar.xz.sha256",
+      "sha256": "270769f35fdfae8c9e11def54df08b8d69d30d183b7a460bd025f5b7f834d127",
+      "size": 109,
+      "source_url": "https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtpositioning-everywhere-src-6.11.2.tar.xz.sha256"
+    },
+    {
+      "path": "Qt-6.11.2/source-archives/qtwebchannel-everywhere-src-6.11.2.tar.xz.sha256",
+      "sha256": "ade76bc69756b7d9076cbb3a6e9642f45821564f8a1142de005debc60ed7a8fe",
+      "size": 108,
+      "source_url": "https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtwebchannel-everywhere-src-6.11.2.tar.xz.sha256"
+    },
+    {
+      "path": "Qt-6.11.2/source-archives/qtwebengine-everywhere-src-6.11.2.tar.xz.sha256",
+      "sha256": "e4359af195c681fcc46d61c085b6832661c6b3b83399537d25ed30cf8d296233",
+      "size": 107,
+      "source_url": "https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtwebengine-everywhere-src-6.11.2.tar.xz.sha256"
+    },
+    {
+      "path": "Schemas/OpenVEX-0.2.0.schema.json",
+      "sha256": "9373597734ed1d3ea5161a8b46d3866c4a8cfe76fd632fdd16aef01fb34b3238",
+      "size": 12659,
+      "source_url": "https://raw.githubusercontent.com/openvex/spec/a68ccd19b15a9604d28ef66ebf33f27a772ba4ec/openvex_json_schema.json"
+    },
+    {
+      "path": "Schemas/SPDX-2.3.schema.json",
+      "sha256": "239208b7ac287b3cf5d9a9af23f9d69863971102a5e1587a27a398b43490b89b",
+      "size": 45312,
+      "source_url": "https://raw.githubusercontent.com/spdx/spdx-spec/v2.3/schemas/spdx-schema.json"
+    },
+    {
+      "path": "Security/OpenSSL-3.0-vulnerabilities.html",
+      "sha256": "9d0388093f97c52ffb693b12493218b926f6254fecea192fd8741bc486682b9b",
+      "size": 296615,
+      "source_url": "https://www.openssl-library.org/news/vulnerabilities-3.0/index.html"
+    }
+  ],
+  "schema_version": 2
+}

@@ -1,0 +1,4272 @@
+{
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "creationInfo": {
+    "created": "2026-08-29T00:00:00Z",
+    "creators": [
+      "Tool: SankakuSyncer Runtime Compliance Collector"
+    ]
+  },
+  "dataLicense": "CC0-1.0",
+  "documentNamespace": "https://github.com/aaAarJimedes/SankakuSyncer_Portable/sbom/0.1.0/d18ea812631c1c83476e3c5d",
+  "files": [
+    {
+      "SPDXID": "SPDXRef-File-asyncio.pyd-93e5a7d998a8",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "d2706f5140c9796bca1a5c8fc8c305ef5147e4e1"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "6941e2aeed3aad1a4658774ecb60309170066a040c2118a5efd16458ac3bed00"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_asyncio.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-bz2.pyd-0866227538c9",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "e2eb7b2e642de5866b597533d100848d1e1d0644"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "261545bd24f15a783fc0c82568b766a4ab569dde14507a81701cccf5293e6e54"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_bz2.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-ctypes.pyd-16629329a52d",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "962545549964c61dfbd31ab7d52ed470f7c5a9d6"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9d6dccb4cd84a44a107f9b06b91c0a44e85766d9bf4debb6abbde8fda7494c2c"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_ctypes.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-decimal.pyd-4eabb822af7d",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "de28b556f1efaeedf50edfc53dd3f0482b54c9de"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "1e6a5707163d3c103e0eb4695eefedbea4b855fb227c61cc265b168970d6c6f0"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_decimal.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-elementtree.pyd-dabe66fd8d5d",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "7d32f99b498ed0f137a13fa8073d32a586096da9"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "26c5c2f3f2b8dac1499f07a50d7afd14315c20a6a541abbe4e306bcd9df404f1"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_elementtree.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-lzma.pyd-02e1ec26d638",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "91e21fdecb5080d083df18d62b1a44e24929b1e6"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "ee224aacf5cf9c9974a1b842aac8d89d5d9b7eeebbf4d76619ae0ce4da8ecd96"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_lzma.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-multiprocessing.pyd-9a215b22498e",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "66d19b4cc7213769c9c653e638d9fb96582c829c"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "db19972cf033b598f5826f8219bc2608412b84061d294f5972b43c2ab95f7af5"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_multiprocessing.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-overlapped.pyd-7e1c8ff1c159",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "987041d5c53c0a9b1b24927c4db298cf515b9fc9"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9db08b5449e18088754ce57e315657d00b46575e0151cd379efef8847488a606"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_overlapped.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-queue.pyd-43d376b4cc3c",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "9a2e70e4106ed0b358ce9625ab1e669ece7242ec"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "4404c2569443ffb54e7cfffdca8ddf58c9a609175305970728ec12bc1c147b43"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_queue.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-socket.pyd-df577d561392",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "7c1dca1be48a41344b8eb3a0dc29af3b1d3c60d2"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "ccbd0f83df3784da08147b8e8765e28c978de28b5c0eddcfba5567b59d43fef9"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_socket.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-sqlite3.pyd-f49e7c8dd479",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "474daf8b036d0d6aeaa4394341e9bb2e231b7b38"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "4c5fa9341a76ac525fd36e2cb23260934ad9b9f6825725ff139b26c8dc72436d"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_sqlite3.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-uuid.pyd-7271a3b39831",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "76183a3b134e471dea77cde8d0c9ab1b94cbc9ab"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "b93832742a2348d6659fd62e8a8aff061594693fc537da74c7d2d1cdf83a8475"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_uuid.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-wmi.pyd-190c3726d2b9",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "79acfadd87dceaf2b222deca398afc1b6807f6d7"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "db45362354fd4965329cb14bd974e60b26525045d09fb4fdfb1674a93b79d60c"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_wmi.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-zoneinfo.pyd-329ebcbea459",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "eaa50ffe3bff506e66fcd7e7b22db04927d79837"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "6650db91accc05e625d3c5d8a40e15127a040ea1135e40e875fd78d8a7665a84"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/_zoneinfo.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-license-364106d1d6c0",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "79394673e411701e8fbcd63fca28399b04a1692d"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6-6.11.2.dist-info/licenses/LicenseRef-Qt-Commercial.txt",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-METADAT-053d105306f2",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "2842494392cf55e808e0672c81f72be8d7a7e0a7"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "bddd6d1e6f840de4ecf6464c1afe885491c76d1081c72ce30744deaa74949276"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6-6.11.2.dist-info/METADATA",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-RECORD-35827f68f3c0",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "86ec739c35433513bd9800c093541677cf9f629b"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d10dd2192623df90eb45964bbba65e1ef972caa6319dd1bd7fb033e9611e93d8"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6-6.11.2.dist-info/RECORD",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-top-lev-5a312b423ae9",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "75ce070a7b47df20de9c82eaaf590535f3bec6c9"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "7238bb33d245c78ea5937065a6507f1319a484baa83e11b30ec97ac60d21e89f"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6-6.11.2.dist-info/top_level.txt",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-WHEEL-4b14ad87b27f",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "efa57ee61ddb2a173a9469c7380033113a8a5b6b"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9526c8d29c3958609101dfed90e2a08287d73bcaf50fca46fa97b90a310280e4"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6-6.11.2.dist-info/WHEEL",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-init-.py-b7c39de84427",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "b2900c744111187230119e57c439f64d2f950010"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "bf8ddd12eae52e8508f295d80459bb3478a015a663892850c74126812e12b7db"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/__init__.py",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-config.py-509cd514def9",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "59c0478a3421c5c8c126c19db3787555edcb9b51"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "833e9597f18cf5b9c3b41646e291a84aa2f0382275dcf0e10ee9ddb05117f200"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/_config.py",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-git-pyside-version.py-d5acc58c14ba",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "fe15814a7d20cbfb9b31122d1c03cec9a243febf"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "71d227739736ff54b5fb425c291fdc5d199f4b4f0a3e74b25a06c6c9b62799cf"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/_git_pyside_version.py",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-msvcp140.dll-9cb9000cb2d0",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "a21d08aa4161a9afd4a9fa49c5d42c284f964ce3"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "4c667b706893593812cd111b369ba6a77f54d1f1b1ae87cf3bf37692663cfba2"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/msvcp140.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-msvcp140-1.dll-af36d5d5a19a",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "8b1d2d92d9bab5af2dfd861c3028a03208f89fd0"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d419d24b0a76366f5c9d908b0e45fe70e9e9154bb8ad5f3de42070f2337f857b"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/msvcp140_1.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-msvcp140-2.dll-b33d4b854bdc",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "dab38fb397f538c2d5fa0125cca52ac6b3157cf0"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "89917964abb6ca16a260cab258e180c3abc239b5af00eed659d0edf0efdd339c"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/msvcp140_2.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-opengl32sw.dll-c4369c84468d",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "c2ff10edf65fa3cbfff348fa012417abd32fb18e"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "34b444c016289b560662ff896deceb7f4b2c0723aed3d319ae167c9186ce42b3"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/opengl32sw.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-plugins-imageformats-qgi-ba8f49374f33",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "6a195f900831abff2efd768031a460939a0869c5"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d301d7e9a68327692e4c76faa6b125517730b22c68f4de7f09fda9d4ac0ddee1"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/plugins/imageformats/qgif.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-plugins-imageformats-qic-4bc741911e97",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "ce9368db51b01df16547d5439c9d221a18ef969f"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "1684fd56f1758167f7b3ac011264ae5859b3cf6113e381626ec3dc1d3122fe52"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/plugins/imageformats/qico.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-plugins-imageformats-qjp-3bab825a936c",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "92265f9328d8e09c2906e872396c54741d5adcd4"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "6517345ac19f5c489daeadc029d0018bbdc09d8e1031c60d714557972f22c6d4"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/plugins/imageformats/qjpeg.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-plugins-imageformats-qwe-a7f38e8d0276",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "207c486e11aa8053646390e784a72177a0ce064f"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "6b2c53cc4423140c29a6a1eb6dd908016e09d794b5739a05a3a39c8c49a0df8a"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/plugins/imageformats/qwebp.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-plugins-networkinformati-cb4c2017a278",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "142202fcdfc5c3e0b58e021ad6b0aa8cd73f5990"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e571a4b4e582738cd1bc4889cb2896635c2543baff408442701b6706a1b4a86e"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/plugins/networkinformation/qnetworklistmanager.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-plugins-platforms-qminim-48490d8ddf74",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "d1264586bde00deed03a1ba0dbe78847cb80d56a"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "768a9c6dbb1c86abbefa2ff9d7e98cdfb4fdc9292eb8d64195bb6d23939a5344"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/plugins/platforms/qminimal.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-plugins-platforms-qoffsc-57d615af90a8",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "a09f3c0f2df27727021ba418ab3d5857bf4b10e8"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e776251668440169ed18a2fe1b236762d514ef5244639cbb559b5a77ddd38954"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/plugins/platforms/qoffscreen.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-plugins-platforms-qwindo-74982a70bc31",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "0eaddb1230482d9cd2dc59c2d2f7d94364ef99d9"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "bf6dbc3009f386fa22f0ced560bea6bbf3e0e0b4442d2fb855db67cffce49dbf"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/plugins/platforms/qwindows.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-plugins-styles-qmodernwi-7e2684be9de5",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "596b10110330c4d6a6e5c471216be90851f21bf6"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "a7a6424c23bf371bd28a404a196b210971726f6f2a87b63aac185a5e6e40da71"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/plugins/styles/qmodernwindowsstyle.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-plugins-tls-qcertonlybac-9147d1869fe1",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "0199a5a374252a23975acdf1cf7cc3237160e21a"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "67be4d333a0f489d02714169a6ec54eaa80efa649d733fcbeb81881ecb02b4f3"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/plugins/tls/qcertonlybackend.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-plugins-tls-qschannelbac-a975f24b632e",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "5e9372aba93c766944cdea4db1c269fa4dd82a03"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "14abc5b245c0f2e03f7bc0b474a8db2ecb441c7300a8a8b16fb865eaf2674619"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/plugins/tls/qschannelbackend.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-pyside6.abi3.dll-5f43ba92c694",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "4dd45ac8b7e6bf414c5079e7fbe6ffa3de35a0c6"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d0b5c701fb3a8ea839e72b602058f3960935156ebeca084893c54c99e54dd707"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/pyside6.abi3.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Core.dll-9f36b8074eb4",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "a4e82f844dfafee08fbe3079cfabad47f980753d"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d6a3c37c5263c5d418fc0e80b722bc9fca7c0859e6f635f9624a2fde00bdc653"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6Core.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Gui.dll-94de449990b7",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "df5d61fa2063c80671f3ae17df8df474e2022043"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "ae29b005f51b6850bf57fa06fced0dc8c7039fd6fafc3bfbcfe76e38adc7abf1"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6Gui.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Network.dll-353e3765a2e8",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "c9b9e8726df6be50cf16c6227a91b4050db6c2c0"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "dd3512d1c5ed062d30c98426cd0a850f13e0cf31437afb5b0b474132b9c52922"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6Network.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6OpenGL.dll-810bc97df09e",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "3d9c2b6af84ba505a58a0bae8148e8b171c98fc4"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d51088f16db8c96dba7ef3c1474e611adb3ebdb211fea35b8e755d2a7407f7ad"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6OpenGL.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Positioning.dll-cc0a6ee7723a",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "7fd6b392aa640754b17ffb73b48c3bdc6aa61c73"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "cc8e780dc080292ec8aee7e1a2c9661d14a344b5fd92f22cadcd82ab02245c59"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6Positioning.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6PrintSupport.dll-5273170ed9bd",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "174a52eced7b0370ba37ca097fede123e5f405a2"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "fccd235e7ceabb9ff7bb8c185b238bcb5cb553b2ef3894308adbab0fb4862b2f"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6PrintSupport.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Qml.dll-ad5adb101bcb",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "0f29bc97d8cbc6aa639c88427a1b560b4c00e166"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "514fc8d9ff0754d2bcb446bbe0f6cc421213d92c8c1870e4cf787e4e176d51f6"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6Qml.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6QmlMeta.dll-b0502c876936",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "9dc8d2210e43be44f6d5da8c42b99a4f45330c55"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c6e8b02ad52e01e0e865a085b629b08629fbe5c68146425d4cefdcaaef7a8462"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6QmlMeta.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6QmlModels.dll-4a5a8c6b7471",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "77a95260c6894500329e0016b146058b6fd31881"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "066e72ad668ff02dcf530805d071313f9e89d9f1fb49a522aa4ed52712741bf2"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6QmlModels.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6QmlWorkerScript.dll-f549075ac41c",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "b871e71a6947fb6c76978eb187976e57c7090992"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c037ab72fb9c1c1ebbe47f70b8a35d440537765ef6207424aae0c16fea26eda1"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6QmlWorkerScript.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Quick.dll-026124d2434b",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "e79fb8c70f1243f8c8a9620b3bb758f5eef9a35f"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "900a493625af1f7d9fe6071b9aaee15e560cc7afc122702656723539ed81975f"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6Quick.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6QuickWidgets.dll-f5d3941b56f2",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "5c09aded788c28c3eed8a3d9f8f21b8844d45336"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "796cb30b50fb6f08c99658925a907ba8b3c4d042c8b85200d28fa9ab7ead9cff"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6QuickWidgets.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6WebChannel.dll-d1d75412458b",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "be92027a09429038c632900b9a5a2160628e37fe"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "3c47f91df0b64bf178c56445b1bd4c6299b7d147b7d3765d51cf886c7eec7566"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6WebChannel.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6WebEngineCore.dll-4038ae6cfae3",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "935999288f5fb1039d05506d21127791ca1adf79"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "0f80260d95d1dda217da75121f3caf5e2bacc765305c31426093d82088f2c2b2"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6WebEngineCore.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6WebEngineWidgets.dll-7bcb77294bf5",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "f6728d8d08617d23a35dd4a38a5f8ba8559c889f"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "86e5edd73d769a44588a8a5b4323fa04c1a2b34a9b0f05007c7053fb746ac03e"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6WebEngineWidgets.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Widgets.dll-bc3cf2089941",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "ffd8d0bd099c9a655c9505c71e9ba8893a3c93d6"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "ff0df9e2e6827e035f0731a4cedfc6333f4602bca00775e56346f27032406b74"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/Qt6Widgets.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-QtCore.pyd-1f2c88e77655",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "739cd6c0e00f5bd5f914d48d423de86270464587"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "74f96322c5e9cea73aefd2ed5870e5275336b31f552fcd32f12fc81d23f1bc6f"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/QtCore.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-QtGui.pyd-1a735321f14b",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "ee8966c84cfca7dad8104f7218ec2f837e11c818"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "7bef20046045199c037b7cbfedaa1c5464730fa948b2c9ec8afbf718e63774d4"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/QtGui.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-QtNetwork.pyd-e61f0f1251ff",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "f58080b24791c543ee9016899c8112f9e44fe1f0"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c5038bb71fc9d57330fa2d8eeec65aab69fcf02687cc8f54dbfb5995cfec6a71"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/QtNetwork.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-QtPrintSupport.pyd-eec59823d184",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "cc6fd419ebb1ce9b37759e1578cfc8c959a61abe"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "5c4671afb67b53533848ad43d2f58e128b1603309cd89cb8eb11329d234b8e70"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/QtPrintSupport.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-QtWebChannel.pyd-9c535bf28ca2",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "dcff19547643b3f76d2c067cd59dfdd4b673e428"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "acb4e5f77f967c0c75d62fdaee1ca28402113ae853b173b236afda9526556d04"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/QtWebChannel.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-QtWebEngineCore.pyd-6c8cf6886df9",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "c4d5bf0d5b679456a5cd5a5671762f81e6122a36"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "ec22d4cfa84677cd0903f07225fa8f1c3a523046e5fc7a7cd521a0f77591c963"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/QtWebEngineCore.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-QtWebEngineProcess.exe-68908c3fe06a",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "798440e69e089bfdd599e40b3bf5a7059c8bc77e"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "408aaa8ba7fbf3e246cd0a85f4dcedb49634b1ca9070cf97b5f701bb6a5a4693"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/QtWebEngineProcess.exe",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-QtWebEngineWidgets.pyd-1404fce3f004",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "97f0ca696c21cde18b68ad4af918307b751250e1"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "b240206826d00603975c05278f40bf3d3bbbe644055ca4d131dbd5ecb9156258"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/QtWebEngineWidgets.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-QtWidgets.pyd-3a6e8d4c149f",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "1fcf8a610e4c35f24e858de70d0e7489900688d1"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "f12f4ca641998e5706d5f7b0023147d573f0f2d2361e26dadf31bdbf05fbfd1d"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/QtWidgets.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-resources-icudtl.dat-e7df28b6e638",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "aab98edda310e6ddd3e4b71f95b6225c4defa7fc"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "5070de99fbd8a48378543511fb7a072f85bf36f94b4f4e1d420d54be1435d6f1"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/resources/icudtl.dat",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-resources-qtwebengine-de-16b4c9bfce45",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "63be438a0997ccff74efd2dd860ec286cd9a3cc4"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d6c2acb3088f2d5b640ec60db13939a03ef63c79dd4898f614ae61743225f040"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/resources/qtwebengine_devtools_resources.pak",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-resources-qtwebengine-re-a6f84c14ff36",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "cfabdad98f226561eadd0eea7b9f218e65017d1e"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "08fb7df0f298bb74e06dc623970b5179156910300762e5e4ead73232589dbcff"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/resources/qtwebengine_resources.pak",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-resources-qtwebengine-re-fb6e0457309d",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "e60990caaad13b44881fc45539a174314c5cbbaf"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "bcb53a053fe3c3f9e00d80f7da01e2eb77777e993271425a79e5115735da1cdb"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/resources/qtwebengine_resources_100p.pak",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-resources-qtwebengine-re-c8c1a28ab090",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "22a63e4cabb2be54c9d9ddcb78a246d0c7df9d19"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "aaef9ae44bf93ed1c7537cfba76b9a1a738a33e9f25ff5f466f23722ba971aa3"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/resources/qtwebengine_resources_200p.pak",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-resources-v8-context-sna-d607e7dcad9b",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "eadffbf58f8d5cd8a82e20624c250a13e72e867e"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "f21953533647ab5a79c155aeb22d7b6953cfcb31c8857896983e62cfe9461080"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/resources/v8_context_snapshot.bin",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-translations-qtwebengine-996bc9dae1e5",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "18feb54db355d696cdf7258ea6d217b5742e4860"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "3d3967a20a78e66e73bd5293f431e8cd2f08a3275594d9e8aaa998e4b42e6e13"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/translations/qtwebengine_locales/en-US.pak",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-translations-qtwebengine-65500aa0953a",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "f7a256fcfca5fe79b0e055d93197740bb58e03f6"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "10263179b8a0a6730945120098b48c817aae66e40d1973eec1f4d85c069efcc6"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/translations/qtwebengine_locales/zh-CN.pak",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-translations-qtwebengine-18caf33a39c0",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "5d164ccbed78bc58fd0fb63782d88d358d723411"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "3b9d21dd8324c4fcc123974cb9c821d9e0b20e6ce694c2d1a3505679b36ebaee"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/translations/qtwebengine_locales/zh-TW.pak",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-vcruntime140.dll-472e5ee7d442",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "1752bf995a7d6d88d5079b9a3ec110df51620782"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "f893ae75a1a24eea174d982f94bc80ce2448201eaa919a73c0653a5657685de4"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/vcruntime140.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-PySide6-vcruntime140-1.dll-5b922a20cad9",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "d144d436e16d5132a0056195ff211fc880e700fe"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "48aa2783793ea18ab3c2c71d420d4fff9814e662a1ff810053c6e5250061a716"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/PySide6/vcruntime140_1.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--9d1833447c54",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "79394673e411701e8fbcd63fca28399b04a1692d"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6_addons-6.11.2.dist-info/licenses/LicenseRef-Qt-Commercial.txt",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--b250a1aa8d2d",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "c53849eca6733821a4d3e66ede1eec6c7435f966"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "6c14f94cb03f754a3d8e9ada4d726dbc08aff04d4f0b4377483f9921aa646952"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6_addons-6.11.2.dist-info/METADATA",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--ba9e63ee3d8d",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "b253930573bce93f36ee0a03959eb230c829770d"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "92112160f54427b032bb8c5be388ab2491af34bfdd2208219e251fc95757eafb"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6_addons-6.11.2.dist-info/RECORD",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--5be02b5de7d3",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "e538427eea9aa7d4feecd34411227f5935fd0fc2"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "1b74d636657e709b26a9adfa9a1d446fc19316c3c4acf1d685597ff1e1ec4e7b"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6_addons-6.11.2.dist-info/top_level.txt",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--6fd4e0f35520",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "efa57ee61ddb2a173a9469c7380033113a8a5b6b"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9526c8d29c3958609101dfed90e2a08287d73bcaf50fca46fa97b90a310280e4"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6_addons-6.11.2.dist-info/WHEEL",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-ec8102aff859",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "af8533a6c5ef77a5e36b83c1598a1474a1d40f00"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "de8a2b30890aa67ff436780aa3727318720f03fe35c44452dfab7036216b574b"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6_essentials-6.11.2.dist-info/entry_points.txt",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-634b662b7c34",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "79394673e411701e8fbcd63fca28399b04a1692d"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6_essentials-6.11.2.dist-info/licenses/LicenseRef-Qt-Commercial.txt",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-cb327d8cb89a",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "b14b934beacf97217276dcea0725e34f7694bf20"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "a9bdd4937ee837eb46e0c38f9c0ab6c59a6f788d711b96b63c726247ca7a2379"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6_essentials-6.11.2.dist-info/METADATA",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-17e1a359f7d9",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "62c4260da2e664a1936c100d0d85ca57240a8099"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "5159fa91cc4d3e5299fad21da5766fc3d1a586d1bdd894316c7f18d1e81c2d03"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6_essentials-6.11.2.dist-info/RECORD",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-37dfbf896431",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "26f9fcfecfd858527ee881e0349f6ff0ac1d31f3"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "912a30fe58b326e0b31c0fe878ee11e7e587cf2766709fc34bbf01bc87621c3f"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6_essentials-6.11.2.dist-info/top_level.txt",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-28c26de1da94",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "efa57ee61ddb2a173a9469c7380033113a8a5b6b"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9526c8d29c3958609101dfed90e2a08287d73bcaf50fca46fa97b90a310280e4"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/pyside6_essentials-6.11.2.dist-info/WHEEL",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-licen-0a49d1bfb5dc",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "79394673e411701e8fbcd63fca28399b04a1692d"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6-6.11.2.dist-info/licenses/LicenseRef-Qt-Commercial.txt",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-METAD-907d4802d4e3",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "40e46b2c1eb2b45a129523ca5c6be19137c7f8a2"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d118511674eb858e7e0666fae0de10ac79ae31800ad1215ad57285953d4ad241"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6-6.11.2.dist-info/METADATA",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-RECOR-025538331fdc",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "09fa109a9fd207fe8907cfc67296ff1427525cd7"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "433a020c5dc019bd68c014e4e77d409abb311ce8c7909ee972727942c7934955"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6-6.11.2.dist-info/RECORD",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-top-l-d2ed94bd0e25",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "a524e00bb909fc46dc2dd18d7c7594e89b9763da"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "fe5f171c4385cce9975111bacc15d22ba2d71bc044cc79fd001052305755d3df"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6-6.11.2.dist-info/top_level.txt",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-WHEEL-89d5d1bb993f",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "efa57ee61ddb2a173a9469c7380033113a8a5b6b"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9526c8d29c3958609101dfed90e2a08287d73bcaf50fca46fa97b90a310280e4"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6-6.11.2.dist-info/WHEEL",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-init-.py-90386f666ded",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "d2baee4967167f8ec23260247d65e95eee1bc77d"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "86c675af8f2d10e80222d9148d22ba625fce1844009660c3290f418b777b7855"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6/__init__.py",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-config.py-9c5dcad04133",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "573e8d9db0a8582df9b29717b51d87ce53d96dee"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "1e6467c206c0df20f867a69d006d3921be6a2d31b546c257af2c48fb2b35eedf"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6/_config.py",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-git-shiboken-module-ve-674a17f38b43",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "fe15814a7d20cbfb9b31122d1c03cec9a243febf"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "71d227739736ff54b5fb425c291fdc5d199f4b4f0a3e74b25a06c6c9b62799cf"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6/_git_shiboken_module_version.py",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-msvcp140.dll-7e53617479ae",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "c31bb1547533f01bf15de749b59ae7accc9f151b"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "fd4a8c046fa3fea9ca6132f50cf8a56cf1e783b2d3093ba5c85fa063bc6b3845"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6/msvcp140.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-Shiboken.pyd-eff109df8dd9",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "463430a1b104ac3243c2c5405b652c1eeb2f4faf"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "2f6f3a694f675b1dafdae26903191613c02866ab48e02591ae34ca1a3b1284f1"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6/Shiboken.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-shiboken6.abi3.dll-6f45617f72e9",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "fa9d041b9081c126d33ce47c00ff86018d05accf"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "de3c6b2ed5f75c9ac0de4a6844b653b3b9d09263ce68c2b5fc25a96c5c3e8469"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6/shiboken6.abi3.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-vcruntime140.dll-32814b302f99",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "5ac07ae28a5a8d36553fd13f3b593ee5aab82349"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "de617641d82eac15595d2e39394163ac33e49bb032cf2c2ea0044ed39d3675e9"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6/vcruntime140.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-Lib-site-packages-shiboken6-vcruntime140-1.dll-ce506b750eec",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "a2f3785b6faabd6d494f1fa725ae3b22e0e06981"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "fa577d54bd10a91e52472da784a619da6cf241af45f0a0c48b27e91fa0fe6104"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/Lib/site-packages/shiboken6/vcruntime140_1.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-libffi-8.dll-8b6c18f8b1e6",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "c7300975df267b1d6adcbac0ac93fd7b1ab49bd2"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "eff52743773eb550fcc6ce3efc37c85724502233b6b002a35496d828bd7b280a"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/libffi-8.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-pyexpat.pyd-024a99f80a0a",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "b105a4e5d02abdf471429872abbc7f60f49f2600"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "b9c9c5a9f52af559a7eb4e8ddfd60558185bfc7794f32840bed1747d1ec9026a"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/pyexpat.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-python.exe-f87b432c6b5d",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "4d9d259784c1cc78dcd96f63f4935c12bd524586"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "85b71d8c6ec1905935f74be0c9869aae198d00e98f39df699ec66f9c5a84cecd"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/python.exe",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-python3.dll-b5841b74a0f5",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "5590d644aada602bf0217d95a5510117d2c5f066"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "76e7fd69a01081726308317d6e502721c2ba6792b48880dc1ef649c755788db7"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/python3.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-python313.-pth-fbd165e5cf29",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "3c471798cd76b21cd524cc344230558502cf2837"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "fa801d179c6f7ed8c0fdc334b1a6306b0748a5edc0abeefb84e9c12507058fa1"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/python313._pth",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-python313.dll-4b9b2522d89a",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "6e3a63bf17c7c8c4cafe51fb648e4dd767220139"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e820bf024efd2b56bb2b82791e6b6ddc7303f070f8e72cba7637482a8a906238"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/python313.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-python313.zip-38526c0e2287",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "6be26912d6a130feda27a4313530296a219cc93a"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "1916abd946d2044ec8c04c3319f96c8415d5b6fce01e125622827f2b7756cbab"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/python313.zip",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-pythonw.exe-b87c565e22ae",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "12e22d9a28ecd778fd15f84f4cea0effd6e0ba65"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "146c01e5448a084ff15d63113a790b9aa75250baf862d984c51dd695ac4775bc"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/pythonw.exe",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-runtime-subset-manifest.sha256-a54ef6f7049d",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "28d21edeae19ea5a683bf30379ad84240d3460d7"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9be0919bd8f977ee3485d68c666a220225e1ad2889868af7e6e19ea7195dfb44"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/runtime_subset_manifest.sha256",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-runtime-subset-report.json-080acf25c23c",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "8713d7af99403fd73ffb0df255bd20323a45da93"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "b422d091793ae98442eebe9c271776ea772afd689514f9677faa7726c448d25e"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/runtime_subset_report.json",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-select.pyd-1136287103fc",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "9da39e5b883457c7d7cbeaa6e9bb8a4a81161575"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "024f955349fe46cf1bb2c22c6b57fcf38cf5755d46166fbf63e7e5b92433b111"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/select.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-sqlite3.dll-5c45bf9c7e2f",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "44000217f098f25eb96347c13b2cfe2e6187897d"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c6812eaf0f8605df273b9bf7e359b83fd65038ecc66455c3f7a933768cb92f3f"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/sqlite3.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-unicodedata.pyd-bbda458f129c",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "dbfc6979b9745ac060cc74fa4be8c3872515b488"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "111e0fdfeef9887c04f6ebf1972ce1ccbec55b226012e4a288c2d4a0b17b216b"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/unicodedata.pyd",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-vcruntime140.dll-4b166ee81ea0",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "1098f2a834146995df7a91c78f72f210d8d2d12d"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d1f4225df2cd877dbf130d5668a021dce3f94118455ff5ec952061c30afc9ce7"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/vcruntime140.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-File-vcruntime140-1.dll-8affaf33def8",
+      "checksums": [
+        {
+          "algorithm": "SHA1",
+          "checksumValue": "b7b4b6e7045caccc0f790e3395e1f514d01f6b2f"
+        },
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "a7146c08f89fe5b04541ab507cdb59ff7b44534d4ba3c668a426c6450a03434e"
+        }
+      ],
+      "copyrightText": "NOASSERTION",
+      "fileName": "./Runtime/vcruntime140_1.dll",
+      "licenseConcluded": "NOASSERTION",
+      "licenseInfoInFiles": [
+        "NOASSERTION"
+      ]
+    }
+  ],
+  "name": "SankakuSyncer-0.1.0-Windows-x64-runtime",
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d1f04d990aee1253d8569e8e5104e30fa9f5fa830899f14843448872d936a2cf"
+        }
+      ],
+      "comment": "Exact python_embed artifact: python-3.13.15-embed-amd64.zip (11009825 bytes).",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://www.python.org/ftp/python/3.13.15/python-3.13.15-embed-amd64.zip",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "PSF-2.0",
+      "name": "CPython",
+      "supplier": "NOASSERTION",
+      "versionInfo": "3.13.15"
+    },
+    {
+      "SPDXID": "SPDXRef-Artifact-pyside6-6.11.2-03125009820e",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "3201d67e3c10be2eaedd3910ff0f02351eca7e88c95a291cde5e7f2f55ef207f"
+        }
+      ],
+      "comment": "Exact wheel artifact: pyside6-6.11.2-cp310-abi3-win_amd64.whl (578382 bytes).",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://files.pythonhosted.org/packages/94/fe/4aea9d30300fff4cda9bb729c1363b9e1095a8544e0d6b57065465e16599/pyside6-6.11.2-cp310-abi3-win_amd64.whl",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "name": "PySide6",
+      "supplier": "NOASSERTION",
+      "versionInfo": "6.11.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "f449ea4431da20e7b86752cca8d166f93434516fe417f981c27e5f8e1b554407"
+        }
+      ],
+      "comment": "Exact wheel artifact: pyside6_addons-6.11.2-cp310-abi3-win_amd64.whl (168208836 bytes).",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://files.pythonhosted.org/packages/fb/c1/08bf6594101b42fc88834009f1dac59a983c5b6805c62c5081f077d09b4a/pyside6_addons-6.11.2-cp310-abi3-win_amd64.whl",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "name": "PySide6-Addons",
+      "supplier": "NOASSERTION",
+      "versionInfo": "6.11.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c8a29def77032773a30879f7f24415b5395ad08592d147c170824ef4c735dfc1"
+        }
+      ],
+      "comment": "Exact wheel artifact: pyside6_essentials-6.11.2-cp310-abi3-win_amd64.whl (76913043 bytes).",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://files.pythonhosted.org/packages/dc/09/d2662684aee4d3f027ff9b1e965f22301bc28ffc5b7f167658508e4475dc/pyside6_essentials-6.11.2-cp310-abi3-win_amd64.whl",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "name": "PySide6-Essentials",
+      "supplier": "NOASSERTION",
+      "versionInfo": "6.11.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "6ab0eba1c904455df621f9a6df3ca2bb896bab8670572d2bc4e37804ae91f19a"
+        }
+      ],
+      "comment": "Exact wheel artifact: shiboken6-6.11.2-cp310-abi3-win_amd64.whl (1226578 bytes).",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://files.pythonhosted.org/packages/ce/6b/fee1b4814317e4664e318644c9c007676c65a71e5b2b9d3ac4121a94dc0a/shiboken6-6.11.2-cp310-abi3-win_amd64.whl",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "name": "shiboken6",
+      "supplier": "NOASSERTION",
+      "versionInfo": "6.11.2"
+    },
+    {
+      "SPDXID": "SPDXRef-CPython-Native-bzip2-1.0.8-4e681d54b693",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "ab8d1b0cc087c20d4c32c0e4fcf7d0c733a95da12cedc6d63b3f0a9af07427e2"
+        }
+      ],
+      "comment": "Component and source-artifact checksum are imported from the official CPython 3.13.15 Windows embeddable artifact SPDX.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://github.com/python/cpython-source-deps/archive/refs/tags/bzip2-1.0.8.tar.gz",
+      "externalRefs": [
+        {
+          "referenceCategory": "SECURITY",
+          "referenceLocator": "cpe:2.3:a:bzip:bzip2:1.0.8:*:*:*:*:*:*:*",
+          "referenceType": "cpe23Type"
+        }
+      ],
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "bzip2",
+      "supplier": "NOASSERTION",
+      "versionInfo": "1.0.8"
+    },
+    {
+      "SPDXID": "SPDXRef-CPython-Native-expat-2.8.2-32269a88404e",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "ef7d1994f533c9e7343d6c19f31064fc8ebbcbcaa144be3812b4f43052a05f4c"
+        }
+      ],
+      "comment": "Component and source-artifact checksum are imported from the official CPython 3.13.15 Windows embeddable artifact SPDX.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://github.com/libexpat/libexpat/releases/download/R_2_8_2/expat-2.8.2.tar.gz",
+      "externalRefs": [
+        {
+          "referenceCategory": "SECURITY",
+          "referenceLocator": "cpe:2.3:a:libexpat_project:libexpat:2.8.2:*:*:*:*:*:*:*",
+          "referenceType": "cpe23Type"
+        }
+      ],
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "expat",
+      "supplier": "NOASSERTION",
+      "versionInfo": "2.8.2"
+    },
+    {
+      "SPDXID": "SPDXRef-CPython-Native-hacl-star-bb3d0dc8d9d15a5cd51094d5b69e70aa09005ff0-f66df530d32c",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e31e4ca10da91c585793c0eaf1b98aee3cb43e3a58d3d8d478593e5a6bd82927"
+        }
+      ],
+      "comment": "Component and source-artifact checksum are imported from the official CPython 3.13.15 Windows embeddable artifact SPDX.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://github.com/hacl-star/hacl-star/archive/bb3d0dc8d9d15a5cd51094d5b69e70aa09005ff0.zip",
+      "externalRefs": [
+        {
+          "referenceCategory": "SECURITY",
+          "referenceLocator": "cpe:2.3:a:hacl-star:hacl-star:bb3d0dc8d9d15a5cd51094d5b69e70aa09005ff0:*:*:*:*:*:*:*",
+          "referenceType": "cpe23Type"
+        }
+      ],
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "hacl-star",
+      "supplier": "NOASSERTION",
+      "versionInfo": "bb3d0dc8d9d15a5cd51094d5b69e70aa09005ff0"
+    },
+    {
+      "SPDXID": "SPDXRef-CPython-Native-libb2-0.98.1-a10e27f5206f",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "53626fddce753c454a3fea581cbbc7fe9bbcf0bc70416d48fdbbf5d87ef6c72e"
+        }
+      ],
+      "comment": "Component and source-artifact checksum are imported from the official CPython 3.13.15 Windows embeddable artifact SPDX.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://github.com/BLAKE2/libb2/releases/download/v0.98.1/libb2-0.98.1.tar.gz",
+      "externalRefs": [
+        {
+          "referenceCategory": "SECURITY",
+          "referenceLocator": "cpe:2.3:a:blake2:libb2:0.98.1:*:*:*:*:*:*:*",
+          "referenceType": "cpe23Type"
+        }
+      ],
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "libb2",
+      "supplier": "NOASSERTION",
+      "versionInfo": "0.98.1"
+    },
+    {
+      "SPDXID": "SPDXRef-CPython-Native-libffi-3.4.4-6decc25913a3",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "9d802681adfea27d84cae0487a785fb9caa925bdad44c401b364c59ab2b8edda"
+        }
+      ],
+      "comment": "Component and source-artifact checksum are imported from the official CPython 3.13.15 Windows embeddable artifact SPDX.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://github.com/python/cpython-source-deps/archive/refs/tags/libffi-3.4.4.tar.gz",
+      "externalRefs": [
+        {
+          "referenceCategory": "SECURITY",
+          "referenceLocator": "cpe:2.3:a:libffi_project:libffi:3.4.4:*:*:*:*:*:*:*",
+          "referenceType": "cpe23Type"
+        }
+      ],
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "libffi",
+      "supplier": "NOASSERTION",
+      "versionInfo": "3.4.4"
+    },
+    {
+      "SPDXID": "SPDXRef-CPython-Native-mpdecimal-4.0.0-5f263ef1473e",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "338fac3fb8cdd60f406b6326431338756f58a8af94229ffd9bf1e7c2b1ad71ca"
+        }
+      ],
+      "comment": "Component and source-artifact checksum are imported from the official CPython 3.13.15 Windows embeddable artifact SPDX.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://github.com/python/cpython-source-deps/archive/refs/tags/mpdecimal-4.0.0.tar.gz",
+      "externalRefs": [
+        {
+          "referenceCategory": "SECURITY",
+          "referenceLocator": "cpe:2.3:a:bytereef:mpdecimal:4.0.0:*:*:*:*:*:*:*",
+          "referenceType": "cpe23Type"
+        }
+      ],
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "mpdecimal",
+      "supplier": "NOASSERTION",
+      "versionInfo": "4.0.0"
+    },
+    {
+      "SPDXID": "SPDXRef-CPython-Native-sqlite-3.50.4.0-ddf115de57de",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "fb5ab81f27612b0a7b4861ba655906c76dc85ee969e7a4905d2075aff931e8d0"
+        }
+      ],
+      "comment": "Component and source-artifact checksum are imported from the official CPython 3.13.15 Windows embeddable artifact SPDX.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://github.com/python/cpython-source-deps/archive/refs/tags/sqlite-3.50.4.0.tar.gz",
+      "externalRefs": [
+        {
+          "referenceCategory": "SECURITY",
+          "referenceLocator": "cpe:2.3:a:sqlite:sqlite:3.50.4.0:*:*:*:*:*:*:*",
+          "referenceType": "cpe23Type"
+        }
+      ],
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "sqlite",
+      "supplier": "NOASSERTION",
+      "versionInfo": "3.50.4.0"
+    },
+    {
+      "SPDXID": "SPDXRef-CPython-Native-xz-5.2.5-deb8ddaf2da4",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "a15c168e39e87d750c3dc766edc7f19bdda57dacf01e509678467eace91ad282"
+        }
+      ],
+      "comment": "Component and source-artifact checksum are imported from the official CPython 3.13.15 Windows embeddable artifact SPDX.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://github.com/python/cpython-source-deps/archive/refs/tags/xz-5.2.5.tar.gz",
+      "externalRefs": [
+        {
+          "referenceCategory": "SECURITY",
+          "referenceLocator": "cpe:2.3:a:tukaani:xz:5.2.5:*:*:*:*:*:*:*",
+          "referenceType": "cpe23Type"
+        }
+      ],
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "xz",
+      "supplier": "NOASSERTION",
+      "versionInfo": "5.2.5"
+    },
+    {
+      "SPDXID": "SPDXRef-CPython-Native-zlib-1.3.1-48dbd0f2fc30",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e3f3fb32564952006eb18b091ca8464740e5eca29d328cfb0b2da22768e0b638"
+        }
+      ],
+      "comment": "Component and source-artifact checksum are imported from the official CPython 3.13.15 Windows embeddable artifact SPDX.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://github.com/python/cpython-source-deps/archive/refs/tags/zlib-1.3.1.tar.gz",
+      "externalRefs": [
+        {
+          "referenceCategory": "SECURITY",
+          "referenceLocator": "cpe:2.3:a:zlib:zlib:1.3.1:*:*:*:*:*:*:*",
+          "referenceType": "cpe23Type"
+        }
+      ],
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "zlib",
+      "supplier": "NOASSERTION",
+      "versionInfo": "1.3.1"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-Portable-Runtime",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": true,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "SankakuSyncer Portable Runtime",
+      "packageVerificationCode": {
+        "packageVerificationCodeValue": "c8aa1cabe981e0c36b472ce9ae16467550a4c023"
+      },
+      "supplier": "NOASSERTION",
+      "versionInfo": "0.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-SankakuSyncer",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://github.com/aaAarJimedes/SankakuSyncer_Portable",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "name": "SankakuSyncer",
+      "supplier": "NOASSERTION",
+      "versionInfo": "0.1.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Module-qtbase-0ee5995ae652",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "5b2e00eccaf5a4d8c14134ffa0ea8dfd0a35ae1ffc7f8d87fa4305a1ed23cf22"
+        }
+      ],
+      "comment": "The checksum is the Qt Project-published exact 6.11.2 source archive checksum used to anchor licensing provenance. Final binary hashes are recorded on Runtime files and PySide wheels.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtbase-everywhere-src-6.11.2.tar.xz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "name": "qtbase",
+      "supplier": "NOASSERTION",
+      "versionInfo": "6.11.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Module-qtdeclarative-ba5c33a1ad50",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "215b7b70517e380123eabc6b92243f3c47b6f016a91d126057dbe53551c6b430"
+        }
+      ],
+      "comment": "The checksum is the Qt Project-published exact 6.11.2 source archive checksum used to anchor licensing provenance. Final binary hashes are recorded on Runtime files and PySide wheels.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtdeclarative-everywhere-src-6.11.2.tar.xz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "name": "qtdeclarative",
+      "supplier": "NOASSERTION",
+      "versionInfo": "6.11.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Module-qtimageformats-ef2a70d7d79f",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "cecd8900f34b6550076309bc94f62f828008b633a4239e0a08c86788f41001f8"
+        }
+      ],
+      "comment": "The checksum is the Qt Project-published exact 6.11.2 source archive checksum used to anchor licensing provenance. Final binary hashes are recorded on Runtime files and PySide wheels.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtimageformats-everywhere-src-6.11.2.tar.xz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "name": "qtimageformats",
+      "supplier": "NOASSERTION",
+      "versionInfo": "6.11.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Module-qtpositioning-b9454731ce41",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d8cf15ad43a3b1520adac64cec5900028525cf75f01a4c82a0002e7ac1ae7499"
+        }
+      ],
+      "comment": "The checksum is the Qt Project-published exact 6.11.2 source archive checksum used to anchor licensing provenance. Final binary hashes are recorded on Runtime files and PySide wheels.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtpositioning-everywhere-src-6.11.2.tar.xz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "name": "qtpositioning",
+      "supplier": "NOASSERTION",
+      "versionInfo": "6.11.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Module-qtwebchannel-2a434a881a6c",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "feb3149758bda887f0c292656194812dd2c227595badc8fbdeb2fb2311c5575f"
+        }
+      ],
+      "comment": "The checksum is the Qt Project-published exact 6.11.2 source archive checksum used to anchor licensing provenance. Final binary hashes are recorded on Runtime files and PySide wheels.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtwebchannel-everywhere-src-6.11.2.tar.xz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "name": "qtwebchannel",
+      "supplier": "NOASSERTION",
+      "versionInfo": "6.11.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Module-qtwebengine-210a7bd91dd1",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "6101c1aa00ff933d1b65ee5d167f76e8d71b9ac5b378b0111277723ebda7c163"
+        }
+      ],
+      "comment": "The checksum is the Qt Project-published exact 6.11.2 source archive checksum used to anchor licensing provenance. Final binary hashes are recorded on Runtime files and PySide wheels.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "https://download.qt.io/official_releases/qt/6.11/6.11.2/submodules/qtwebengine-everywhere-src-6.11.2.tar.xz",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "name": "qtwebengine",
+      "supplier": "NOASSERTION",
+      "versionInfo": "6.11.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qt-attribution-llvmpipe.html-NOASSERTION-fe7aabf18b6d",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qt-attribution-llvmpipe.html. Upstream page references: BSL-1.0, MIT.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "Mesa llvmpipe",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtcore-attribution-zlib.html-1.3.2-b93086f7c07b",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtcore-attribution-zlib.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "Zlib",
+      "name": "Data Compression Library (zlib)",
+      "supplier": "NOASSERTION",
+      "versionInfo": "1.3.2"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtgui-attribution-freetype.html-2.14.3-c436a027aad1",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtgui-attribution-freetype.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "Freetype 2",
+      "supplier": "NOASSERTION",
+      "versionInfo": "2.14.3"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtgui-attribution-harfbuzz-ng.html-14.3.0-e35e7a72b604",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtgui-attribution-harfbuzz-ng.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "MIT",
+      "name": "HarfBuzz-NG",
+      "supplier": "NOASSERTION",
+      "versionInfo": "14.3.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtgui-attribution-libjpeg.html-3.2.0-8589f7a7c613",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtgui-attribution-libjpeg.html. Upstream page references: BSD-2-Clause, libpng-2.0, Zlib.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "LibJPEG-turbo",
+      "supplier": "NOASSERTION",
+      "versionInfo": "3.2.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtgui-attribution-libpng.html-1.6.58-1e3259100563",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtgui-attribution-libpng.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "LibPNG",
+      "supplier": "NOASSERTION",
+      "versionInfo": "1.6.58"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtimageformats-attribution-libwebp.html-1.6.0-006ac7c0d027",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtimageformats-attribution-libwebp.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "BSD-3-Clause",
+      "name": "WebP (libwebp)",
+      "supplier": "NOASSERTION",
+      "versionInfo": "1.6.0"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtwebengine-3rdparty-boringssl.html-NOASSERTION-50b163f0aa96",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtwebengine-3rdparty-boringssl.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "BoringSSL",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtwebengine-3rdparty-expat-xml-parser.html-NOASSER-6e52ab133400",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtwebengine-3rdparty-expat-xml-parser.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "Expat XML Parser",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtwebengine-3rdparty-ffmpeg.html-NOASSERTION-fdfc189e9d7c",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtwebengine-3rdparty-ffmpeg.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "ffmpeg",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtwebengine-3rdparty-icu.html-NOASSERTION-ab626cdbd3db",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtwebengine-3rdparty-icu.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "icu",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtwebengine-3rdparty-libpng.html-NOASSERTION-966425103164",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtwebengine-3rdparty-libpng.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "libpng",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtwebengine-3rdparty-libvpx.html-NOASSERTION-b9f6e7528780",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtwebengine-3rdparty-libvpx.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "libvpx",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtwebengine-3rdparty-opus.html-NOASSERTION-a2d840667503",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtwebengine-3rdparty-opus.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "opus",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtwebengine-3rdparty-sqlite.html-NOASSERTION-ef778d1820f4",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtwebengine-3rdparty-sqlite.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "sqlite",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtwebengine-3rdparty-the-chromium-project.html-140-b6cc85bc21c1",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtwebengine-3rdparty-the-chromium-project.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "The Chromium Project",
+      "supplier": "NOASSERTION",
+      "versionInfo": "140.0.7339.225"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtwebengine-3rdparty-webp-image-encoder-decoder.ht-91a8b334159a",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtwebengine-3rdparty-webp-image-encoder-decoder.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "WebP image encoder/decoder",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtwebengine-3rdparty-zlib.html-NOASSERTION-d8413726aa75",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtwebengine-3rdparty-zlib.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "zlib",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Qt-Native-qtwebengine-3rdparty-zstandard.html-NOASSERTION-d692a4eda879",
+      "comment": "Exact Qt 6.11.2 attribution: THIRD_PARTY_LICENSES/Qt-6.11.2/attributions/qtwebengine-3rdparty-zstandard.html.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "Zstandard",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-System-Microsoft-Schannel",
+      "comment": "Not redistributed in Runtime; provided by supported Windows. Actual PE-import evidence: bcrypt.dll, crypt32.dll, secur32.dll.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "Microsoft Schannel (system dependency)",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-System-Microsoft-UCRT",
+      "comment": "Not redistributed in Runtime; provided by supported Windows. Presence is inferred from actual PE imports.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "Microsoft Universal C Runtime (system dependency)",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-System-Microsoft-WinHTTP",
+      "comment": "Not redistributed in Runtime; provided by supported Windows. Actual PE-import evidence: winhttp.dll.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "Microsoft Windows HTTP Services (system dependency)",
+      "supplier": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-VC-Runtime-14.44.35211.0-d97ed1a8e0b8",
+      "comment": "Runtime files: Lib/site-packages/PySide6/msvcp140.dll, Lib/site-packages/PySide6/msvcp140_1.dll, Lib/site-packages/PySide6/msvcp140_2.dll, Lib/site-packages/PySide6/vcruntime140.dll, Lib/site-packages/PySide6/vcruntime140_1.dll, Lib/site-packages/shiboken6/msvcp140.dll, Lib/site-packages/shiboken6/vcruntime140.dll, Lib/site-packages/shiboken6/vcruntime140_1.dll. The frozen Microsoft license landing page and its official OOXML terms are shipped under THIRD_PARTY_LICENSES/Microsoft/.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "Microsoft Visual C++ Runtime",
+      "supplier": "NOASSERTION",
+      "versionInfo": "14.44.35211.0"
+    },
+    {
+      "SPDXID": "SPDXRef-VC-Runtime-14.51.36247.0-6dc242129904",
+      "comment": "Runtime files: vcruntime140.dll, vcruntime140_1.dll. The frozen Microsoft license landing page and its official OOXML terms are shipped under THIRD_PARTY_LICENSES/Microsoft/.",
+      "copyrightText": "NOASSERTION",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "name": "Microsoft Visual C++ Runtime",
+      "supplier": "NOASSERTION",
+      "versionInfo": "14.51.36247.0"
+    }
+  ],
+  "relationships": [
+    {
+      "relatedSpdxElement": "SPDXRef-Package-Portable-Runtime",
+      "relationshipType": "DESCRIBES",
+      "spdxElementId": "SPDXRef-DOCUMENT"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-SankakuSyncer",
+      "relationshipType": "DESCRIBES",
+      "spdxElementId": "SPDXRef-DOCUMENT"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Core.dll-9f36b8074eb4"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Gui.dll-94de449990b7"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Network.dll-353e3765a2e8"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6OpenGL.dll-810bc97df09e"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Positioning.dll-cc0a6ee7723a"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6PrintSupport.dll-5273170ed9bd"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Qml.dll-ad5adb101bcb"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6QmlMeta.dll-b0502c876936"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6QmlModels.dll-4a5a8c6b7471"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6QmlWorkerScript.dll-f549075ac41c"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Quick.dll-026124d2434b"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6QuickWidgets.dll-f5d3941b56f2"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6WebChannel.dll-d1d75412458b"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6WebEngineCore.dll-4038ae6cfae3"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6WebEngineWidgets.dll-7bcb77294bf5"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Widgets.dll-bc3cf2089941"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-QtCore.pyd-1f2c88e77655"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-QtGui.pyd-1a735321f14b"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-QtNetwork.pyd-e61f0f1251ff"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-QtPrintSupport.pyd-eec59823d184"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-QtWebChannel.pyd-9c535bf28ca2"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-QtWebEngineCore.pyd-6c8cf6886df9"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-QtWebEngineProcess.exe-68908c3fe06a"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-QtWebEngineWidgets.pyd-1404fce3f004"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-QtWidgets.pyd-3a6e8d4c149f"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-6.11.2-03125009820e",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-config.py-509cd514def9"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-config.py-509cd514def9"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-config.py-509cd514def9"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-6.11.2-03125009820e",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-git-pyside-version.py-d5acc58c14ba"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-git-pyside-version.py-d5acc58c14ba"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-git-pyside-version.py-d5acc58c14ba"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-6.11.2-03125009820e",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-init-.py-b7c39de84427"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-init-.py-b7c39de84427"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-init-.py-b7c39de84427"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-msvcp140-1.dll-af36d5d5a19a"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-msvcp140-2.dll-b33d4b854bdc"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-msvcp140.dll-9cb9000cb2d0"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-opengl32sw.dll-c4369c84468d"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-plugins-imageformats-qgi-ba8f49374f33"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-plugins-imageformats-qic-4bc741911e97"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-plugins-imageformats-qjp-3bab825a936c"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-plugins-imageformats-qwe-a7f38e8d0276"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-plugins-networkinformati-cb4c2017a278"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-plugins-platforms-qminim-48490d8ddf74"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-plugins-platforms-qoffsc-57d615af90a8"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-plugins-platforms-qwindo-74982a70bc31"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-plugins-styles-qmodernwi-7e2684be9de5"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-plugins-tls-qcertonlybac-9147d1869fe1"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-plugins-tls-qschannelbac-a975f24b632e"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-pyside6.abi3.dll-5f43ba92c694"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-resources-icudtl.dat-e7df28b6e638"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-resources-qtwebengine-de-16b4c9bfce45"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-resources-qtwebengine-re-a6f84c14ff36"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-resources-qtwebengine-re-c8c1a28ab090"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-resources-qtwebengine-re-fb6e0457309d"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-resources-v8-context-sna-d607e7dcad9b"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-translations-qtwebengine-18caf33a39c0"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-translations-qtwebengine-65500aa0953a"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-translations-qtwebengine-996bc9dae1e5"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-vcruntime140-1.dll-5b922a20cad9"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-PySide6-vcruntime140.dll-472e5ee7d442"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-6.11.2-03125009820e",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-METADAT-053d105306f2"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-6.11.2-03125009820e",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-RECORD-35827f68f3c0"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-6.11.2-03125009820e",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-WHEEL-4b14ad87b27f"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-6.11.2-03125009820e",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-license-364106d1d6c0"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-6.11.2-03125009820e",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-top-lev-5a312b423ae9"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--5be02b5de7d3"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--6fd4e0f35520"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--9d1833447c54"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--b250a1aa8d2d"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--ba9e63ee3d8d"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-17e1a359f7d9"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-28c26de1da94"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-37dfbf896431"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-634b662b7c34"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-cb327d8cb89a"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-ec8102aff859"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-METAD-907d4802d4e3"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-RECOR-025538331fdc"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-WHEEL-89d5d1bb993f"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-licen-0a49d1bfb5dc"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-top-l-d2ed94bd0e25"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-Shiboken.pyd-eff109df8dd9"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-config.py-9c5dcad04133"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-git-shiboken-module-ve-674a17f38b43"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-init-.py-90386f666ded"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-msvcp140.dll-7e53617479ae"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-shiboken6.abi3.dll-6f45617f72e9"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-vcruntime140-1.dll-ce506b750eec"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-Lib-site-packages-shiboken6-vcruntime140.dll-32814b302f99"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-asyncio.pyd-93e5a7d998a8"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-bz2.pyd-0866227538c9"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-ctypes.pyd-16629329a52d"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-decimal.pyd-4eabb822af7d"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-elementtree.pyd-dabe66fd8d5d"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-libffi-8.dll-8b6c18f8b1e6"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-lzma.pyd-02e1ec26d638"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-multiprocessing.pyd-9a215b22498e"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-overlapped.pyd-7e1c8ff1c159"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-pyexpat.pyd-024a99f80a0a"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-python.exe-f87b432c6b5d"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-python3.dll-b5841b74a0f5"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-python313.-pth-fbd165e5cf29"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-python313.dll-4b9b2522d89a"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-python313.zip-38526c0e2287"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-pythonw.exe-b87c565e22ae"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-queue.pyd-43d376b4cc3c"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-select.pyd-1136287103fc"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-socket.pyd-df577d561392"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-sqlite3.dll-5c45bf9c7e2f"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-sqlite3.pyd-f49e7c8dd479"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-unicodedata.pyd-bbda458f129c"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-uuid.pyd-7271a3b39831"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-vcruntime140-1.dll-8affaf33def8"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-vcruntime140.dll-4b166ee81ea0"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-wmi.pyd-190c3726d2b9"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-File-zoneinfo.pyd-329ebcbea459"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Core.dll-9f36b8074eb4",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Gui.dll-94de449990b7",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Network.dll-353e3765a2e8",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6OpenGL.dll-810bc97df09e",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Positioning.dll-cc0a6ee7723a",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6PrintSupport.dll-5273170ed9bd",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Qml.dll-ad5adb101bcb",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6QmlMeta.dll-b0502c876936",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6QmlModels.dll-4a5a8c6b7471",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6QmlWorkerScript.dll-f549075ac41c",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Quick.dll-026124d2434b",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6QuickWidgets.dll-f5d3941b56f2",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6WebChannel.dll-d1d75412458b",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6WebEngineCore.dll-4038ae6cfae3",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6WebEngineWidgets.dll-7bcb77294bf5",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-Qt6Widgets.dll-bc3cf2089941",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-QtCore.pyd-1f2c88e77655",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-QtGui.pyd-1a735321f14b",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-QtNetwork.pyd-e61f0f1251ff",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-QtPrintSupport.pyd-eec59823d184",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-QtWebChannel.pyd-9c535bf28ca2",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-QtWebEngineCore.pyd-6c8cf6886df9",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-QtWebEngineProcess.exe-68908c3fe06a",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-QtWebEngineWidgets.pyd-1404fce3f004",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-QtWidgets.pyd-3a6e8d4c149f",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-config.py-509cd514def9",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-git-pyside-version.py-d5acc58c14ba",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-init-.py-b7c39de84427",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-msvcp140-1.dll-af36d5d5a19a",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-msvcp140-2.dll-b33d4b854bdc",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-msvcp140.dll-9cb9000cb2d0",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-opengl32sw.dll-c4369c84468d",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-plugins-imageformats-qgi-ba8f49374f33",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-plugins-imageformats-qic-4bc741911e97",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-plugins-imageformats-qjp-3bab825a936c",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-plugins-imageformats-qwe-a7f38e8d0276",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-plugins-networkinformati-cb4c2017a278",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-plugins-platforms-qminim-48490d8ddf74",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-plugins-platforms-qoffsc-57d615af90a8",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-plugins-platforms-qwindo-74982a70bc31",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-plugins-styles-qmodernwi-7e2684be9de5",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-plugins-tls-qcertonlybac-9147d1869fe1",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-plugins-tls-qschannelbac-a975f24b632e",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-pyside6.abi3.dll-5f43ba92c694",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-resources-icudtl.dat-e7df28b6e638",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-resources-qtwebengine-de-16b4c9bfce45",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-resources-qtwebengine-re-a6f84c14ff36",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-resources-qtwebengine-re-c8c1a28ab090",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-resources-qtwebengine-re-fb6e0457309d",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-resources-v8-context-sna-d607e7dcad9b",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-translations-qtwebengine-18caf33a39c0",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-translations-qtwebengine-65500aa0953a",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-translations-qtwebengine-996bc9dae1e5",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-vcruntime140-1.dll-5b922a20cad9",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-PySide6-vcruntime140.dll-472e5ee7d442",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-METADAT-053d105306f2",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-RECORD-35827f68f3c0",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-WHEEL-4b14ad87b27f",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-license-364106d1d6c0",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-6.11.2.dist-info-top-lev-5a312b423ae9",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--5be02b5de7d3",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--6fd4e0f35520",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--9d1833447c54",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--b250a1aa8d2d",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-addons-6.11.2.dist-info--ba9e63ee3d8d",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-17e1a359f7d9",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-28c26de1da94",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-37dfbf896431",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-634b662b7c34",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-cb327d8cb89a",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-pyside6-essentials-6.11.2.dist-i-ec8102aff859",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-METAD-907d4802d4e3",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-RECOR-025538331fdc",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-WHEEL-89d5d1bb993f",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-licen-0a49d1bfb5dc",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-6.11.2.dist-info-top-l-d2ed94bd0e25",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-Shiboken.pyd-eff109df8dd9",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-config.py-9c5dcad04133",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-git-shiboken-module-ve-674a17f38b43",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-init-.py-90386f666ded",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-msvcp140.dll-7e53617479ae",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-shiboken6.abi3.dll-6f45617f72e9",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-vcruntime140-1.dll-ce506b750eec",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-Lib-site-packages-shiboken6-vcruntime140.dll-32814b302f99",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-asyncio.pyd-93e5a7d998a8",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-bz2.pyd-0866227538c9",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-ctypes.pyd-16629329a52d",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-decimal.pyd-4eabb822af7d",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-elementtree.pyd-dabe66fd8d5d",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-libffi-8.dll-8b6c18f8b1e6",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-lzma.pyd-02e1ec26d638",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-multiprocessing.pyd-9a215b22498e",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-overlapped.pyd-7e1c8ff1c159",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-pyexpat.pyd-024a99f80a0a",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-python.exe-f87b432c6b5d",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-python3.dll-b5841b74a0f5",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-python313.-pth-fbd165e5cf29",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-python313.dll-4b9b2522d89a",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-python313.zip-38526c0e2287",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-pythonw.exe-b87c565e22ae",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-queue.pyd-43d376b4cc3c",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-runtime-subset-manifest.sha256-a54ef6f7049d",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-runtime-subset-report.json-080acf25c23c",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-select.pyd-1136287103fc",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-socket.pyd-df577d561392",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-sqlite3.dll-5c45bf9c7e2f",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-sqlite3.pyd-f49e7c8dd479",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-unicodedata.pyd-bbda458f129c",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-uuid.pyd-7271a3b39831",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-vcruntime140-1.dll-8affaf33def8",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-vcruntime140.dll-4b166ee81ea0",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-wmi.pyd-190c3726d2b9",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-File-zoneinfo.pyd-329ebcbea459",
+      "relationshipType": "CONTAINS",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-CPython-Native-bzip2-1.0.8-4e681d54b693",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-CPython-Native-expat-2.8.2-32269a88404e",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-CPython-Native-hacl-star-bb3d0dc8d9d15a5cd51094d5b69e70aa09005ff0-f66df530d32c",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-CPython-Native-libb2-0.98.1-a10e27f5206f",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-CPython-Native-libffi-3.4.4-6decc25913a3",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-CPython-Native-mpdecimal-4.0.0-5f263ef1473e",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-CPython-Native-sqlite-3.50.4.0-ddf115de57de",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-CPython-Native-xz-5.2.5-deb8ddaf2da4",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-CPython-Native-zlib-1.3.1-48dbd0f2fc30",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Module-qtbase-0ee5995ae652",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Module-qtdeclarative-ba5c33a1ad50",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Module-qtimageformats-ef2a70d7d79f",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Module-qtpositioning-b9454731ce41",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Module-qtwebchannel-2a434a881a6c",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Module-qtwebengine-210a7bd91dd1",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qt-attribution-llvmpipe.html-NOASSERTION-fe7aabf18b6d",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtcore-attribution-zlib.html-1.3.2-b93086f7c07b",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtgui-attribution-freetype.html-2.14.3-c436a027aad1",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtgui-attribution-harfbuzz-ng.html-14.3.0-e35e7a72b604",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtgui-attribution-libjpeg.html-3.2.0-8589f7a7c613",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtgui-attribution-libpng.html-1.6.58-1e3259100563",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtimageformats-attribution-libwebp.html-1.6.0-006ac7c0d027",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtwebengine-3rdparty-boringssl.html-NOASSERTION-50b163f0aa96",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtwebengine-3rdparty-expat-xml-parser.html-NOASSER-6e52ab133400",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtwebengine-3rdparty-ffmpeg.html-NOASSERTION-fdfc189e9d7c",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtwebengine-3rdparty-icu.html-NOASSERTION-ab626cdbd3db",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtwebengine-3rdparty-libpng.html-NOASSERTION-966425103164",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtwebengine-3rdparty-libvpx.html-NOASSERTION-b9f6e7528780",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtwebengine-3rdparty-opus.html-NOASSERTION-a2d840667503",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtwebengine-3rdparty-sqlite.html-NOASSERTION-ef778d1820f4",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtwebengine-3rdparty-the-chromium-project.html-140-b6cc85bc21c1",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtwebengine-3rdparty-webp-image-encoder-decoder.ht-91a8b334159a",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtwebengine-3rdparty-zlib.html-NOASSERTION-d8413726aa75",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Qt-Native-qtwebengine-3rdparty-zstandard.html-NOASSERTION-d692a4eda879",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-System-Microsoft-Schannel",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-System-Microsoft-UCRT",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-System-Microsoft-WinHTTP",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-VC-Runtime-14.44.35211.0-d97ed1a8e0b8",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-VC-Runtime-14.51.36247.0-6dc242129904",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-6.11.2-03125009820e",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-addons-6.11.2-de750e19e27b",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-pyside6-essentials-6.11.2-764a001d8dac",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Artifact-shiboken6-6.11.2-52751240fd03",
+      "relationshipType": "GENERATED_FROM",
+      "spdxElementId": "SPDXRef-Package-Portable-Runtime"
+    },
+    {
+      "relatedSpdxElement": "SPDXRef-Package-Portable-Runtime",
+      "relationshipType": "DEPENDS_ON",
+      "spdxElementId": "SPDXRef-Package-SankakuSyncer"
+    }
+  ],
+  "spdxVersion": "SPDX-2.3"
+}

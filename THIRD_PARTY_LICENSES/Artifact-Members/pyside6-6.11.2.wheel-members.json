@@ -1,0 +1,356 @@
+{
+  "members": [
+    {
+      "path": "pyside6-6.11.2.dist-info/licenses/LicenseRef-Qt-Commercial.txt",
+      "sha256": "4f54763ac0fe2abd8f7f8d8fe370a94a08ebf84786aa0b91045bd6628deb08a3",
+      "size": 470
+    },
+    {
+      "path": "pyside6-6.11.2.dist-info/METADATA",
+      "sha256": "bddd6d1e6f840de4ecf6464c1afe885491c76d1081c72ce30744deaa74949276",
+      "size": 5416
+    },
+    {
+      "path": "pyside6-6.11.2.dist-info/RECORD",
+      "sha256": "d10dd2192623df90eb45964bbba65e1ef972caa6319dd1bd7fb033e9611e93d8",
+      "size": 5561
+    },
+    {
+      "path": "pyside6-6.11.2.dist-info/top_level.txt",
+      "sha256": "7238bb33d245c78ea5937065a6507f1319a484baa83e11b30ec97ac60d21e89f",
+      "size": 23
+    },
+    {
+      "path": "pyside6-6.11.2.dist-info/WHEEL",
+      "sha256": "9526c8d29c3958609101dfed90e2a08287d73bcaf50fca46fa97b90a310280e4",
+      "size": 100
+    },
+    {
+      "path": "PySide6/__feature__.pyi",
+      "sha256": "c023671630b849b7997bafb3d64f20129431d7b61142643d7a8c039be74a2a82",
+      "size": 256
+    },
+    {
+      "path": "PySide6/__init__.py",
+      "sha256": "bf8ddd12eae52e8508f295d80459bb3478a015a663892850c74126812e12b7db",
+      "size": 6400
+    },
+    {
+      "path": "PySide6/_config.py",
+      "sha256": "833e9597f18cf5b9c3b41646e291a84aa2f0382275dcf0e10ee9ddb05117f200",
+      "size": 866
+    },
+    {
+      "path": "PySide6/_git_pyside_version.py",
+      "sha256": "71d227739736ff54b5fb425c291fdc5d199f4b4f0a3e74b25a06c6c9b62799cf",
+      "size": 713
+    },
+    {
+      "path": "PySide6/py.typed",
+      "sha256": "c39d141de78f9a4e8e4224b0c77dfaf12a540adbc562ceeb984af634a6911da5",
+      "size": 34
+    },
+    {
+      "path": "PySide6/Qt3DAnimation.pyi",
+      "sha256": "54830ddeea9e02ce5cc2c8117e87e832b3085910a7e2910c3a6b752ff6b24e1f",
+      "size": 31355
+    },
+    {
+      "path": "PySide6/Qt3DCore.pyi",
+      "sha256": "eec82fc563e8d93042d841df8043580e2bec0e1e5e6385a2e1c6a60021b3d8a0",
+      "size": 36088
+    },
+    {
+      "path": "PySide6/Qt3DExtras.pyi",
+      "sha256": "092718bb4ed79c22125f6785b9c616010d94d649790bd110650877f1f04c80e8",
+      "size": 76908
+    },
+    {
+      "path": "PySide6/Qt3DInput.pyi",
+      "sha256": "8ab3729b0ce833dc49b184265b6b4724e22c87628bdf358745a757c4a11df45c",
+      "size": 24119
+    },
+    {
+      "path": "PySide6/Qt3DLogic.pyi",
+      "sha256": "5591dd52cbab01be6040a0d0fdd40c3d237c32e3ef4e37bb1acd569ff3f7d502",
+      "size": 1028
+    },
+    {
+      "path": "PySide6/Qt3DRender.pyi",
+      "sha256": "98a2dd6b2b7968b5aa539af6acbc7094815091d46c87ab07df13ab2dcd1d12d5",
+      "size": 149723
+    },
+    {
+      "path": "PySide6/QtAxContainer.pyi",
+      "sha256": "2fcce876cbddca4b4d91a8e2b14cd055e1569742022a9e461ef8bbee12c70c37",
+      "size": 10417
+    },
+    {
+      "path": "PySide6/QtBluetooth.pyi",
+      "sha256": "d4da1b43309621a6465917aba39abc7f3676ff2ab858793e43f9c3a0bc2680a1",
+      "size": 74153
+    },
+    {
+      "path": "PySide6/QtCanvasPainter.pyi",
+      "sha256": "c93f7546ef83c22ab8909ceee5124ac66688c90847e4f28b287d19bae6683dca",
+      "size": 46709
+    },
+    {
+      "path": "PySide6/QtCharts.pyi",
+      "sha256": "c12ec1be1aacd83b49f88d0759d5c9fbf4513d006374a568b4370276d22a0cdc",
+      "size": 108727
+    },
+    {
+      "path": "PySide6/QtConcurrent.pyi",
+      "sha256": "cfeeb53f6a7ba14bd16d83adcb79ef1ccf91fd1ca78d1f9d1991e109d646bf49",
+      "size": 3925
+    },
+    {
+      "path": "PySide6/QtCore.pyi",
+      "sha256": "dc0f455e6a565bb1667bfee06263f1f8c90c9127650b717cd949b78b864420f1",
+      "size": 567119
+    },
+    {
+      "path": "PySide6/QtDataVisualization.pyi",
+      "sha256": "1b5cc3a4b77b1021aa03c8c504a5676bfba93019f34edc931c9a998a8d76267c",
+      "size": 116153
+    },
+    {
+      "path": "PySide6/QtDBus.pyi",
+      "sha256": "74bb20cb4f7c57419172cb54505a82331a4973ac3219259d99957216cbb146d4",
+      "size": 34556
+    },
+    {
+      "path": "PySide6/QtDesigner.pyi",
+      "sha256": "4179e928885f9aee65cf61dad77133e2b619b0fc86648a63d484f007f29f6627",
+      "size": 30452
+    },
+    {
+      "path": "PySide6/QtGraphs.pyi",
+      "sha256": "e85ab43909fc6be453f7d50bae50e7b618cd8edd3e5e65e41b4fca3c3120b425",
+      "size": 170385
+    },
+    {
+      "path": "PySide6/QtGraphsWidgets.pyi",
+      "sha256": "8fc564d522e1ba14e82a2014a8b261fb99701d64951e74af7e7a38c693be328f",
+      "size": 21003
+    },
+    {
+      "path": "PySide6/QtGui.pyi",
+      "sha256": "a691f5f2494cfeb13dbf2b2c8dc2d833aca204aadd49dd705ae1573f932c9356",
+      "size": 641636
+    },
+    {
+      "path": "PySide6/QtHelp.pyi",
+      "sha256": "e2efee798d26bf1004d02410f47587c090c31d6a463a58cacf8f40212c3bc754",
+      "size": 16955
+    },
+    {
+      "path": "PySide6/QtHttpServer.pyi",
+      "sha256": "02e1e60c8e076b1ba2ffc2e24b0958fd92861b8f36daaf9ee20d7f73d88d2350",
+      "size": 16324
+    },
+    {
+      "path": "PySide6/QtLocation.pyi",
+      "sha256": "6791c6bafa3e83328817843ec8239c538c88c00c2753c14c72856453b56b22ed",
+      "size": 58219
+    },
+    {
+      "path": "PySide6/QtMultimedia.pyi",
+      "sha256": "7e4f59dfc3703ceac57b9f3abac948460fcc5f2a7b8095cedf1a9a0337221d4e",
+      "size": 89978
+    },
+    {
+      "path": "PySide6/QtMultimediaWidgets.pyi",
+      "sha256": "97653280c4a025fccc018ba824ea1eb4c57715793b98383624906803323b74f8",
+      "size": 3404
+    },
+    {
+      "path": "PySide6/QtNetwork.pyi",
+      "sha256": "b1baa21c15892cf91d91f9aebc22df50771159efc835b2606d4e2456296c3815",
+      "size": 150124
+    },
+    {
+      "path": "PySide6/QtNetworkAuth.pyi",
+      "sha256": "a0e3d9d0a52f67f6f9f533647eb1b14dc5d38260d7d2e041cef934652cd58751",
+      "size": 28052
+    },
+    {
+      "path": "PySide6/QtNfc.pyi",
+      "sha256": "87e5970fee4638e0aabcfc54c16888215b821ebb473a4811916909e7e4099b9d",
+      "size": 18719
+    },
+    {
+      "path": "PySide6/QtOpenGL.pyi",
+      "sha256": "047fe40cf7dda23a34038a8ecdbe8004549a376664f1d49e42e1a42fcb380ff6",
+      "size": 1220518
+    },
+    {
+      "path": "PySide6/QtOpenGLWidgets.pyi",
+      "sha256": "9e944e2b96170ea09c7f70a22c48333a6ef7db2aba4808274182173fe15b0d4c",
+      "size": 3338
+    },
+    {
+      "path": "PySide6/QtPdf.pyi",
+      "sha256": "d8d6eee0e0a5eb5c9c237570a46cac5c525d40443e29c98225ebd92f4eeae597",
+      "size": 16472
+    },
+    {
+      "path": "PySide6/QtPdfWidgets.pyi",
+      "sha256": "3ca6053821aea43951de3e75d235f8a60865ed3d9fb1e638c184dc3b5eb3aed6",
+      "size": 5372
+    },
+    {
+      "path": "PySide6/QtPositioning.pyi",
+      "sha256": "aa94b05542cc764dbde80b24b14b899dab8063b1824217d2e271dc09aa9bbae8",
+      "size": 38990
+    },
+    {
+      "path": "PySide6/QtPrintSupport.pyi",
+      "sha256": "7ce0c34383040a774828b431f8933767bd3e292159aac3121491f5373df929ed",
+      "size": 17352
+    },
+    {
+      "path": "PySide6/QtQml.pyi",
+      "sha256": "15377ecb64674314a3a5e8558bbf652b5ce7442096f9efc924aa8baeecac39b8",
+      "size": 53417
+    },
+    {
+      "path": "PySide6/QtQuick.pyi",
+      "sha256": "ca7d9e78cc6ba0e89e137aaee8612fcd182e7595b78d0970ca99a49bc6ed054f",
+      "size": 91930
+    },
+    {
+      "path": "PySide6/QtQuick3D.pyi",
+      "sha256": "d7fcd1d437cd63676278729fe4d3c2dcfcf23e377c7ae8876955977cf522bcaf",
+      "size": 14637
+    },
+    {
+      "path": "PySide6/QtQuickControls2.pyi",
+      "sha256": "4acc9f9070e65a2b71af19762679a45db6db83d757d0f24ac426ffe4f054f54a",
+      "size": 1414
+    },
+    {
+      "path": "PySide6/QtQuickTest.pyi",
+      "sha256": "77e0954972f3a39aa91af3ecaa9b34613c76fb4ac76abab96e3e0da6e13c1b5e",
+      "size": 720
+    },
+    {
+      "path": "PySide6/QtQuickWidgets.pyi",
+      "sha256": "031856ce02c9eefee465f1a248d31860d19c25eb6202169a543f227aaaf96241",
+      "size": 5571
+    },
+    {
+      "path": "PySide6/QtRemoteObjects.pyi",
+      "sha256": "165ce037a6e62193124f87ce908b2e063ae66d5d8d0fb6b05a31bacc64d8a983",
+      "size": 19843
+    },
+    {
+      "path": "PySide6/QtScxml.pyi",
+      "sha256": "38ae9012262ca50f93449e78a5ec741b5bc4af94d6b2cca2b569ba66bab8217e",
+      "size": 17842
+    },
+    {
+      "path": "PySide6/QtSensors.pyi",
+      "sha256": "15b325f28ab39d0be37b0d086efb3f5f62dd09d47694966596613109cde5bc01",
+      "size": 28504
+    },
+    {
+      "path": "PySide6/QtSerialBus.pyi",
+      "sha256": "5269a7285b7937de2ab6ea7bfcdd1ba3f7694696f21bbbf57dac95837b01e59a",
+      "size": 38309
+    },
+    {
+      "path": "PySide6/QtSerialPort.pyi",
+      "sha256": "d8da62e512858d0f02fe28cd43c5bd811acdee4154aa617e4f736366e44152f9",
+      "size": 9711
+    },
+    {
+      "path": "PySide6/QtSpatialAudio.pyi",
+      "sha256": "fd0ca3688f39ea54015b97b43b53226ad8a30aee9df2f86f1e5309622da6bb1a",
+      "size": 12422
+    },
+    {
+      "path": "PySide6/QtSql.pyi",
+      "sha256": "9ec737a68caccda5c895d960e1fe8fba3aead9d3c740914373e08ffde390a7d6",
+      "size": 34897
+    },
+    {
+      "path": "PySide6/QtStateMachine.pyi",
+      "sha256": "20af4aac1129a83708610381e00a9dae15c33ce0207833768cbb43f465b78eb2",
+      "size": 17309
+    },
+    {
+      "path": "PySide6/QtSvg.pyi",
+      "sha256": "a8659940bb18a471aab5804190b2e466726ac6f1c67173b1c24e714517963f30",
+      "size": 6938
+    },
+    {
+      "path": "PySide6/QtSvgWidgets.pyi",
+      "sha256": "9793d3ebf8ddfe9b5996bf55f23cffb3bd925d8e15366ec0f52ccf8c96bef59b",
+      "size": 2636
+    },
+    {
+      "path": "PySide6/QtTest.pyi",
+      "sha256": "6bbccd90b93e2f99e92e8887152ce613f89a4c532cbdbda2219ad888229ea046",
+      "size": 22454
+    },
+    {
+      "path": "PySide6/QtTextToSpeech.pyi",
+      "sha256": "a8f42d44d5a691efcd1d9c1948a94d0411c339ea81e33b750e8b1e1975d184d4",
+      "size": 10015
+    },
+    {
+      "path": "PySide6/QtUiTools.pyi",
+      "sha256": "3fff0f20766cc6febf62aa4211df413324dfb0f5e1f3f9e3532bc01638d18323",
+      "size": 2401
+    },
+    {
+      "path": "PySide6/QtWebChannel.pyi",
+      "sha256": "2f59b200f1ae63e4f1fde36513d20852a1967e05d9dd37615fbdf7d9aebf05ae",
+      "size": 1997
+    },
+    {
+      "path": "PySide6/QtWebEngineCore.pyi",
+      "sha256": "4d6ffada798e60f892591d64b81215c265a6969b39f00226deb09dbf9da72eac",
+      "size": 73921
+    },
+    {
+      "path": "PySide6/QtWebEngineQuick.pyi",
+      "sha256": "713df8b2d511578b70e8a11aebe7b9341ab5f94eda822ecd1b87dcfac7cf9a44",
+      "size": 9197
+    },
+    {
+      "path": "PySide6/QtWebEngineWidgets.pyi",
+      "sha256": "df3de6c023e67988661d42176b84599df24412a6675a856ae883b01168e76f1f",
+      "size": 6459
+    },
+    {
+      "path": "PySide6/QtWebSockets.pyi",
+      "sha256": "9890e2f5c7cf142dbae4f39e5aba9f6b29a17e143e188b0a5ee04bba881052d0",
+      "size": 12964
+    },
+    {
+      "path": "PySide6/QtWebView.pyi",
+      "sha256": "1cac2b3986afb9a95f1ee560d07e23f20fbef8870ca4047c760b0794dd353a77",
+      "size": 4686
+    },
+    {
+      "path": "PySide6/QtWidgets.pyi",
+      "sha256": "484e4aef4fd9863e76cd2293dbd61e83d87b825641354de3b3d65789de6fcdf9",
+      "size": 613876
+    },
+    {
+      "path": "PySide6/QtXml.pyi",
+      "sha256": "1fc558b7a084c1ad9b9d04376d1632b79b788db7078bd0347f295ec5d20cfcd7",
+      "size": 20575
+    }
+  ],
+  "schema_version": 1,
+  "source_artifact": {
+    "bytes": 578382,
+    "filename": "pyside6-6.11.2-cp310-abi3-win_amd64.whl",
+    "sha256": "3201d67e3c10be2eaedd3910ff0f02351eca7e88c95a291cde5e7f2f55ef207f",
+    "url": "https://files.pythonhosted.org/packages/94/fe/4aea9d30300fff4cda9bb729c1363b9e1095a8544e0d6b57065465e16599/pyside6-6.11.2-cp310-abi3-win_amd64.whl"
+  }
+}

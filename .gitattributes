@@ -1,0 +1,14 @@
+* text=auto eol=lf
+*.bat text eol=crlf
+*.vbs text eol=crlf
+
+# These release-compliance artifacts are verified byte-for-byte.  Never let a
+# Windows checkout rewrite their upstream/deterministic line endings.
+/THIRD_PARTY_LICENSES/** -text -eol
+/THIRD_PARTY_LICENSES/** whitespace=-trailing-space
+/SBOM.spdx.json -text -eol
+/RUNTIME_INVENTORY.json -text -eol
+/VEX.openvex.json -text -eol
+/App/runtime_artifacts.lock.json -text -eol
+
+*.png binary

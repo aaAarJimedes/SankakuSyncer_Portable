@@ -1,0 +1,81 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://github.com/aaAarJimedes/SankakuSyncer_Portable/vex/0.1.0/153033d57ae38e2ef686aa0a",
+  "author": "SankakuSyncer maintainers",
+  "role": "Document Creator",
+  "statements": [
+    {
+      "justification": "component_not_present",
+      "products": [
+        {
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.0?arch=x86_64&os=windows"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The complete final Runtime inventory contains no Python _ssl/_hashlib, OpenSSL libcrypto/libssl, or Qt qopensslbackend payload. Networking uses Windows WinHTTP/Schannel and the required python_hashlib_winhttp builder verification passed. This component-not-present conclusion is recomputed from runtime_subset_manifest.sha256 and every Runtime file.",
+      "vulnerability": {
+        "@id": "https://www.cve.org/CVERecord?id=CVE-2026-75803",
+        "name": "CVE-2026-75803"
+      }
+    },
+    {
+      "justification": "component_not_present",
+      "products": [
+        {
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.0?arch=x86_64&os=windows"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The complete final Runtime inventory contains no Python _ssl/_hashlib, OpenSSL libcrypto/libssl, or Qt qopensslbackend payload. Networking uses Windows WinHTTP/Schannel and the required python_hashlib_winhttp builder verification passed. This component-not-present conclusion is recomputed from runtime_subset_manifest.sha256 and every Runtime file.",
+      "vulnerability": {
+        "@id": "https://www.cve.org/CVERecord?id=CVE-2026-54874",
+        "name": "CVE-2026-54874"
+      }
+    },
+    {
+      "justification": "component_not_present",
+      "products": [
+        {
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.0?arch=x86_64&os=windows"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The complete final Runtime inventory contains no Python _ssl/_hashlib, OpenSSL libcrypto/libssl, or Qt qopensslbackend payload. Networking uses Windows WinHTTP/Schannel and the required python_hashlib_winhttp builder verification passed. This component-not-present conclusion is recomputed from runtime_subset_manifest.sha256 and every Runtime file.",
+      "vulnerability": {
+        "@id": "https://www.cve.org/CVERecord?id=CVE-2026-63072",
+        "name": "CVE-2026-63072"
+      }
+    },
+    {
+      "justification": "component_not_present",
+      "products": [
+        {
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.0?arch=x86_64&os=windows"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The complete final Runtime inventory contains no Python _ssl/_hashlib, OpenSSL libcrypto/libssl, or Qt qopensslbackend payload. Networking uses Windows WinHTTP/Schannel and the required python_hashlib_winhttp builder verification passed. This component-not-present conclusion is recomputed from runtime_subset_manifest.sha256 and every Runtime file.",
+      "vulnerability": {
+        "@id": "https://www.cve.org/CVERecord?id=CVE-2026-63074",
+        "name": "CVE-2026-63074"
+      }
+    },
+    {
+      "justification": "component_not_present",
+      "products": [
+        {
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.0?arch=x86_64&os=windows"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "The complete final Runtime inventory contains no Python _ssl/_hashlib, OpenSSL libcrypto/libssl, or Qt qopensslbackend payload. Networking uses Windows WinHTTP/Schannel and the required python_hashlib_winhttp builder verification passed. This component-not-present conclusion is recomputed from runtime_subset_manifest.sha256 and every Runtime file.",
+      "vulnerability": {
+        "@id": "https://www.cve.org/CVERecord?id=CVE-2026-63076",
+        "name": "CVE-2026-63076"
+      }
+    }
+  ],
+  "timestamp": "2026-08-29T00:00:00Z",
+  "tooling": "SankakuSyncer Runtime Compliance Collector",
+  "version": 1
+}
