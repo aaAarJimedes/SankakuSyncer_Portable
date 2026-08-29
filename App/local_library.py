@@ -4,17 +4,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import os
 import re
-import stat
 import threading
 from typing import Callable
 
+from bound_file_reader import (
+    BoundFileCancelled,
+    BoundFileError,
+    BoundRootIdentity,
+    BoundRootSession,
+    open_bound_root,
+)
 from download_engine import (
     LOCAL_MEDIA_EXTENSIONS,
     LocalIntegrityError,
     LocalMetadataError,
-    verify_local_download,
+    MAX_MEDIA_BYTES,
+    verify_bound_local_download,
 )
 from sankaku_api import CancelledError
 
@@ -36,7 +42,6 @@ LIBRARY_STATUSES = (
     "unsafe_path",
     "unreadable",
 )
-_WINDOWS_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 _MEDIA_NAME_RE = re.compile(
     r"^(?P<post_id>[A-Za-z0-9][A-Za-z0-9_-]{0,63})"
     r"(?:\.(?P<variant>sample|preview))?"
@@ -72,12 +77,7 @@ class LibraryReport:
     verified_count: int
     checked_bytes: int
     status_counts: dict[str, int]
-
-
-@dataclass(frozen=True, slots=True)
-class _RootIdentity:
-    device: int
-    inode: int
+    root_identity: BoundRootIdentity | None = None
 
 
 def scan_download_library(
@@ -94,9 +94,21 @@ def scan_download_library(
     """
 
     cancellation = stop_event or threading.Event()
-    root, root_identity = _validated_root(output_dir)
-    names = _collect_candidates(root, cancellation)
-    _assert_root_identity(root, root_identity)
+    try:
+        with open_bound_root(output_dir, cancellation) as session:
+            return _scan_bound_session(session, cancellation, progress)
+    except BoundFileCancelled:
+        raise CancelledError("本地下载库扫描已取消") from None
+    except BoundFileError as exc:
+        raise LibraryScanError(str(exc)) from None
+
+
+def _scan_bound_session(
+    session: BoundRootSession,
+    cancellation: threading.Event,
+    progress: Callable[[int, int, int], None] | None,
+) -> LibraryReport:
+    names = _collect_candidates(session, cancellation)
     total = len(names)
     results: list[LibraryEntry] = []
     status_counts = {status: 0 for status in LIBRARY_STATUSES}
@@ -104,20 +116,17 @@ def scan_download_library(
 
     for index, name in enumerate(names, start=1):
         _check_cancelled(cancellation)
-        _assert_root_identity(root, root_identity)
-        media_path = os.path.join(root, name)
-        fallback_size = _plain_candidate_size(media_path)
+        fallback_size = _plain_candidate_size(session, name, cancellation)
         fallback_post_id, fallback_variant = _identity_from_filename(name)
         try:
-            verified = verify_local_download(
-                media_path,
-                output_dir=root,
+            verified = verify_bound_local_download(
+                session,
+                name,
                 stop_event=cancellation,
             )
         except CancelledError:
             raise
         except LocalMetadataError as exc:
-            _assert_root_identity(root, root_identity)
             status = exc.status if exc.status in status_counts else "invalid_metadata"
             entry = LibraryEntry(
                 status=status,
@@ -133,7 +142,6 @@ def scan_download_library(
                 detail=_display_text(str(exc), MAX_DISPLAY_DETAIL_CHARS)[0],
             )
         except LocalIntegrityError as exc:
-            _assert_root_identity(root, root_identity)
             checked_bytes += exc.checked_bytes
             status = exc.status if exc.status in status_counts else "changed"
             entry = LibraryEntry(
@@ -150,7 +158,6 @@ def scan_download_library(
                 detail=_display_text(str(exc), MAX_DISPLAY_DETAIL_CHARS)[0],
             )
         else:
-            _assert_root_identity(root, root_identity)
             checked_bytes += verified.size
             rating, rating_changed = _display_text(
                 verified.rating, MAX_DISPLAY_RATING_CHARS
@@ -193,80 +200,35 @@ def scan_download_library(
             progress(index, total, checked_bytes)
         _check_cancelled(cancellation)
 
-    _assert_root_identity(root, root_identity)
+    _check_cancelled(cancellation)
     return LibraryReport(
         entries=tuple(results),
         scanned_candidates=total,
         verified_count=status_counts["verified"],
         checked_bytes=checked_bytes,
         status_counts=dict(status_counts),
+        root_identity=session.identity,
     )
 
 
-def _validated_root(output_dir: str) -> tuple[str, _RootIdentity]:
-    try:
-        raw = os.fspath(output_dir)
-        if not isinstance(raw, str) or not raw:
-            raise ValueError("empty root")
-        root = os.path.abspath(raw)
-    except (OSError, TypeError, ValueError) as exc:
-        raise LibraryScanError(
-            f"下载目录不可用（{type(exc).__name__}）"
-        ) from exc
-    return root, _read_root_identity(root)
-
-
-def _read_root_identity(root: str) -> _RootIdentity:
-    try:
-        root_stat = os.lstat(root)
-    except OSError as exc:
-        raise LibraryScanError(
-            f"下载目录不可用（{type(exc).__name__}）"
-        ) from exc
-    attributes = int(getattr(root_stat, "st_file_attributes", 0))
-    if (
-        not stat.S_ISDIR(root_stat.st_mode)
-        or stat.S_ISLNK(root_stat.st_mode)
-        or attributes & _WINDOWS_REPARSE_POINT
-    ):
-        raise LibraryScanError("下载目录路径不安全（拒绝链接或重解析点）")
-    return _RootIdentity(device=root_stat.st_dev, inode=root_stat.st_ino)
-
-
-def _assert_root_identity(root: str, expected: _RootIdentity) -> None:
-    if _read_root_identity(root) != expected:
-        raise LibraryScanError("下载目录在扫描期间被替换")
-
-
-def _collect_candidates(root: str, cancellation: threading.Event) -> list[str]:
+def _collect_candidates(
+    session: BoundRootSession, cancellation: threading.Event
+) -> list[str]:
     names: set[str] = set()
-    seen_entries = 0
     _check_cancelled(cancellation)
-    try:
-        with os.scandir(root) as iterator:
-            for item in iterator:
-                _check_cancelled(cancellation)
-                seen_entries += 1
-                if seen_entries > MAX_DIRECTORY_ENTRIES:
-                    raise LibraryScanError(
-                        f"下载目录项目超过 {MAX_DIRECTORY_ENTRIES} 项安全上限"
-                    )
-                candidate = _candidate_media_name(item.name)
-                if candidate is None:
-                    continue
-                names.add(candidate)
-                if len(names) > MAX_LIBRARY_CANDIDATES:
-                    raise LibraryScanError(
-                        f"本地媒体候选超过 {MAX_LIBRARY_CANDIDATES} 项安全上限"
-                    )
-    except CancelledError:
-        raise
-    except LibraryScanError:
-        raise
-    except OSError as exc:
-        raise LibraryScanError(
-            f"下载目录读取失败（{type(exc).__name__}）"
-        ) from exc
+    for name in session.list_names(
+        stop_event=cancellation,
+        max_entries=MAX_DIRECTORY_ENTRIES,
+    ):
+        _check_cancelled(cancellation)
+        candidate = _candidate_media_name(name)
+        if candidate is None:
+            continue
+        names.add(candidate)
+        if len(names) > MAX_LIBRARY_CANDIDATES:
+            raise LibraryScanError(
+                f"本地媒体候选超过 {MAX_LIBRARY_CANDIDATES} 项安全上限"
+            )
     return sorted(names, key=lambda value: (value.casefold(), value))
 
 
@@ -287,19 +249,21 @@ def _identity_from_filename(name: str) -> tuple[str, str]:
     return match.group("post_id"), (match.group("variant") or "original").lower()
 
 
-def _plain_candidate_size(path: str) -> int:
+def _plain_candidate_size(
+    session: BoundRootSession,
+    name: str,
+    cancellation: threading.Event,
+) -> int:
     try:
-        path_stat = os.lstat(path)
-    except OSError:
+        return session.stat_child(
+            name,
+            stop_event=cancellation,
+            max_bytes=MAX_MEDIA_BYTES,
+        )
+    except BoundFileCancelled:
+        raise CancelledError("本地下载库扫描已取消") from None
+    except BoundFileError:
         return 0
-    attributes = int(getattr(path_stat, "st_file_attributes", 0))
-    if (
-        not stat.S_ISREG(path_stat.st_mode)
-        or stat.S_ISLNK(path_stat.st_mode)
-        or attributes & _WINDOWS_REPARSE_POINT
-    ):
-        return 0
-    return max(0, int(path_stat.st_size))
 
 
 def _display_text(value: str, limit: int) -> tuple[str, bool]:

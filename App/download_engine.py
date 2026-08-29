@@ -17,6 +17,13 @@ import time
 from typing import Callable
 from urllib.parse import urljoin, urlsplit
 
+from bound_file_reader import (
+    BoundFileCancelled,
+    BoundFileError,
+    BoundFileMissing,
+    BoundFileTooLarge,
+    BoundRootSession,
+)
 from http_transport import Response, Session, TransportError
 from request_gate import GateCancelled, MEDIA_REQUEST_GATE
 from sankaku_api import (
@@ -1730,9 +1737,19 @@ def _load_metadata_sidecar(path: str) -> dict[str, object] | None:
             != getattr(opened_stat, "st_mtime_ns", 0)
         ):
             raise DownloadError("元数据文件在读取期间被替换")
+    except OSError:
+        return None
+    return _parse_metadata_sidecar(encoded)
+
+
+def _parse_metadata_sidecar(encoded: bytes) -> dict[str, object] | None:
+    """Validate one already bounded schema-2 sidecar payload."""
+
+    try:
+        if type(encoded) is not bytes or not 0 < len(encoded) <= _MAX_METADATA_BYTES:
+            return None
         payload = json.loads(encoded.decode("utf-8"))
     except (
-        OSError,
         RecursionError,
         UnicodeDecodeError,
         json.JSONDecodeError,
@@ -1846,6 +1863,218 @@ def _local_access_status(error: DownloadError, *, missing: str) -> str:
     return "changed"
 
 
+def _validate_local_filename_binding(
+    filename: str,
+    payload: dict[str, object],
+) -> tuple[str, str, str]:
+    """Validate fields that can be rejected before hashing a large media file."""
+
+    post_id = payload["post_id"]
+    variant = payload["variant"]
+    extension = payload["extension"]
+    if normalize_post_id(post_id) != post_id:
+        raise LocalMetadataError("本地元数据中的作品编号无效")
+    suffix = "" if variant == "original" else f".{variant}"
+    pattern = re.compile(
+        _FINAL_FILENAME_RE_TEMPLATE.format(
+            post_id=re.escape(post_id),
+            variant_suffix=re.escape(suffix),
+        ),
+        re.IGNORECASE,
+    )
+    match = pattern.fullmatch(filename)
+    if (
+        payload["filename"] != filename
+        or match is None
+        or match.group(2).lower() != extension
+        or int(match.group(1) or 0) >= _MAX_COLLISION_SLOTS
+    ):
+        raise LocalMetadataError("本地元数据与文件名不匹配")
+    return post_id, variant, extension
+
+
+def _validate_local_media_pair(
+    filename: str,
+    payload: dict[str, object],
+    inspection: _FileInspection,
+    binding: tuple[str, str, str],
+) -> str:
+    """Bind one completed media inspection to its validated sidecar."""
+
+    post_id, variant, extension = binding
+    if not _metadata_matches_file(
+        payload,
+        post_id=post_id,
+        variant=variant,
+        filename=filename,
+        filename_extension=extension,
+        inspection=inspection,
+    ):
+        raise LocalIntegrityError(
+            "本地媒体的长度或 SHA-256 与元数据不匹配",
+            checked_bytes=inspection.size,
+        )
+    try:
+        content_type, detected_extension = _resolve_media_format(
+            inspection,
+            declared_type=payload["content_type"],
+            expected_type=payload["content_type"],
+            expected_extension=extension,
+            expected_size=payload["size"],
+            expected_md5="",
+            require_concrete_declared=True,
+        )
+        if detected_extension != extension:
+            raise DownloadError("本地媒体扩展名与文件签名不匹配")
+    except DownloadError as exc:
+        raise LocalIntegrityError(
+            str(exc), checked_bytes=inspection.size
+        ) from exc
+    return content_type
+
+
+def _raise_bound_local_failure(
+    error: BoundFileError,
+    *,
+    target: str,
+    checked_bytes: int = 0,
+    after_media: bool = False,
+) -> None:
+    """Translate fixed bound-reader failures without inspecting message text."""
+
+    if isinstance(error, BoundFileCancelled):
+        raise CancelledError("本地校验已取消") from None
+    if target == "metadata":
+        if isinstance(error, BoundFileMissing):
+            message, status = "缺少本地元数据", "missing_metadata"
+        elif isinstance(error, BoundFileTooLarge):
+            message, status = "本地元数据超过安全上限", "invalid_metadata"
+        else:
+            message, status = "本地元数据路径不安全", "unsafe_path"
+        if after_media:
+            raise LocalIntegrityError(
+                message,
+                status=status,
+                checked_bytes=checked_bytes,
+            ) from None
+        raise LocalMetadataError(message, status=status) from None
+
+    if isinstance(error, BoundFileMissing):
+        message, status = "本地媒体不存在", "missing_media"
+    elif isinstance(error, BoundFileTooLarge):
+        message, status = "本地媒体超过 50 GiB 安全上限", "changed"
+    else:
+        message, status = "本地媒体路径不安全", "unsafe_path"
+    raise LocalIntegrityError(
+        message,
+        status=status,
+        checked_bytes=checked_bytes,
+    ) from None
+
+
+def verify_bound_local_download(
+    session: BoundRootSession,
+    filename: str,
+    stop_event: threading.Event | None = None,
+) -> LocalMediaVerification:
+    """Revalidate one direct child using an already-open root session."""
+
+    cancellation = stop_event or threading.Event()
+    if cancellation.is_set():
+        raise CancelledError("本地校验已取消")
+    if not isinstance(session, BoundRootSession) or session.closed:
+        raise LocalIntegrityError(
+            "本地媒体根目录不可用", status="unsafe_path"
+        )
+    if not isinstance(filename, str) or not filename:
+        raise LocalIntegrityError("本地媒体路径无效", status="unsafe_path")
+
+    try:
+        media_size = session.stat_child(
+            filename,
+            stop_event=cancellation,
+            max_bytes=MAX_MEDIA_BYTES,
+        )
+    except BoundFileError as exc:
+        _raise_bound_local_failure(exc, target="media")
+    if media_size <= 0:
+        raise LocalIntegrityError("本地媒体为空")
+
+    sidecar_name = filename + ".json"
+    try:
+        encoded = session.read_small_file(
+            sidecar_name,
+            stop_event=cancellation,
+            max_bytes=_MAX_METADATA_BYTES,
+        )
+    except BoundFileError as exc:
+        _raise_bound_local_failure(exc, target="metadata")
+    payload = _parse_metadata_sidecar(encoded)
+    if payload is None:
+        raise LocalMetadataError("本地元数据格式无效")
+    binding = _validate_local_filename_binding(filename, payload)
+
+    try:
+        bound_inspection = session.inspect_child(
+            filename,
+            stop_event=cancellation,
+            max_bytes=MAX_MEDIA_BYTES,
+            prefix_bytes=_MAX_PREFIX_BYTES,
+        )
+    except BoundFileError as exc:
+        _raise_bound_local_failure(exc, target="media")
+    inspection = _FileInspection(
+        size=bound_inspection.size,
+        sha256=bound_inspection.sha256,
+        md5=bound_inspection.md5,
+        prefix=bound_inspection.prefix,
+        device=0,
+        inode=0,
+    )
+    post_id, variant, extension = binding
+    content_type = _validate_local_media_pair(
+        filename, payload, inspection, binding
+    )
+
+    try:
+        refreshed_encoded = session.read_small_file(
+            sidecar_name,
+            stop_event=cancellation,
+            max_bytes=_MAX_METADATA_BYTES,
+        )
+    except BoundFileError as exc:
+        _raise_bound_local_failure(
+            exc,
+            target="metadata",
+            checked_bytes=inspection.size,
+            after_media=True,
+        )
+    if refreshed_encoded != encoded:
+        raise LocalIntegrityError(
+            "本地元数据在校验期间发生变化",
+            status="changed",
+            checked_bytes=inspection.size,
+        )
+    if cancellation.is_set():
+        raise CancelledError("本地校验已取消")
+
+    post = payload["post"]
+    return LocalMediaVerification(
+        post_id=post_id,
+        variant=variant,
+        file_path=os.path.join(session.root_path, filename),
+        relative_path=filename,
+        size=inspection.size,
+        sha256=inspection.sha256,
+        content_type=content_type,
+        extension=extension,
+        rating=post["rating"],
+        author=post["author"],
+        tags=tuple(post["tags"]),
+        created_at=post["created_at"],
+    )
+
+
 def verify_local_download(
     media_path: str,
     *,
@@ -1915,28 +2144,7 @@ def verify_local_download(
         ) from exc
     if payload is None:
         raise LocalMetadataError("本地元数据格式无效")
-
-    post_id = payload["post_id"]
-    variant = payload["variant"]
-    extension = payload["extension"]
-    if normalize_post_id(post_id) != post_id:
-        raise LocalMetadataError("本地元数据中的作品编号无效")
-    suffix = "" if variant == "original" else f".{variant}"
-    pattern = re.compile(
-        _FINAL_FILENAME_RE_TEMPLATE.format(
-            post_id=re.escape(post_id),
-            variant_suffix=re.escape(suffix),
-        ),
-        re.IGNORECASE,
-    )
-    match = pattern.fullmatch(filename)
-    if (
-        payload["filename"] != filename
-        or match is None
-        or match.group(2).lower() != extension
-        or int(match.group(1) or 0) >= _MAX_COLLISION_SLOTS
-    ):
-        raise LocalMetadataError("本地元数据与文件名不匹配")
+    binding = _validate_local_filename_binding(filename, payload)
 
     try:
         inspection = _inspect_media_file(absolute_path, cancellation)
@@ -1948,30 +2156,12 @@ def verify_local_download(
         ) from exc
     if cancellation.is_set():
         raise CancelledError("本地校验已取消")
-    if not _metadata_matches_file(
-        payload,
-        post_id=post_id,
-        variant=variant,
-        filename=filename,
-        filename_extension=extension,
-        inspection=inspection,
-    ):
-        raise LocalIntegrityError(
-            "本地媒体的长度或 SHA-256 与元数据不匹配",
-            checked_bytes=inspection.size,
-        )
+    post_id, variant, extension = binding
+    content_type = _validate_local_media_pair(
+        filename, payload, inspection, binding
+    )
+    post = payload["post"]
     try:
-        content_type, detected_extension = _resolve_media_format(
-            inspection,
-            declared_type=payload["content_type"],
-            expected_type=payload["content_type"],
-            expected_extension=extension,
-            expected_size=payload["size"],
-            expected_md5="",
-            require_concrete_declared=True,
-        )
-        if detected_extension != extension:
-            raise DownloadError("本地媒体扩展名与文件签名不匹配")
         _assert_inspection_identity(absolute_path, inspection, "本地媒体")
     except DownloadError as exc:
         raise LocalIntegrityError(
@@ -2019,7 +2209,6 @@ def verify_local_download(
             checked_bytes=inspection.size,
         )
 
-    post = payload["post"]
     if cancellation.is_set():
         raise CancelledError("本地校验已取消")
     return LocalMediaVerification(
@@ -2109,4 +2298,5 @@ __all__ = [
     "MediaAccessDeniedError",
     "MediaDownloader",
     "verify_local_download",
+    "verify_bound_local_download",
 ]

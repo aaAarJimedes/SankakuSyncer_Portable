@@ -14,6 +14,7 @@ from types import SimpleNamespace
 import unittest
 from unittest import mock
 
+from bound_file_reader import BoundRootSession, open_bound_root
 import download_engine
 import request_gate
 from download_engine import (
@@ -23,6 +24,7 @@ from download_engine import (
     LocalMetadataError,
     MediaAccessDeniedError,
     MediaDownloader,
+    verify_bound_local_download,
     verify_local_download,
 )
 from sankaku_api import (
@@ -1645,6 +1647,90 @@ class LocalDownloadVerificationTests(unittest.TestCase):
         with open(metadata_path, "rb") as file_obj:
             self.assertEqual(file_obj.read(), metadata_before)
 
+    def test_bound_verifier_matches_the_legacy_verified_result(self):
+        media_path, _metadata_path = self._write_pair()
+        legacy = verify_local_download(
+            media_path,
+            output_dir=self.temp_dir.name,
+        )
+
+        with open_bound_root(self.temp_dir.name) as session:
+            bound = verify_bound_local_download(session, "Post_local.jpg")
+
+        self.assertEqual(bound, legacy)
+
+    def test_bound_missing_or_invalid_sidecar_never_hashes_media(self):
+        media_path = os.path.join(self.temp_dir.name, "Post_local.jpg")
+        with open(media_path, "wb") as file_obj:
+            file_obj.write(JPEG)
+        with open_bound_root(self.temp_dir.name) as session, mock.patch.object(
+            BoundRootSession, "inspect_child", autospec=True
+        ) as inspect:
+            with self.assertRaises(LocalMetadataError) as raised:
+                verify_bound_local_download(session, "Post_local.jpg")
+            self.assertEqual(raised.exception.status, "missing_metadata")
+            inspect.assert_not_called()
+
+        with open(media_path + ".json", "wb") as file_obj:
+            file_obj.write(b"not-json")
+        with open_bound_root(self.temp_dir.name) as session, mock.patch.object(
+            BoundRootSession, "inspect_child", autospec=True
+        ) as inspect:
+            with self.assertRaises(LocalMetadataError) as raised:
+                verify_bound_local_download(session, "Post_local.jpg")
+            self.assertEqual(raised.exception.status, "invalid_metadata")
+            inspect.assert_not_called()
+
+    def test_bound_orphan_and_tampered_media_keep_status_and_checked_bytes(self):
+        media_path, _metadata_path = self._write_pair()
+        os.remove(media_path)
+        with open_bound_root(self.temp_dir.name) as session:
+            with self.assertRaises(LocalIntegrityError) as raised:
+                verify_bound_local_download(session, "Post_local.jpg")
+        self.assertEqual(raised.exception.status, "missing_media")
+
+        self._write_pair(media=JPEG_ALT, sidecar_media=JPEG)
+        with open_bound_root(self.temp_dir.name) as session:
+            with self.assertRaises(LocalIntegrityError) as raised:
+                verify_bound_local_download(session, "Post_local.jpg")
+        self.assertEqual(raised.exception.status, "changed")
+        self.assertEqual(raised.exception.checked_bytes, len(JPEG_ALT))
+
+    def test_bound_sidecar_change_during_media_hash_is_not_verified(self):
+        _media_path, metadata_path = self._write_pair()
+        with open_bound_root(self.temp_dir.name) as session:
+            real_inspect = session.inspect_child
+
+            def inspect_then_edit(_session, *args, **kwargs):
+                result = real_inspect(*args, **kwargs)
+                with open(metadata_path, "ab") as file_obj:
+                    file_obj.write(b" ")
+                return result
+
+            with mock.patch.object(
+                BoundRootSession,
+                "inspect_child",
+                autospec=True,
+                side_effect=inspect_then_edit,
+            ):
+                with self.assertRaises(LocalIntegrityError) as raised:
+                    verify_bound_local_download(session, "Post_local.jpg")
+
+        self.assertEqual(raised.exception.status, "changed")
+        self.assertEqual(raised.exception.checked_bytes, len(JPEG))
+
+    def test_bound_pre_cancelled_verification_uses_shared_cancelled_error(self):
+        self._write_pair()
+        stopped = threading.Event()
+        stopped.set()
+        with open_bound_root(self.temp_dir.name) as session:
+            with self.assertRaises(CancelledError):
+                verify_bound_local_download(
+                    session,
+                    "Post_local.jpg",
+                    stop_event=stopped,
+                )
+
     def test_missing_or_invalid_sidecar_is_classified_before_hashing(self):
         media_path = os.path.join(self.temp_dir.name, "Post_local.jpg")
         with open(media_path, "wb") as file_obj:
@@ -1807,6 +1893,7 @@ class LocalDownloadVerificationTests(unittest.TestCase):
                 "LocalIntegrityError",
                 "LocalMediaVerification",
                 "LocalMetadataError",
+                "verify_bound_local_download",
                 "verify_local_download",
             }.issubset(download_engine.__all__)
         )

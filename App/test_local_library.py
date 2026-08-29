@@ -8,10 +8,15 @@ import json
 import os
 import tempfile
 import threading
-from types import SimpleNamespace
 import unittest
 from unittest import mock
 
+from bound_file_reader import (
+    BoundFileCancelled,
+    BoundRootIdentity,
+    get_bound_root_identity,
+)
+import download_engine
 from download_engine import LocalIntegrityError, LocalMetadataError
 import local_library
 from local_library import LibraryScanError, scan_download_library
@@ -143,6 +148,11 @@ class LocalLibraryTests(unittest.TestCase):
         self.assertEqual(report.scanned_candidates, 5)
         self.assertEqual(report.verified_count, 1)
         self.assertEqual(report.checked_bytes, len(JPEG) + len(JPEG_ALT))
+        self.assertIsInstance(report.root_identity, BoundRootIdentity)
+        self.assertEqual(
+            report.root_identity,
+            get_bound_root_identity(self.temp_dir.name),
+        )
         self.assertEqual(set(report.status_counts), set(local_library.LIBRARY_STATUSES))
         self.assertEqual(report.status_counts["verified"], 1)
         self.assertEqual(report.status_counts["missing_metadata"], 1)
@@ -261,7 +271,7 @@ class LocalLibraryTests(unittest.TestCase):
         ]
 
         with mock.patch(
-            "local_library.verify_local_download", side_effect=failures
+            "local_library.verify_bound_local_download", side_effect=failures
         ):
             report = scan_download_library(self.temp_dir.name)
 
@@ -276,14 +286,14 @@ class LocalLibraryTests(unittest.TestCase):
         self._write_media("a.jpg")
         self._write_media("b.jpg")
         with mock.patch.object(local_library, "MAX_LIBRARY_CANDIDATES", 1), mock.patch(
-            "local_library.verify_local_download"
+            "local_library.verify_bound_local_download"
         ) as verify:
             with self.assertRaisesRegex(LibraryScanError, "候选"):
                 scan_download_library(self.temp_dir.name)
             verify.assert_not_called()
 
         with mock.patch.object(local_library, "MAX_DIRECTORY_ENTRIES", 1), mock.patch(
-            "local_library.verify_local_download"
+            "local_library.verify_bound_local_download"
         ) as verify:
             with self.assertRaisesRegex(LibraryScanError, "项目"):
                 scan_download_library(self.temp_dir.name)
@@ -293,10 +303,13 @@ class LocalLibraryTests(unittest.TestCase):
         stop_event = threading.Event()
         stop_event.set()
 
-        with mock.patch("local_library.os.scandir") as scandir:
+        with mock.patch(
+            "local_library.open_bound_root",
+            side_effect=BoundFileCancelled("本地文件读取已取消"),
+        ) as open_root:
             with self.assertRaises(CancelledError):
                 scan_download_library(self.temp_dir.name, stop_event=stop_event)
-            scandir.assert_not_called()
+            open_root.assert_called_once_with(self.temp_dir.name, stop_event)
 
     def test_cancellation_between_candidates_returns_no_partial_report(self):
         self._write_media("a.jpg")
@@ -304,13 +317,13 @@ class LocalLibraryTests(unittest.TestCase):
         stop_event = threading.Event()
         calls: list[str] = []
 
-        def cancel_first(path: str, **_kwargs):
-            calls.append(os.path.basename(path))
+        def cancel_first(_session, name: str, **_kwargs):
+            calls.append(name)
             stop_event.set()
             raise LocalMetadataError("missing", status="missing_metadata")
 
         with mock.patch(
-            "local_library.verify_local_download", side_effect=cancel_first
+            "local_library.verify_bound_local_download", side_effect=cancel_first
         ):
             with self.assertRaises(CancelledError):
                 scan_download_library(self.temp_dir.name, stop_event=stop_event)
@@ -325,22 +338,77 @@ class LocalLibraryTests(unittest.TestCase):
         with self.assertRaisesRegex(LibraryScanError, "不安全"):
             scan_download_library(path)
 
-    def test_root_identity_replacement_aborts_without_partial_report(self):
-        self._write_media("Post_1.jpg")
-        original = os.lstat(self.temp_dir.name)
-        replacement = SimpleNamespace(
-            st_mode=original.st_mode,
-            st_dev=original.st_dev,
-            st_ino=original.st_ino + 1,
-            st_file_attributes=0,
-        )
+    def test_root_aba_cannot_redirect_a_bound_scan(self):
+        live = os.path.join(self.temp_dir.name, "live")
+        replacement = os.path.join(self.temp_dir.name, "replacement")
+        parked = os.path.join(self.temp_dir.name, "parked")
+        os.makedirs(live)
+        os.makedirs(replacement)
 
-        with mock.patch(
-            "local_library.os.lstat", side_effect=[original, replacement]
-        ), mock.patch("local_library.verify_local_download") as verify:
-            with self.assertRaisesRegex(LibraryScanError, "被替换"):
-                scan_download_library(self.temp_dir.name)
-            verify.assert_not_called()
+        def write_pair(root: str, payload: bytes) -> None:
+            filename = "Post_aba.jpg"
+            with open(os.path.join(root, filename), "wb") as file_obj:
+                file_obj.write(payload)
+            document = {
+                "schema_version": 2,
+                "post_id": "Post_aba",
+                "variant": "original",
+                "filename": filename,
+                "content_type": "image/jpeg",
+                "extension": "jpg",
+                "size": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+                "post": {
+                    "rating": "s",
+                    "status": "active",
+                    "width": 1,
+                    "height": 1,
+                    "tags": ["bound"],
+                    "author": "original" if payload == JPEG else "replacement",
+                    "created_at": "1700000000",
+                    "is_premium": False,
+                },
+            }
+            with open(
+                os.path.join(root, filename + ".json"),
+                "w",
+                encoding="utf-8",
+            ) as file_obj:
+                json.dump(document, file_obj)
+
+        write_pair(live, JPEG)
+        write_pair(replacement, JPEG_ALT)
+        real_binding = download_engine._validate_local_filename_binding
+        swapped = False
+
+        def swap_then_validate(filename, payload):
+            nonlocal swapped
+            moved_original = False
+            try:
+                os.rename(live, parked)
+                moved_original = True
+                os.rename(replacement, live)
+                swapped = True
+            except OSError:
+                if moved_original and not os.path.exists(live):
+                    os.rename(parked, live)
+            return real_binding(filename, payload)
+
+        try:
+            with mock.patch(
+                "download_engine._validate_local_filename_binding",
+                side_effect=swap_then_validate,
+            ):
+                report = scan_download_library(live)
+        finally:
+            if swapped:
+                os.rename(live, replacement)
+                os.rename(parked, live)
+
+        self.assertEqual(report.verified_count, 1)
+        self.assertEqual(report.entries[0].sha256, hashlib.sha256(JPEG).hexdigest())
+        self.assertEqual(report.entries[0].author, "original")
+        self.assertEqual(report.root_identity, get_bound_root_identity(live))
 
     def test_orphan_sidecar_and_media_pair_count_as_one_candidate(self):
         self._write_media("Post_1.jpg")
