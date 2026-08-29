@@ -24,12 +24,16 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
+import sys
 from typing import Iterable, Mapping
 from urllib.parse import urlsplit
 
 try:
     from .build_runtime_subset import parse_pe_imports
 except ImportError:  # Direct execution from App/tools.
+    tools_directory = str(Path(__file__).resolve().parent)
+    if tools_directory not in sys.path:
+        sys.path.insert(0, tools_directory)
     from build_runtime_subset import parse_pe_imports
 
 
@@ -56,9 +60,14 @@ APP_VERSION = _load_application_version()
 BUILDER_SENTINEL = ".sankakusyncer-runtime-subset-builder"
 BUILDER_MANIFEST = "runtime_subset_manifest.sha256"
 BUILDER_REPORT = "runtime_subset_report.json"
+PORTABLE_RELATIVE_PATH_LIMIT = 160
+QT_ATTRIBUTION_ARCHIVE_FILENAME_LIMIT = 96
 PE_SUFFIXES = {".dll", ".exe", ".pyd"}
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _VERSION_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z.+_-]*$")
+_QT_ATTRIBUTION_FILENAME_RE = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9_.+-]*\.html$", re.IGNORECASE
+)
 
 CPYTHON_NATIVE_COMPONENTS = {
     "bzip2": ("_bz2.pyd",),
@@ -109,6 +118,45 @@ def canonical_name(name: str) -> str:
 
 def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def qt_attribution_archive_filename(source_filename: str) -> str:
+    """Return the bounded, deterministic local name for a Qt notice page.
+
+    Most upstream names are already short and remain byte-for-byte readable.
+    Long names retain a readable stem prefix and append the *full* SHA-256 of
+    the authoritative upstream basename.  The full digest makes the mapping
+    collision-resistant without relying on a truncated identifier, while the
+    fixed limit keeps default Windows Git checkouts below ``MAX_PATH``.
+    """
+    if (
+        not isinstance(source_filename, str)
+        or PurePosixPath(source_filename).name != source_filename
+        or not _QT_ATTRIBUTION_FILENAME_RE.fullmatch(source_filename)
+    ):
+        raise RuntimeComplianceError(
+            f"unsafe Qt attribution source filename: {source_filename!r}"
+        )
+    if len(source_filename) <= QT_ATTRIBUTION_ARCHIVE_FILENAME_LIMIT:
+        return source_filename
+
+    extension = ".html"
+    digest = hashlib.sha256(source_filename.encode("ascii")).hexdigest()
+    prefix_limit = (
+        QT_ATTRIBUTION_ARCHIVE_FILENAME_LIMIT
+        - len(extension)
+        - len(digest)
+        - 1
+    )
+    prefix = source_filename[: -len(extension)][:prefix_limit].rstrip("._-")
+    if not prefix:
+        raise RuntimeComplianceError(
+            f"Qt attribution filename has no bounded prefix: {source_filename!r}"
+        )
+    archived = f"{prefix}-{digest}{extension}"
+    if len(archived) > QT_ATTRIBUTION_ARCHIVE_FILENAME_LIMIT:
+        raise RuntimeComplianceError("bounded Qt attribution filename overflow")
+    return archived
 
 
 def json_bytes(value: object) -> bytes:

@@ -60,6 +60,8 @@ PYTHON_VERSION = "3.13.15"
 PYSIDE_VERSION = "6.11.2"
 QT_VERSION = "6.11.2"
 BUNDLE_SCHEMA_VERSION = 2
+PORTABLE_RELATIVE_PATH_LIMIT = runtime_compliance.PORTABLE_RELATIVE_PATH_LIMIT
+_PORTABLE_LICENSE_PREFIX = "THIRD_PARTY_LICENSES/"
 
 CPYTHON_LICENSE_URL = (
     f"https://raw.githubusercontent.com/python/cpython/v{PYTHON_VERSION}/LICENSE"
@@ -428,6 +430,38 @@ def discover_qt_attribution_urls(page: bytes) -> list[str]:
             + ", ".join(missing)
         )
     return sorted(urls)
+
+
+def qt_attribution_archive_entries(
+    urls: Iterable[str],
+) -> list[tuple[str, str, str]]:
+    """Map official notice URLs to unique bounded local filenames.
+
+    Each tuple is ``(url, upstream_basename, archive_filename)``.  The explicit
+    upstream name is kept for validation and the source URL remains frozen in
+    ``SOURCES.json``, so a reviewer can independently recompute every hashed
+    archive name.  Case-folded collision checks model Windows checkout rules.
+    """
+    entries: list[tuple[str, str, str]] = []
+    owners: dict[str, tuple[str, str]] = {}
+    for url in sorted(set(urls)):
+        source_filename = PurePosixPath(urlsplit(url).path).name
+        try:
+            archive_filename = runtime_compliance.qt_attribution_archive_filename(
+                source_filename
+            )
+        except runtime_compliance.RuntimeComplianceError as exc:
+            raise LicenseBundleError(str(exc)) from exc
+        key = archive_filename.casefold()
+        previous = owners.get(key)
+        if previous is not None and previous != (url, source_filename):
+            raise LicenseBundleError(
+                "Qt attribution archive filename collision: "
+                f"{previous[1]!r} and {source_filename!r}"
+            )
+        owners[key] = (url, source_filename)
+        entries.append((url, source_filename, archive_filename))
+    return entries
 
 
 def parse_qt_source_checksum(module: str, data: bytes) -> dict[str, str]:
@@ -1134,10 +1168,12 @@ def collect_materials(
     # Fetch concurrently to keep a full refresh practical; output remains sorted.
     with ThreadPoolExecutor(max_workers=4) as executor:
         notice_data = list(executor.map(fetcher, attribution_urls))
-    for url, data in zip(attribution_urls, notice_data, strict=True):
-        filename = PurePosixPath(urlsplit(url).path).name
-        runtime_compliance.parse_attribution_page(filename, data)
-        add(f"Qt-{QT_VERSION}/attributions/{filename}", url, data)
+    attribution_entries = qt_attribution_archive_entries(attribution_urls)
+    for (url, source_filename, archive_filename), data in zip(
+        attribution_entries, notice_data, strict=True
+    ):
+        runtime_compliance.parse_attribution_page(source_filename, data)
+        add(f"Qt-{QT_VERSION}/attributions/{archive_filename}", url, data)
 
     msvc_data = fetcher(MSVC_LICENSE_URL)
     add("Microsoft/VS2022-CRuntime-License.html", MSVC_LICENSE_URL, msvc_data)
@@ -1296,9 +1332,10 @@ def expected_material_sources(
         )
     except KeyError as exc:
         raise LicenseBundleError("Qt attribution index is missing") from exc
-    for url in sorted(attribution_urls):
-        filename = PurePosixPath(urlsplit(url).path).name
-        add(f"Qt-{QT_VERSION}/attributions/{filename}", url)
+    for url, _source_filename, archive_filename in qt_attribution_archive_entries(
+        attribution_urls
+    ):
+        add(f"Qt-{QT_VERSION}/attributions/{archive_filename}", url)
     add("Microsoft/VS2022-CRuntime-License.html", MSVC_LICENSE_URL)
     add(
         "Microsoft/Visual-C-Runtime-2015-2022-License.docx",
@@ -1539,7 +1576,9 @@ def build_manifest(
     }
 
 
-def _validate_relative_path(value: str) -> PurePosixPath:
+def _validate_relative_path(
+    value: str, *, enforce_portable_limit: bool = True
+) -> PurePosixPath:
     path = PurePosixPath(value)
     if (
         not value
@@ -1549,11 +1588,21 @@ def _validate_relative_path(value: str) -> PurePosixPath:
         or any(not _SAFE_OUTPUT_PART_RE.fullmatch(part) for part in path.parts)
     ):
         raise LicenseBundleError(f"unsafe bundle path: {value!r}")
+    portable_relative = _PORTABLE_LICENSE_PREFIX + value
+    if enforce_portable_limit and len(portable_relative) > PORTABLE_RELATIVE_PATH_LIMIT:
+        raise LicenseBundleError(
+            "portable relative path is too long: "
+            f"{len(portable_relative)} > {PORTABLE_RELATIVE_PATH_LIMIT}: {value!r}"
+        )
     return path
 
 
-def _safe_output_path(output: Path, relative: str) -> Path:
-    pure = _validate_relative_path(relative)
+def _safe_output_path(
+    output: Path, relative: str, *, enforce_portable_limit: bool = True
+) -> Path:
+    pure = _validate_relative_path(
+        relative, enforce_portable_limit=enforce_portable_limit
+    )
     candidate = output.joinpath(*pure.parts)
     try:
         candidate.resolve(strict=False).relative_to(output.resolve(strict=False))
@@ -1735,9 +1784,10 @@ def verify_bundle(
             file_bytes[f"Qt-{QT_VERSION}/{QT_WEBENGINE_LICENSE_PAGE}"]
         )
         expected_attributions = {
-            f"Qt-{QT_VERSION}/attributions/"
-            + PurePosixPath(urlsplit(url).path).name
-            for url in set(discover_qt_attribution_urls(index)) | set(webengine_urls)
+            f"Qt-{QT_VERSION}/attributions/{archive_filename}"
+            for _url, _source_filename, archive_filename in qt_attribution_archive_entries(
+                set(discover_qt_attribution_urls(index)) | set(webengine_urls)
+            )
         }
         actual_attributions = {
             relative
@@ -1925,7 +1975,10 @@ def _old_managed_paths(output: Path) -> set[str]:
         if not isinstance(entry, dict) or not isinstance(entry.get("path"), str):
             raise LicenseBundleError("existing SOURCES.json file entry is invalid")
         relative = str(entry["path"])
-        _safe_output_path(output, relative)
+        # A prior valid schema-2 bundle may predate the portable-path limit.
+        # Retain strict traversal/character checks while allowing refresh to
+        # identify and transactionally remove those now-stale managed names.
+        _safe_output_path(output, relative, enforce_portable_limit=False)
         paths.add(relative)
     return paths
 

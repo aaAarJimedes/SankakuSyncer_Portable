@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 from types import SimpleNamespace
@@ -146,6 +147,52 @@ class PortableSelfCheckTests(unittest.TestCase):
             self.assertEqual(failures, [])
             self.assertEqual(list((root / "Data").iterdir()), [])
             self.assertEqual(list((root / "Downloads").iterdir()), [])
+
+    def test_release_scan_rejects_overlong_portable_relative_path(self):
+        self.assertEqual(
+            portable_self_check.PORTABLE_RELATIVE_PATH_LIMIT,
+            portable_self_check.license_bundle.runtime_compliance.PORTABLE_RELATIVE_PATH_LIMIT,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            app = root / "App"
+            app.mkdir()
+            overlong = app / (
+                "x" * portable_self_check.PORTABLE_RELATIVE_PATH_LIMIT + ".py"
+            )
+            overlong.write_text("VALUE = 1\n", encoding="utf-8")
+            failures: list[str] = []
+            portable_self_check._check_release_tree(
+                root, root / "Runtime", failures
+            )
+            self.assertTrue(
+                any("portable relative path is too long" in value for value in failures),
+                failures,
+            )
+
+    def test_tool_help_entrypoints_work_with_isolated_embedded_python(self):
+        tools = Path(portable_self_check.__file__).resolve().parent
+        for name in ("portable_self_check.py", "assemble_portable.py"):
+            result = subprocess.run(
+                [sys.executable, "-B", str(tools / name), "--help"],
+                cwd=Path(tempfile.gettempdir()),
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("usage:", result.stdout.casefold())
+
+        runtime_result = subprocess.run(
+            [sys.executable, "-B", str(tools / "runtime_compliance.py")],
+            cwd=Path(tempfile.gettempdir()),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        self.assertEqual(runtime_result.returncode, 0, runtime_result.stderr)
 
     def test_embedded_path_scan_rejects_old_build_root(self):
         with tempfile.TemporaryDirectory() as temporary:

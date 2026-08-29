@@ -30,12 +30,18 @@ sys.dont_write_bytecode = True
 try:
     from . import collect_third_party_licenses as license_bundle
 except ImportError:  # Direct execution from App/tools in a portable release.
+    tools_directory = str(Path(__file__).resolve().parent)
+    if tools_directory not in sys.path:
+        sys.path.insert(0, tools_directory)
     import collect_third_party_licenses as license_bundle
 
 
 APP_DIR = Path(__file__).resolve().parents[1]
 ROOT = APP_DIR.parent
 RUNTIME = ROOT / "Runtime"
+PORTABLE_RELATIVE_PATH_LIMIT = (
+    license_bundle.runtime_compliance.PORTABLE_RELATIVE_PATH_LIMIT
+)
 
 _LOCK_LINE_RE = re.compile(r"([A-Za-z0-9_.-]+)==([^\s;]+)")
 _WINDOWS_ABSOLUTE_RE = re.compile(
@@ -105,6 +111,22 @@ def _display(path: Path, root: Path) -> str:
         return path.relative_to(root).as_posix()
     except ValueError:
         return str(path)
+
+
+def _check_portable_relative_path(path: Path, root: Path, failures: list[str]) -> bool:
+    """Reject paths that leave too little headroom for default Windows clones."""
+    try:
+        relative = path.relative_to(root).as_posix()
+    except ValueError:
+        failures.append(f"release path escapes root: {path}")
+        return False
+    if len(relative) > PORTABLE_RELATIVE_PATH_LIMIT:
+        failures.append(
+            "portable relative path is too long: "
+            f"{len(relative)} > {PORTABLE_RELATIVE_PATH_LIMIT}: {relative}"
+        )
+        return False
+    return True
 
 
 def _canonical_distribution_name(name: str) -> str:
@@ -547,6 +569,8 @@ def _check_release_tree(root: Path, runtime: Path, failures: list[str]) -> None:
                 if _is_link_like(path):
                     failures.append(f"symbolic link is not allowed: {_display(path, root)}")
                     continue
+                if not _check_portable_relative_path(path, root, failures):
+                    continue
                 if top_level_private:
                     continue
                 if lowered in _CACHE_DIRECTORY_NAMES:
@@ -570,6 +594,8 @@ def _check_release_tree(root: Path, runtime: Path, failures: list[str]) -> None:
                 }
                 if _is_link_like(path):
                     failures.append(f"symbolic link is not allowed: {_display(path, root)}")
+                    continue
+                if not _check_portable_relative_path(path, root, failures):
                     continue
                 if lowered in _PRIVATE_FILE_NAMES:
                     failures.append(f"private file present: {_display(path, root)}")

@@ -121,6 +121,23 @@ class AssemblePortableTests(unittest.TestCase):
             assembler.assemble_portable(self.source, self.runtime, destination)
         self.assertFalse(destination.exists())
 
+    def test_refuses_overlong_portable_relative_path(self) -> None:
+        self.assertEqual(
+            assembler.PORTABLE_RELATIVE_PATH_LIMIT,
+            assembler.runtime_compliance.PORTABLE_RELATIVE_PATH_LIMIT,
+        )
+        destination = self.root / "SankakuSyncer_Portable_Staging"
+        relative = Path("THIRD_PARTY_LICENSES") / (
+            "x" * (assembler.PORTABLE_RELATIVE_PATH_LIMIT - 10) + ".html"
+        )
+        path = self.source / relative
+        path.write_text("notice", encoding="utf-8")
+        with self.assertRaisesRegex(
+            assembler.AssemblyError, "portable relative path is too long"
+        ):
+            assembler.assemble_portable(self.source, self.runtime, destination)
+        self.assertFalse(destination.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

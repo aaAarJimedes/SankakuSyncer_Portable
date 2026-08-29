@@ -8,10 +8,20 @@ import os
 from pathlib import Path
 import shutil
 import stat
+import sys
 from typing import Iterable
+
+try:
+    from . import runtime_compliance
+except ImportError:  # Direct execution with an isolated embedded Python.
+    tools_directory = str(Path(__file__).resolve().parent)
+    if tools_directory not in sys.path:
+        sys.path.insert(0, tools_directory)
+    import runtime_compliance
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PORTABLE_RELATIVE_PATH_LIMIT = runtime_compliance.PORTABLE_RELATIVE_PATH_LIMIT
 ROOT_FILES = (
     ".gitattributes",
     ".gitignore",
@@ -97,6 +107,15 @@ LICENSE_ALLOWED_SUFFIXES = {
 
 class AssemblyError(RuntimeError):
     """Raised when a portable staging tree cannot be assembled safely."""
+
+
+def _validate_portable_relative_path(relative: Path) -> None:
+    value = relative.as_posix()
+    if len(value) > PORTABLE_RELATIVE_PATH_LIMIT:
+        raise AssemblyError(
+            "portable relative path is too long: "
+            f"{len(value)} > {PORTABLE_RELATIVE_PATH_LIMIT}: {value}"
+        )
 
 
 def _is_link_or_reparse(path: Path) -> bool:
@@ -197,6 +216,7 @@ def _relative_files(root: Path, source_class: str) -> list[Path]:
                 raise AssemblyError(f"private/generated source file: {path}")
             relative = path.relative_to(root)
             _validate_source_policy(source_class, relative)
+            _validate_portable_relative_path(Path(source_class) / relative)
             selected.append(relative)
     return sorted(selected, key=lambda value: (value.as_posix().casefold(), value.as_posix()))
 
@@ -231,6 +251,7 @@ def assemble_portable(source: Path, runtime: Path, destination: Path) -> int:
             raise AssemblyError(f"required release file is missing: {name}")
         if _is_private_name(path.name) or path.suffix.casefold() in FORBIDDEN_SUFFIXES:
             raise AssemblyError(f"private/generated release file: {name}")
+        _validate_portable_relative_path(Path(name))
         _validate_launcher_line_endings(path)
         root_sources.append(path)
     source_files = {

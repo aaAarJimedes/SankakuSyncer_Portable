@@ -94,6 +94,8 @@ python -B App\tools\assemble_portable.py --source "." --runtime "_runtime_subset
 - `.env*`、私钥/证书容器（`.key`、`.pem`、`.p12`、`.pfx`、`.kdbx`）和常见凭据 JSON；
 - `.git` 等版本库元数据，或含构建机绝对路径的配置。
 
+所有进入便携树的相对路径都不得超过 160 个字符，以便为常见 Windows 克隆与解压根目录保留 `MAX_PATH` 余量。Qt 官方归属页的上游文件名若超过 96 个字符，收集器会确定性地改为“可读前缀 + 完整上游文件名 SHA-256 + `.html`”；`SOURCES.json` 仍冻结原始 URL、内容哈希和大小，映射可以离线重算。
+
 许可和审计 JSON 按字节校验；`.gitattributes` 已将 `THIRD_PARTY_LICENSES/**`、`SBOM.spdx.json`、`RUNTIME_INVENTORY.json`、`VEX.openvex.json` 和 artifact lock 标为 `-text`，不得让 checkout 自动转换行尾。
 
 ## 4. 离线验证

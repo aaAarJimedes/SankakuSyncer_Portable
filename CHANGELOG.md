@@ -13,3 +13,6 @@
 - 加入离线测试、Windows CI、便携发行门禁、SHA-256 清单生成和第三方组件说明。
 - 应用 HTTP 传输改为 Windows WinHTTP/Schannel，移除 requests/urllib3/PySocks、Python OpenSSL 扩展、OpenSSL DLL 与 Qt OpenSSL TLS 插件；强制 TLS 1.2、证书吊销检查、手动跳转和无 Cookie/环境凭据会话。
 - 正式启动在导入 Qt WebEngine 前清理继承的调试、禁沙箱、代理和 TLS key-log 环境变量，并强制 Qt Schannel 后端。
+- Runtime、许可证、SBOM 与 OpenVEX 采用可复现冻结输出；确定性 ZIP 的重复构建必须逐字节一致。
+- 便携树相对路径统一限制为 160 个字符；超长 Qt 归属页使用可读前缀加完整 SHA-256 的稳定文件名，普通 Windows Git 配置也能直接检出。
+- 修复 isolated embedded Python 直接执行发布自检与合规工具时的同目录导入，发布工作流和一键验包使用同一入口。

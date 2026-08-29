@@ -587,7 +587,7 @@
       "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-crc32c.html"
     },
     {
-      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-csp-evaluator-core-library-a-tool-that-allows-developers-to-check-if-a-content-security-policy-csp-serves-as-mitigation-against-xss-attacks.html",
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-csp-e-41ea06ee6abf1875741f3d47470cf10dea180d94bedf3e14d515e68f54337946.html",
       "sha256": "14800de84f6711c21e309a62dfdf37e66d7347a12a9a062583919e9b5e04d99e",
       "size": 28918,
       "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-csp-evaluator-core-library-a-tool-that-allows-developers-to-check-if-a-content-security-policy-csp-serves-as-mitigation-against-xss-attacks.html"
@@ -653,7 +653,7 @@
       "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-fft.html"
     },
     {
-      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-fiat-crypto-synthesizing-correct-by-construction-code-for-cryptographic-primitives.html",
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-fiat-3ed2f02075e0bc48f32c3ad950be0d396f142754c1b8d43c0f6b5e79867b99dd.html",
       "sha256": "b3ff72de57e23db2d1f5d3e1ead58fd463911f15a50f241e8dc5e79ff1b1a736",
       "size": 18073,
       "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-fiat-crypto-synthesizing-correct-by-construction-code-for-cryptographic-primitives.html"
@@ -1097,7 +1097,7 @@
       "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-the-chromium-project.html"
     },
     {
-      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-the-diff-match-and-patch-libraries-offer-robust-algorithms-to-perform-the-operations-required-for-synchronizing-plain-text.html",
+      "path": "Qt-6.11.2/attributions/qtwebengine-3rdparty-the-d-ca46f5ecee74c9367caea6230c9594dd8cf7af8b6c73a4b1cc6dd7ed95069dbf.html",
       "sha256": "99bc696a8fc19dd61560b57cd83eb47cfa4b14ab03f426750a9d789f3fb0c1e8",
       "size": 28845,
       "source_url": "https://doc.qt.io/qt-6.11/qtwebengine-3rdparty-the-diff-match-and-patch-libraries-offer-robust-algorithms-to-perform-the-operations-required-for-synchronizing-plain-text.html"

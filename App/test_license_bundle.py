@@ -132,6 +132,63 @@ shiboken6==6.11.2
         self.assertEqual(len(discovered), len(set(webengine) | set(qtbase) | {"qt-attribution-llvmpipe.html"}))
         self.assertFalse(any("evil.example" in url for url in discovered))
 
+    def test_qt_attribution_archive_names_are_bounded_stable_and_auditable(self):
+        source = (
+            "qtwebengine-3rdparty-csp-evaluator-core-library-a-tool-that-allows-"
+            "developers-to-check-if-a-content-security-policy-csp-serves-as-"
+            "mitigation-against-xss-attacks.html"
+        )
+        archived = runtime_compliance.qt_attribution_archive_filename(source)
+        digest = hashlib.sha256(source.encode("ascii")).hexdigest()
+        self.assertEqual(
+            len(archived),
+            runtime_compliance.QT_ATTRIBUTION_ARCHIVE_FILENAME_LIMIT,
+        )
+        self.assertTrue(archived.startswith("qtwebengine-3rdparty-csp"))
+        self.assertTrue(archived.endswith(f"-{digest}.html"))
+        self.assertEqual(
+            runtime_compliance.qt_attribution_archive_filename(source), archived
+        )
+        self.assertNotEqual(
+            runtime_compliance.qt_attribution_archive_filename(
+                source.replace("attacks.html", "attack.html")
+            ),
+            archived,
+        )
+        self.assertEqual(
+            runtime_compliance.qt_attribution_archive_filename(
+                "qtwebengine-3rdparty-ffmpeg.html"
+            ),
+            "qtwebengine-3rdparty-ffmpeg.html",
+        )
+        with self.assertRaisesRegex(
+            runtime_compliance.RuntimeComplianceError, "unsafe Qt attribution"
+        ):
+            runtime_compliance.qt_attribution_archive_filename("../notice.html")
+
+    def test_qt_attribution_archive_mapping_rejects_windows_name_collision(self):
+        first = "https://doc.qt.io/qt-6.11/QtNotice.html"
+        second = "https://doc.qt.io/qt-6.11/qtnotice.html"
+        with self.assertRaisesRegex(
+            licenses.LicenseBundleError, "archive filename collision"
+        ):
+            licenses.qt_attribution_archive_entries([first, second])
+
+    def test_license_bundle_rejects_overlong_portable_relative_path(self):
+        self.assertEqual(
+            licenses.PORTABLE_RELATIVE_PATH_LIMIT,
+            runtime_compliance.PORTABLE_RELATIVE_PATH_LIMIT,
+        )
+        allowed = "a" * (
+            licenses.PORTABLE_RELATIVE_PATH_LIMIT
+            - len(licenses._PORTABLE_LICENSE_PREFIX)
+        )
+        self.assertEqual(licenses._validate_relative_path(allowed).as_posix(), allowed)
+        with self.assertRaisesRegex(
+            licenses.LicenseBundleError, "portable relative path is too long"
+        ):
+            licenses._validate_relative_path(allowed + "x")
+
     def test_exact_qt_source_checksum_is_parsed(self):
         digest = "a" * 64
         value = licenses.parse_qt_source_checksum(
