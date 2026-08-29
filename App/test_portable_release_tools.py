@@ -21,6 +21,42 @@ class PortableSelfCheckTests(unittest.TestCase):
         self.assertIn("ui_main_window.MAIN_TAB_TITLES", code)
         self.assertNotIn("window.tabs.count() !=", code)
 
+    def test_image_codec_smoke_exercises_all_preview_formats(self):
+        code = portable_self_check._IMAGE_CODEC_SMOKE_CODE
+        self.assertIn('"png": b"PNG"', code)
+        self.assertIn('"jpeg": b"JPEG"', code)
+        self.assertIn('"webp": b"WEBP"', code)
+        self.assertIn("QImageWriter", code)
+        self.assertIn("QImageReader", code)
+
+    def test_release_validation_runs_codec_smoke_without_gui_smoke(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "Runtime"
+            with mock.patch.multiple(
+                portable_self_check,
+                _check_required_files=mock.DEFAULT,
+                _check_python_runtime=mock.DEFAULT,
+                _check_native_transport=mock.DEFAULT,
+                _check_locked_dependencies=mock.DEFAULT,
+                _check_qt_webengine=mock.DEFAULT,
+                _check_embedded_paths=mock.DEFAULT,
+                _offline_image_codec_smoke=mock.DEFAULT,
+                _check_compliance_materials=mock.DEFAULT,
+                _check_release_tree=mock.DEFAULT,
+                _offline_gui_smoke=mock.DEFAULT,
+                _check_writable_user_directories=mock.DEFAULT,
+            ) as checks:
+                failures = portable_self_check.collect_failures(
+                    root=root, runtime=runtime, release=True
+                )
+
+            self.assertEqual(failures, [])
+            checks["_offline_image_codec_smoke"].assert_called_once_with(
+                root / "App", runtime, failures
+            )
+            checks["_offline_gui_smoke"].assert_not_called()
+
     def test_lock_parser_requires_exact_unique_pins(self):
         with tempfile.TemporaryDirectory() as temporary:
             lock = Path(temporary) / "requirements.lock.txt"

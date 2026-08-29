@@ -4,18 +4,22 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from types import SimpleNamespace
+import os
 import threading
+from types import SimpleNamespace
 import unittest
 from unittest import mock
 
 import workers
+from bound_file_reader import BoundRootIdentity
 from credential_vault import Credentials
+from library_thumbnail import VerifiedThumbnailSource
 from download_engine import MediaAccessDeniedError
 from sankaku_api import AccessDeniedError
 from workers import (
     DownloadWorker,
     LibraryScanWorker,
+    LibraryThumbnailWorker,
     LoginWorker,
     SearchWorker,
     ThumbnailWorker,
@@ -331,6 +335,108 @@ class LibraryScanWorkerOfflineTests(unittest.TestCase):
         self.assertEqual(len(unknown_errors), 1)
         self.assertIn("RuntimeError", unknown_errors[0])
         self.assertNotIn("sensitive raw path", unknown_errors[0])
+
+
+class LibraryThumbnailWorkerOfflineTests(unittest.TestCase):
+    @staticmethod
+    def _source(name: str) -> VerifiedThumbnailSource:
+        content_type = "image/png" if name.casefold().endswith(".png") else "image/jpeg"
+        identity = BoundRootIdentity(
+            "windows" if os.name == "nt" else "posix", 1, b"root"
+        )
+        return VerifiedThumbnailSource(
+            name, 123, "a" * 64, content_type, identity
+        )
+
+    @staticmethod
+    def _events(worker: LibraryThumbnailWorker):
+        succeeded: list[object] = []
+        failed: list[str] = []
+        cancelled: list[bool] = []
+        worker.succeeded.connect(succeeded.append)
+        worker.failed.connect(failed.append)
+        worker.cancelled.connect(lambda: cancelled.append(True))
+        return succeeded, failed, cancelled
+
+    def test_success_forwards_paths_stop_event_and_result(self):
+        result = SimpleNamespace(relative_path="Post_A.jpg", png_bytes=b"png")
+        source = self._source("Post_A.jpg")
+        worker = LibraryThumbnailWorker("relative-library", source)
+        succeeded, failed, cancelled = self._events(worker)
+
+        def load(output_dir, actual_source, stop_event=None):
+            self.assertEqual(output_dir, os.path.abspath("relative-library"))
+            self.assertIs(actual_source, source)
+            self.assertIs(stop_event, worker.stop_event)
+            self.assertFalse(stop_event.is_set())
+            return result
+
+        with mock.patch("workers.load_library_thumbnail", side_effect=load) as loader:
+            worker.run()
+
+        loader.assert_called_once()
+        self.assertEqual(succeeded, [result])
+        self.assertEqual(failed, [])
+        self.assertEqual(cancelled, [])
+
+    def test_pre_and_late_cancel_emit_only_cancelled(self):
+        pre = LibraryThumbnailWorker("library", self._source("Post_A.jpg"))
+        pre_succeeded, pre_failed, pre_cancelled = self._events(pre)
+        pre.cancel()
+        pre.cancel()
+        with mock.patch("workers.load_library_thumbnail") as loader:
+            pre.run()
+        loader.assert_not_called()
+        self.assertEqual(pre_succeeded, [])
+        self.assertEqual(pre_failed, [])
+        self.assertEqual(pre_cancelled, [True])
+
+        late = LibraryThumbnailWorker("library", self._source("Post_B.png"))
+        late_succeeded, late_failed, late_cancelled = self._events(late)
+        result = SimpleNamespace(relative_path="Post_B.png", png_bytes=b"png")
+
+        def cancel_then_return(*_args, **_kwargs):
+            late.cancel()
+            late.cancel()
+            return result
+
+        with mock.patch(
+            "workers.load_library_thumbnail", side_effect=cancel_then_return
+        ):
+            late.run()
+        self.assertEqual(late_succeeded, [])
+        self.assertEqual(late_failed, [])
+        self.assertEqual(late_cancelled, [True])
+
+    def test_known_error_uses_one_fixed_safe_message(self):
+        worker = LibraryThumbnailWorker("library", self._source("Post_A.jpg"))
+        succeeded, failed, cancelled = self._events(worker)
+        with mock.patch(
+            "workers.load_library_thumbnail",
+            side_effect=workers.LibraryThumbnailError(
+                r"sensitive D:\private\Post_A.jpg"
+            ),
+        ):
+            worker.run()
+        self.assertEqual(succeeded, [])
+        self.assertEqual(failed, ["本地缩略图读取失败"])
+        self.assertEqual(cancelled, [])
+
+    def test_unknown_error_reports_only_the_exception_type(self):
+        worker = LibraryThumbnailWorker("library", self._source("Post_A.jpg"))
+        succeeded, failed, cancelled = self._events(worker)
+        secret_path = r"D:\private\account-name\Post_A.jpg"
+        with mock.patch(
+            "workers.load_library_thumbnail",
+            side_effect=RuntimeError(secret_path),
+        ):
+            worker.run()
+        self.assertEqual(succeeded, [])
+        self.assertEqual(len(failed), 1)
+        self.assertIn("RuntimeError", failed[0])
+        self.assertNotIn(secret_path, failed[0])
+        self.assertNotIn("Post_A.jpg", failed[0])
+        self.assertEqual(cancelled, [])
 
 
 class WorkerLifecycleTests(unittest.TestCase):

@@ -14,6 +14,11 @@ from PySide6.QtCore import QObject, QRunnable, QThread, Signal, Slot
 from credential_vault import Credentials
 from download_engine import DownloadError, MediaDownloader
 from http_transport import Session
+from library_thumbnail import (
+    LibraryThumbnailError,
+    VerifiedThumbnailSource,
+    load_library_thumbnail,
+)
 from local_library import LibraryScanError, scan_download_library
 from request_gate import GateCancelled, MEDIA_REQUEST_GATE
 from sankaku_api import (
@@ -478,9 +483,59 @@ class LibraryScanWorker(QThread):
             self.failed.emit(f"本地库扫描发生内部错误（{type(exc).__name__}）")
 
 
+class LibraryThumbnailWorker(QThread):
+    """Load one bounded local thumbnail away from the UI thread."""
+
+    succeeded = Signal(object)
+    failed = Signal(str)
+    cancelled = Signal()
+
+    def __init__(
+        self,
+        output_dir: str,
+        source: VerifiedThumbnailSource,
+        parent: QObject | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.output_dir = os.path.abspath(output_dir)
+        self.source = source
+        self.stop_event = threading.Event()
+
+    def cancel(self) -> None:
+        self.stop_event.set()
+
+    def run(self) -> None:
+        try:
+            if self.stop_event.is_set():
+                raise CancelledError("本地缩略图读取已取消")
+            result = load_library_thumbnail(
+                self.output_dir,
+                self.source,
+                stop_event=self.stop_event,
+            )
+            if self.stop_event.is_set():
+                raise CancelledError("本地缩略图读取已取消")
+            self.succeeded.emit(result)
+        except CancelledError:
+            self.cancelled.emit()
+        except LibraryThumbnailError:
+            if self.stop_event.is_set():
+                self.cancelled.emit()
+            else:
+                self.failed.emit("本地缩略图读取失败")
+        except Exception as exc:
+            if self.stop_event.is_set():
+                self.cancelled.emit()
+            else:
+                self.failed.emit(
+                    f"本地缩略图读取发生内部错误（{type(exc).__name__}）"
+                )
+
+
 __all__ = [
     "DownloadWorker",
     "LibraryScanWorker",
+    "LibraryThumbnailWorker",
     "LoginWorker",
     "SearchWorker",
     "ThumbnailWorker",

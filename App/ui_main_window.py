@@ -56,12 +56,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from bound_file_reader import BoundRootIdentity
 from credential_vault import CredentialVault, Credentials, StoredSession, VaultError
 from credential_persistence import (
     CredentialJournal,
     CredentialPersistence,
     CredentialPersistenceError,
 )
+from library_query import LibraryQueryError, query_library_entries
+from library_thumbnail import LibraryThumbnail, VerifiedThumbnailSource
 from local_library import LibraryEntry, LibraryReport
 from sankaku_api import SankakuPost, SearchPage
 from sankaku_url_policy import (
@@ -76,6 +79,7 @@ from task_store import DownloadTask, TaskStore, TaskStoreCorruptError, TaskStore
 from version import APP_DISPLAY_NAME
 from workers import (
     DownloadWorker,
+    LibraryThumbnailWorker,
     LibraryScanWorker,
     LoginWorker,
     SearchWorker,
@@ -256,6 +260,7 @@ class MainWindow(QMainWindow):
         self.login_worker: LoginWorker | None = None
         self.download_worker: DownloadWorker | None = None
         self.library_worker: LibraryScanWorker | None = None
+        self.library_preview_worker: LibraryThumbnailWorker | None = None
         self._download_block_reason = ""
         self.thumbnail_pool = QThreadPool(self)
         self.thumbnail_pool.setMaxThreadCount(2)
@@ -271,8 +276,15 @@ class MainWindow(QMainWindow):
         self._search_terminal_received = False
         self._search_posts: dict[str, SankakuPost] = {}
         self._library_report: LibraryReport | None = None
+        self._library_report_root = ""
+        self._library_report_root_identity: BoundRootIdentity | None = None
+        self._library_pending_root = ""
         self._library_cancel_requested = False
         self._library_terminal_received = False
+        self._library_preview_generation = 0
+        self._library_preview_pending: tuple[
+            int, str, LibraryEntry
+        ] | None = None
 
         self.setWindowTitle(APP_DISPLAY_NAME)
         self.resize(1320, 860)
@@ -505,6 +517,17 @@ class MainWindow(QMainWindow):
             lambda _index: self._refresh_library_table()
         )
         actions.addWidget(self.library_filter_combo)
+        actions.addWidget(QLabel("排序"))
+        self.library_sort_combo = QComboBox()
+        self.library_sort_combo.setAccessibleName("本地库排序方式")
+        self.library_sort_combo.addItem("ID 升序", "id_asc")
+        self.library_sort_combo.addItem("ID 降序", "id_desc")
+        self.library_sort_combo.addItem("最新创作", "newest")
+        self.library_sort_combo.addItem("最大文件", "largest")
+        self.library_sort_combo.currentIndexChanged.connect(
+            lambda _index: self._refresh_library_table()
+        )
+        actions.addWidget(self.library_sort_combo)
         actions.addStretch(1)
         self.library_summary = QLabel("尚未扫描")
         actions.addWidget(self.library_summary)
@@ -516,6 +539,21 @@ class MainWindow(QMainWindow):
         self.library_path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.library_path_label.setObjectName("subtleText")
         layout.addWidget(self.library_path_label)
+
+        search_row = QHBoxLayout()
+        search_row.addWidget(QLabel("搜索"))
+        self.library_search_edit = QLineEdit()
+        self.library_search_edit.setAccessibleName("搜索本地下载库")
+        self.library_search_edit.setPlaceholderText(
+            "作品 ID、作者、标签、文件名（空格分隔多个条件）"
+        )
+        self.library_search_edit.setClearButtonEnabled(True)
+        self.library_search_edit.setMaxLength(256)
+        self.library_search_edit.textChanged.connect(
+            lambda _text: self._refresh_library_table()
+        )
+        search_row.addWidget(self.library_search_edit, 1)
+        layout.addLayout(search_row)
 
         notice = QLabel(
             "仅在已保存的下载目录第一层进行只读离线校验；不会联网、删除、修复或自动重下。"
@@ -542,7 +580,38 @@ class MainWindow(QMainWindow):
         for index in range(7):
             header.setSectionResizeMode(index, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(7, QHeaderView.Stretch)
-        layout.addWidget(self.library_table, 1)
+        self.library_table.selectionModel().currentRowChanged.connect(
+            self._library_row_selected
+        )
+
+        preview_panel = QFrame()
+        preview_panel.setFrameShape(QFrame.StyledPanel)
+        preview_panel.setProperty("card", True)
+        preview_layout = QVBoxLayout(preview_panel)
+        preview_title = QLabel("离线预览")
+        preview_title.setObjectName("sectionTitle")
+        preview_layout.addWidget(preview_title)
+        self.library_preview_image = QLabel("选择一张已验证的静态图片")
+        self.library_preview_image.setAccessibleName("本地图片离线预览")
+        self.library_preview_image.setAlignment(Qt.AlignCenter)
+        self.library_preview_image.setMinimumSize(300, 300)
+        self.library_preview_image.setWordWrap(True)
+        preview_layout.addWidget(self.library_preview_image, 1)
+        self.library_preview_meta = QLabel(
+            "预览只读取当前报告中已验证的 JPEG、PNG 或 WebP；不会联网。"
+        )
+        self.library_preview_meta.setObjectName("subtleText")
+        self.library_preview_meta.setWordWrap(True)
+        self.library_preview_meta.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        preview_layout.addWidget(self.library_preview_meta)
+
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.addWidget(self.library_table)
+        splitter.addWidget(preview_panel)
+        splitter.setSizes([900, 360])
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 0)
+        layout.addWidget(splitter, 1)
         return page
 
     def _build_settings_tab(self) -> QWidget:
@@ -1064,6 +1133,8 @@ class MainWindow(QMainWindow):
         output_dir = self._resolve_download_dir(
             str(self.settings.get("download_dir", ""))
         )
+        self._cancel_library_preview("扫描期间已暂停离线预览")
+        self._library_pending_root = output_dir
         self.library_path_label.setText(output_dir)
         self._library_cancel_requested = False
         self._library_terminal_received = False
@@ -1075,6 +1146,7 @@ class MainWindow(QMainWindow):
         try:
             worker = LibraryScanWorker(output_dir, self)
         except Exception as exc:
+            self._library_pending_root = ""
             self.library_scan_button.setEnabled(True)
             self.library_stop_button.setEnabled(False)
             self.global_progress.hide()
@@ -1119,6 +1191,12 @@ class MainWindow(QMainWindow):
             self._library_scan_failed("本地库报告格式无效")
             return
         self._library_report = result
+        self._library_report_root = self._library_pending_root
+        self._library_report_root_identity = (
+            result.root_identity
+            if isinstance(result.root_identity, BoundRootIdentity)
+            else None
+        )
         self._library_terminal_received = True
         self.library_stop_button.setEnabled(False)
         self._refresh_library_table()
@@ -1160,6 +1238,7 @@ class MainWindow(QMainWindow):
         if self.library_worker:
             self.library_worker.deleteLater()
         self.library_worker = None
+        self._library_pending_root = ""
         self._library_cancel_requested = False
         self._library_terminal_received = False
 
@@ -1176,16 +1255,24 @@ class MainWindow(QMainWindow):
             self.status_label.setText("正在安全停止本地库校验…")
 
     def _refresh_library_table(self) -> None:
+        self._cancel_library_preview("选择一张已验证的静态图片")
         report = self._library_report
         if report is None:
             self.library_model.set_entries(())
             return
         selected_status = str(self.library_filter_combo.currentData() or "")
-        entries = [
-            entry
-            for entry in report.entries
-            if not selected_status or entry.status == selected_status
-        ]
+        selected_sort = str(self.library_sort_combo.currentData() or "id_asc")
+        try:
+            entries = query_library_entries(
+                report.entries,
+                status=selected_status,
+                query=self.library_search_edit.text(),
+                sort=selected_sort,
+            )
+        except LibraryQueryError as exc:
+            self.library_model.set_entries(())
+            self.library_summary.setText(str(exc))
+            return
         self.library_model.set_entries(entries)
         counts = report.status_counts
         self.library_summary.setText(
@@ -1208,6 +1295,206 @@ class MainWindow(QMainWindow):
         entry = self.library_model.entry_at(row)
         if entry and entry.post_id:
             self._open_post(entry.post_id)
+
+    def _library_row_selected(
+        self, current: QModelIndex, _previous: QModelIndex
+    ) -> None:
+        entry = self.library_model.entry_at(current.row()) if current.isValid() else None
+        self._request_library_preview(entry)
+
+    def _request_library_preview(self, entry: LibraryEntry | None) -> None:
+        self._library_preview_generation += 1
+        generation = self._library_preview_generation
+        self._library_preview_pending = None
+        if self.library_preview_worker is not None:
+            self.library_preview_worker.cancel()
+
+        self.library_preview_image.setPixmap(QPixmap())
+        if entry is None:
+            self.library_preview_image.setText("选择一张已验证的静态图片")
+            self.library_preview_meta.setText(
+                "预览只读取当前报告中已验证的 JPEG、PNG 或 WebP；不会联网。"
+            )
+            return
+
+        self.library_preview_meta.setText(self._library_entry_preview_text(entry))
+        extension = os.path.splitext(entry.relative_path)[1].casefold()
+        if entry.status != "verified":
+            self.library_preview_image.setText("此项未通过完整性验证，不能预览")
+            return
+        if (
+            type(entry.size) is not int
+            or entry.size <= 0
+            or not isinstance(entry.sha256, str)
+            or re.fullmatch(r"[0-9a-fA-F]{64}", entry.sha256) is None
+        ):
+            self.library_preview_image.setText("验证报告不完整，请重新扫描后再预览")
+            return
+        expected_format = {
+            ".jpeg": "jpeg",
+            ".jpg": "jpeg",
+            ".png": "png",
+            ".webp": "webp",
+        }.get(extension)
+        normalized_content_type = (
+            entry.content_type.strip().casefold()
+            if isinstance(entry.content_type, str)
+            else ""
+        )
+        content_format = {
+            "image/jpeg": "jpeg",
+            "image/jpg": "jpeg",
+            "image/png": "png",
+            "image/webp": "webp",
+        }.get(normalized_content_type)
+        if expected_format is None:
+            self.library_preview_image.setText("此媒体类型不提供离线图片预览")
+            return
+        if content_format != expected_format:
+            self.library_preview_image.setText("验证报告中的图片格式不一致，请重新扫描")
+            return
+        if (
+            not self._library_report_root
+            or self._library_report_root_identity is None
+        ):
+            self.library_preview_image.setText("请重新扫描后再预览")
+            return
+
+        self.library_preview_image.setText("正在读取离线预览…")
+        request = (generation, self._library_report_root, entry)
+        if self.library_preview_worker is not None:
+            self._library_preview_pending = request
+            return
+        self._start_library_preview(request)
+
+    def _start_library_preview(
+        self, request: tuple[int, str, LibraryEntry]
+    ) -> None:
+        generation, output_dir, entry = request
+        if generation != self._library_preview_generation:
+            return
+        try:
+            worker = LibraryThumbnailWorker(
+                output_dir,
+                VerifiedThumbnailSource(
+                    relative_path=entry.relative_path,
+                    size=entry.size,
+                    sha256=entry.sha256,
+                    content_type=entry.content_type,
+                    root_identity=self._library_report_root_identity,
+                ),
+                self,
+            )
+        except Exception as exc:
+            self.library_preview_image.setText("无法启动离线预览")
+            self.library_preview_meta.setText(
+                f"预览任务创建失败（{type(exc).__name__}）"
+            )
+            return
+        self.library_preview_worker = worker
+        worker.succeeded.connect(
+            lambda result, owner=worker, requested=generation, expected=entry: (
+                self._library_preview_succeeded(
+                    owner, requested, expected, result
+                )
+            )
+        )
+        worker.failed.connect(
+            lambda message, owner=worker, requested=generation: (
+                self._library_preview_failed(owner, requested, message)
+            )
+        )
+        worker.finished.connect(
+            lambda owner=worker: self._library_preview_finished(owner)
+        )
+        worker.start()
+
+    def _library_preview_succeeded(
+        self,
+        owner: object,
+        generation: int,
+        expected: LibraryEntry,
+        result: object,
+    ) -> None:
+        if (
+            owner is not self.library_preview_worker
+            or generation != self._library_preview_generation
+        ):
+            return
+        if (
+            not isinstance(result, LibraryThumbnail)
+            or result.relative_path != expected.relative_path
+            or result.size != expected.size
+            or result.sha256 != expected.sha256.casefold()
+            or result.content_type != expected.content_type.strip().casefold()
+            or result.root_identity != self._library_report_root_identity
+        ):
+            self._library_preview_failed(
+                owner, generation, "离线预览结果格式无效"
+            )
+            return
+        pixmap = QPixmap()
+        if not pixmap.loadFromData(result.png_bytes, "PNG") or pixmap.isNull():
+            self._library_preview_failed(owner, generation, "离线预览图片无效")
+            return
+        if pixmap.width() > 360 or pixmap.height() > 360:
+            pixmap = pixmap.scaled(
+                360,
+                360,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
+            )
+        self.library_preview_image.setText("")
+        self.library_preview_image.setPixmap(pixmap)
+        self.library_preview_meta.setText(
+            f"{self._library_entry_preview_text(expected)} · "
+            f"原图 {result.width} × {result.height}"
+        )
+
+    def _library_preview_failed(
+        self, owner: object, generation: int, message: str
+    ) -> None:
+        if (
+            owner is not self.library_preview_worker
+            or generation != self._library_preview_generation
+        ):
+            return
+        self.library_preview_image.setPixmap(QPixmap())
+        self.library_preview_image.setText("无法生成离线预览")
+        self.library_preview_meta.setText(str(message))
+
+    def _library_preview_finished(self, owner: object) -> None:
+        delete_later = getattr(owner, "deleteLater", None)
+        if callable(delete_later):
+            delete_later()
+        if owner is not self.library_preview_worker:
+            return
+        self.library_preview_worker = None
+        pending = self._library_preview_pending
+        self._library_preview_pending = None
+        if pending is not None and pending[0] == self._library_preview_generation:
+            self._start_library_preview(pending)
+
+    def _cancel_library_preview(self, message: str) -> None:
+        self._library_preview_generation += 1
+        self._library_preview_pending = None
+        if self.library_preview_worker is not None:
+            self.library_preview_worker.cancel()
+        if hasattr(self, "library_preview_image"):
+            self.library_preview_image.setPixmap(QPixmap())
+            self.library_preview_image.setText(message)
+            self.library_preview_meta.setText(
+                "预览只读取当前报告中已验证的 JPEG、PNG 或 WebP；不会联网。"
+            )
+
+    @staticmethod
+    def _library_entry_preview_text(entry: LibraryEntry) -> str:
+        values = [entry.post_id, _format_file_size(entry.size)]
+        if entry.author:
+            values.append(entry.author)
+        if entry.tags:
+            values.append(" ".join(entry.tags[:8]))
+        return " · ".join(value for value in values if value)
 
     # ------------------------------ login and settings ------------------------------
 
@@ -1759,14 +2046,22 @@ class MainWindow(QMainWindow):
                 pass
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        preview_worker = self.library_preview_worker
+        self._cancel_library_preview("正在关闭离线预览…")
         workers = [
             self.search_worker,
             self.login_worker,
             self.download_worker,
             self.library_worker,
+            self.library_preview_worker,
         ]
         for worker in workers:
-            if worker and worker.isRunning() and hasattr(worker, "cancel"):
+            if (
+                worker
+                and worker is not preview_worker
+                and worker.isRunning()
+                and hasattr(worker, "cancel")
+            ):
                 worker.cancel()
         still_running = False
         deadline = time.monotonic() + 10.0

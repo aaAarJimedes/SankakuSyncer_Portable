@@ -690,10 +690,50 @@ application.quit()
 """
 
 
-def _offline_gui_smoke(
-    app_dir: Path, runtime: Path, failures: list[str]
-) -> None:
-    """Construct the main window offline in a bounded child process."""
+_IMAGE_CODEC_SMOKE_CODE = r"""
+import sys
+sys.dont_write_bytecode = True
+from PySide6.QtCore import QByteArray, QBuffer, QIODevice
+from PySide6.QtGui import QColor, QImage, QImageReader, QImageWriter
+
+formats = {
+    "png": b"PNG",
+    "jpeg": b"JPEG",
+    "webp": b"WEBP",
+}
+readable = {bytes(value).lower() for value in QImageReader.supportedImageFormats()}
+writable = {bytes(value).lower() for value in QImageWriter.supportedImageFormats()}
+image = QImage(7, 5, QImage.Format_ARGB32)
+image.fill(QColor(17, 93, 201, 255))
+for name, qt_format in formats.items():
+    encoded_name = name.encode("ascii")
+    if encoded_name not in readable or encoded_name not in writable:
+        raise RuntimeError("required image codec unavailable")
+    encoded = QByteArray()
+    output = QBuffer(encoded)
+    if not output.open(QIODevice.WriteOnly):
+        raise RuntimeError("image codec output buffer failed")
+    writer = QImageWriter(output, qt_format)
+    writer.setQuality(83)
+    if not writer.write(image):
+        raise RuntimeError("required image encoder failed")
+    output.close()
+    if encoded.isEmpty():
+        raise RuntimeError("required image encoder returned empty data")
+    input_buffer = QBuffer(encoded)
+    if not input_buffer.open(QIODevice.ReadOnly):
+        raise RuntimeError("image codec input buffer failed")
+    reader = QImageReader(input_buffer, qt_format)
+    reader.setDecideFormatFromContent(False)
+    decoded = reader.read()
+    input_buffer.close()
+    if decoded.isNull() or decoded.size() != image.size():
+        raise RuntimeError("required image decoder failed")
+"""
+
+
+def _qt_subprocess_environment(app_dir: Path, runtime: Path) -> dict[str, str]:
+    """Return an isolated environment for bounded Qt child-process checks."""
     environment = os.environ.copy()
     environment.update(
         {
@@ -730,6 +770,39 @@ def _offline_gui_smoke(
     environment["PATH"] = os.pathsep.join(
         [*(str(path) for path in path_prefix), environment.get("PATH", "")]
     )
+    return environment
+
+
+def _offline_image_codec_smoke(
+    app_dir: Path, runtime: Path, failures: list[str]
+) -> None:
+    """Exercise every image codec required by the offline library preview."""
+    try:
+        completed = subprocess.run(
+            [sys.executable, "-B", "-s", "-c", _IMAGE_CODEC_SMOKE_CODE],
+            env=_qt_subprocess_environment(app_dir, runtime),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=20,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        failures.append("offline image codec smoke timed out")
+    except (OSError, subprocess.SubprocessError) as exc:
+        failures.append(f"offline image codec smoke failed ({type(exc).__name__})")
+    else:
+        if completed.returncode != 0:
+            failures.append(
+                f"offline image codec smoke exited with code {completed.returncode}"
+            )
+
+
+def _offline_gui_smoke(
+    app_dir: Path, runtime: Path, failures: list[str]
+) -> None:
+    """Construct the main window offline in a bounded child process."""
+    environment = _qt_subprocess_environment(app_dir, runtime)
 
     try:
         with tempfile.TemporaryDirectory(prefix="sankaku-ui-check-") as temp_root:
@@ -772,6 +845,7 @@ def collect_failures(
     _check_locked_dependencies(app_dir / "requirements.lock.txt", runtime, failures)
     _check_qt_webengine(runtime, failures)
     _check_embedded_paths(root, runtime, failures)
+    _offline_image_codec_smoke(app_dir, runtime, failures)
 
     if release:
         _check_compliance_materials(root, runtime, failures)

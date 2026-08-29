@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from bound_file_reader import BoundRootIdentity, get_bound_root_identity
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("SANKAKU_DISABLE_WEBENGINE", "1")
@@ -88,6 +89,46 @@ class _FakeLibraryWorker:
         self.cancel_count += 1
 
     def wait(self, _milliseconds: int) -> bool:
+        self.running = False
+        return True
+
+    def deleteLater(self) -> None:  # noqa: N802 - Qt-compatible fake
+        self.deleted = True
+
+    def complete(self) -> None:
+        self.running = False
+        self.finished.emit()
+
+
+class _FakeLibraryThumbnailWorker:
+    instances = []
+
+    def __init__(self, output_dir, source, parent=None) -> None:
+        self.output_dir = os.path.abspath(output_dir)
+        self.source = source
+        self.relative_path = source.relative_path
+        self.parent = parent
+        self.succeeded = _FakeSignal()
+        self.failed = _FakeSignal()
+        self.cancelled = _FakeSignal()
+        self.finished = _FakeSignal()
+        self.running = False
+        self.cancel_count = 0
+        self.wait_calls = []
+        self.deleted = False
+        self.__class__.instances.append(self)
+
+    def start(self) -> None:
+        self.running = True
+
+    def isRunning(self) -> bool:  # noqa: N802 - Qt-compatible fake
+        return self.running
+
+    def cancel(self) -> None:
+        self.cancel_count += 1
+
+    def wait(self, milliseconds: int) -> bool:
+        self.wait_calls.append(milliseconds)
         self.running = False
         return True
 
@@ -214,6 +255,72 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
         window.close()
         window.deleteLater()
         self.app.processEvents()
+
+    @staticmethod
+    def _png_bytes(width=12, height=8) -> bytes:
+        from PySide6.QtCore import QByteArray, QBuffer, QIODevice
+        from PySide6.QtGui import QColor, QImage
+
+        image = QImage(width, height, QImage.Format_ARGB32)
+        image.fill(QColor(20, 110, 220, 255))
+        payload = QByteArray()
+        buffer = QBuffer(payload)
+        if not buffer.open(QIODevice.WriteOnly):
+            raise AssertionError("PNG test buffer did not open")
+        try:
+            if not image.save(buffer, "PNG"):
+                raise AssertionError("PNG test image did not encode")
+            return bytes(payload)
+        finally:
+            buffer.close()
+
+    @staticmethod
+    def _library_entry(
+        post_id,
+        *,
+        status="verified",
+        relative_path=None,
+        size=1,
+        author="",
+        tags=(),
+        created_at="",
+        content_type="image/jpeg",
+    ):
+        from local_library import LibraryEntry
+
+        return LibraryEntry(
+            status=status,
+            post_id=post_id,
+            variant="original",
+            relative_path=relative_path or f"{post_id}.jpg",
+            size=size,
+            content_type=content_type,
+            rating="s",
+            author=author,
+            tags=tuple(tags),
+            created_at=created_at,
+            detail="",
+            sha256="a" * 64 if status == "verified" else "",
+        )
+
+    @staticmethod
+    def _library_report(entries):
+        from local_library import LIBRARY_STATUSES, LibraryReport
+
+        prepared = tuple(entries)
+        counts = {
+            status: sum(entry.status == status for entry in prepared)
+            for status in LIBRARY_STATUSES
+        }
+        return LibraryReport(
+            entries=prepared,
+            scanned_candidates=len(prepared),
+            verified_count=counts["verified"],
+            checked_bytes=sum(
+                entry.size for entry in prepared if entry.status == "verified"
+            ),
+            status_counts=counts,
+        )
 
     def test_construction_is_offline_and_browser_is_lazy(self):
         from ui_browser_tab import BrowserTab
@@ -491,6 +598,335 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                     window._open_library_row(0, 0)
                 open_post.assert_called_once_with("Post_B")
             finally:
+                self._close(window)
+
+    def test_local_library_ui_combines_search_status_and_all_sort_modes(self):
+        entries = (
+            self._library_entry(
+                "10",
+                relative_path="sunrise.jpeg",
+                size=30,
+                author="Alice Artist",
+                tags=("blue_sky", "landscape"),
+                created_at="2024-01-01T00:00:00Z",
+            ),
+            self._library_entry(
+                "2",
+                relative_path="mountain.webp",
+                size=100,
+                author="Bob Creator",
+                tags=("red_sunset",),
+                created_at="2026-01-01T00:00:00Z",
+                content_type="image/webp",
+            ),
+            self._library_entry(
+                "3",
+                status="changed",
+                relative_path="archive.png",
+                size=200,
+                author="Alice Artist",
+                tags=("blue_sky", "portrait"),
+                created_at="2025-01-01T00:00:00Z",
+                content_type="image/png",
+            ),
+        )
+        report = self._library_report(entries)
+
+        def visible_ids(window):
+            return [
+                window.library_model.data(window.library_model.index(row, 0))
+                for row in range(window.library_model.rowCount())
+            ]
+
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.LibraryThumbnailWorker",
+            _FakeLibraryThumbnailWorker,
+        ):
+            _FakeLibraryThumbnailWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window._library_report = report
+                window._library_report_root = os.path.join(root, "Downloads")
+                window._library_report_root_identity = get_bound_root_identity(
+                    window._library_report_root
+                )
+                window._refresh_library_table()
+                self.assertEqual(visible_ids(window), ["2", "3", "10"])
+
+                expected_queries = (
+                    ("10", ["10"]),
+                    ("alice", ["3", "10"]),
+                    ("blue_sky", ["3", "10"]),
+                    ("mountain.webp", ["2"]),
+                )
+                for query, expected in expected_queries:
+                    with self.subTest(query=query):
+                        window.library_search_edit.setText(query)
+                        self.assertEqual(visible_ids(window), expected)
+
+                verified_index = window.library_filter_combo.findData("verified")
+                window.library_filter_combo.setCurrentIndex(verified_index)
+                window.library_search_edit.setText("alice blue_sky")
+                self.assertEqual(visible_ids(window), ["10"])
+
+                changed_index = window.library_filter_combo.findData("changed")
+                window.library_filter_combo.setCurrentIndex(changed_index)
+                window.library_search_edit.setText("alice archive.png")
+                self.assertEqual(visible_ids(window), ["3"])
+
+                window.library_filter_combo.setCurrentIndex(
+                    window.library_filter_combo.findData("")
+                )
+                window.library_search_edit.clear()
+                expected_sorts = (
+                    ("id_asc", ["2", "3", "10"]),
+                    ("id_desc", ["10", "3", "2"]),
+                    ("newest", ["2", "3", "10"]),
+                    ("largest", ["3", "2", "10"]),
+                )
+                for sort, expected in expected_sorts:
+                    with self.subTest(sort=sort):
+                        window.library_sort_combo.setCurrentIndex(
+                            window.library_sort_combo.findData(sort)
+                        )
+                        self.assertEqual(visible_ids(window), expected)
+                self.assertEqual(_FakeLibraryThumbnailWorker.instances, [])
+            finally:
+                self._close(window)
+
+    def test_local_library_preview_starts_only_for_verified_supported_images(self):
+        supported = (
+            self._library_entry("Jpeg", relative_path="Jpeg.jpg"),
+            self._library_entry(
+                "Png", relative_path="Png.png", content_type="image/png"
+            ),
+            self._library_entry(
+                "Webp", relative_path="Webp.webp", content_type="image/webp"
+            ),
+        )
+        unverified = self._library_entry(
+            "Changed", status="changed", relative_path="Changed.jpg"
+        )
+        video = self._library_entry(
+            "Video", relative_path="Video.mp4", content_type="video/mp4"
+        )
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.LibraryThumbnailWorker",
+            _FakeLibraryThumbnailWorker,
+        ):
+            _FakeLibraryThumbnailWorker.instances.clear()
+            window = self.MainWindow(root)
+            window._library_report_root = os.path.join(root, "Downloads")
+            window._library_report_root_identity = get_bound_root_identity(
+                window._library_report_root
+            )
+            try:
+                window._library_report = self._library_report(
+                    (*supported, unverified, video)
+                )
+                window._refresh_library_table()
+
+                def select(entry):
+                    row = next(
+                        index
+                        for index in range(window.library_model.rowCount())
+                        if window.library_model.entry_at(index) is entry
+                    )
+                    window.library_table.setCurrentIndex(
+                        window.library_model.index(row, 0)
+                    )
+                    self.app.processEvents()
+
+                for entry in supported:
+                    with self.subTest(path=entry.relative_path):
+                        previous = len(_FakeLibraryThumbnailWorker.instances)
+                        select(entry)
+                        self.assertEqual(
+                            len(_FakeLibraryThumbnailWorker.instances), previous + 1
+                        )
+                        worker = _FakeLibraryThumbnailWorker.instances[-1]
+                        self.assertEqual(worker.relative_path, entry.relative_path)
+                        self.assertEqual(
+                            worker.output_dir,
+                            os.path.abspath(window._library_report_root),
+                        )
+                        self.assertTrue(worker.running)
+                        worker.complete()
+                        self.assertIsNone(window.library_preview_worker)
+
+                previous = len(_FakeLibraryThumbnailWorker.instances)
+                select(unverified)
+                self.assertEqual(len(_FakeLibraryThumbnailWorker.instances), previous)
+                self.assertIn("未通过完整性", window.library_preview_image.text())
+
+                select(video)
+                self.assertEqual(len(_FakeLibraryThumbnailWorker.instances), previous)
+                self.assertIn("不提供离线图片预览", window.library_preview_image.text())
+            finally:
+                self._close(window)
+
+    def test_local_library_preview_serializes_latest_request_and_ignores_stale_signals(self):
+        from library_thumbnail import LibraryThumbnail
+
+        first_entry = self._library_entry("A", relative_path="A.jpg")
+        latest_entry = self._library_entry(
+            "B", relative_path="B.png", content_type="image/png"
+        )
+        stale_result = LibraryThumbnail(
+            relative_path="A.jpg",
+            size=first_entry.size,
+            sha256=first_entry.sha256,
+            content_type=first_entry.content_type,
+            root_identity=BoundRootIdentity(
+                "windows" if os.name == "nt" else "posix", 1, b"stale"
+            ),
+            width=100,
+            height=50,
+            png_bytes=self._png_bytes(),
+        )
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.LibraryThumbnailWorker",
+            _FakeLibraryThumbnailWorker,
+        ):
+            _FakeLibraryThumbnailWorker.instances.clear()
+            window = self.MainWindow(root)
+            window._library_report_root = os.path.join(root, "Downloads")
+            window._library_report_root_identity = get_bound_root_identity(
+                window._library_report_root
+            )
+            try:
+                window._request_library_preview(first_entry)
+                first = _FakeLibraryThumbnailWorker.instances[-1]
+                window._request_library_preview(latest_entry)
+
+                self.assertEqual(first.cancel_count, 1)
+                self.assertEqual(len(_FakeLibraryThumbnailWorker.instances), 1)
+                self.assertIs(window.library_preview_worker, first)
+                self.assertIsNotNone(window._library_preview_pending)
+                self.assertEqual(
+                    window._library_preview_pending[2].relative_path, "B.png"
+                )
+                loading_text = window.library_preview_image.text()
+                loading_meta = window.library_preview_meta.text()
+
+                first.succeeded.emit(stale_result)
+                first.failed.emit("stale failure must be ignored")
+                self.assertEqual(window.library_preview_image.text(), loading_text)
+                self.assertEqual(window.library_preview_meta.text(), loading_meta)
+                self.assertTrue(window.library_preview_image.pixmap().isNull())
+
+                first.complete()
+                self.assertTrue(first.deleted)
+                self.assertEqual(len(_FakeLibraryThumbnailWorker.instances), 2)
+                latest = _FakeLibraryThumbnailWorker.instances[-1]
+                self.assertIs(window.library_preview_worker, latest)
+                self.assertEqual(latest.relative_path, "B.png")
+                self.assertTrue(latest.running)
+                self.assertIsNone(window._library_preview_pending)
+
+                first.succeeded.emit(stale_result)
+                first.failed.emit("late stale failure must be ignored")
+                self.assertEqual(window.library_preview_image.text(), loading_text)
+                self.assertEqual(window.library_preview_meta.text(), loading_meta)
+                self.assertIs(window.library_preview_worker, latest)
+                latest.complete()
+            finally:
+                if window.library_preview_worker is not None:
+                    window.library_preview_worker.complete()
+                self._close(window)
+
+    def test_local_library_preview_success_loads_png_on_the_main_thread(self):
+        from PySide6.QtCore import QThread
+        from library_thumbnail import LibraryThumbnail
+
+        entry = self._library_entry(
+            "Preview", relative_path="Preview.png", content_type="image/png"
+        )
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.LibraryThumbnailWorker",
+            _FakeLibraryThumbnailWorker,
+        ):
+            _FakeLibraryThumbnailWorker.instances.clear()
+            window = self.MainWindow(root)
+            window._library_report_root = os.path.join(root, "Downloads")
+            window._library_report_root_identity = get_bound_root_identity(
+                window._library_report_root
+            )
+            result = LibraryThumbnail(
+                relative_path="Preview.png",
+                size=entry.size,
+                sha256=entry.sha256,
+                content_type=entry.content_type,
+                root_identity=window._library_report_root_identity,
+                width=640,
+                height=320,
+                png_bytes=self._png_bytes(24, 12),
+            )
+            observed_main_thread = []
+            original = window._library_preview_succeeded
+
+            def recording_success(*args):
+                observed_main_thread.append(
+                    QThread.currentThread() is self.app.thread()
+                )
+                return original(*args)
+
+            try:
+                with mock.patch.object(
+                    window,
+                    "_library_preview_succeeded",
+                    side_effect=recording_success,
+                ):
+                    window._request_library_preview(entry)
+                    worker = _FakeLibraryThumbnailWorker.instances[-1]
+                    worker.succeeded.emit(result)
+                self.assertEqual(observed_main_thread, [True])
+                pixmap = window.library_preview_image.pixmap()
+                self.assertFalse(pixmap.isNull())
+                self.assertEqual((pixmap.width(), pixmap.height()), (24, 12))
+                self.assertEqual(window.library_preview_image.text(), "")
+                self.assertIn("原图 640 × 320", window.library_preview_meta.text())
+                worker.complete()
+            finally:
+                if window.library_preview_worker is not None:
+                    window.library_preview_worker.complete()
+                self._close(window)
+
+    def test_close_cancels_and_waits_for_an_active_library_preview(self):
+        class FakeEvent:
+            accepted = False
+            ignored = False
+
+            def accept(self):
+                self.accepted = True
+
+            def ignore(self):
+                self.ignored = True
+
+        entry = self._library_entry("Closing", relative_path="Closing.jpg")
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.LibraryThumbnailWorker",
+            _FakeLibraryThumbnailWorker,
+        ):
+            _FakeLibraryThumbnailWorker.instances.clear()
+            window = self.MainWindow(root)
+            window._library_report_root = os.path.join(root, "Downloads")
+            window._library_report_root_identity = get_bound_root_identity(
+                window._library_report_root
+            )
+            event = FakeEvent()
+            try:
+                window._request_library_preview(entry)
+                worker = _FakeLibraryThumbnailWorker.instances[-1]
+                window.closeEvent(event)
+                self.assertGreaterEqual(worker.cancel_count, 1)
+                self.assertEqual(len(worker.wait_calls), 1)
+                self.assertGreaterEqual(worker.wait_calls[0], 0)
+                self.assertLessEqual(worker.wait_calls[0], 10_000)
+                self.assertTrue(event.accepted)
+                self.assertFalse(event.ignored)
+            finally:
+                window.library_preview_worker = None
                 self._close(window)
 
     def test_local_library_stop_is_single_shot_and_late_success_is_ignored(self):
