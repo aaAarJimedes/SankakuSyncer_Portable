@@ -13,6 +13,7 @@ from unittest import mock
 
 from bound_file_reader import (
     BoundFileCancelled,
+    BoundFileUnreadable,
     BoundRootIdentity,
     get_bound_root_identity,
 )
@@ -281,6 +282,25 @@ class LocalLibraryTests(unittest.TestCase):
         )
         self.assertEqual(report.status_counts["unsafe_path"], 1)
         self.assertEqual(report.status_counts["unreadable"], 1)
+
+    def test_bound_unreadable_flows_through_the_real_report_path(self):
+        self._write_media("a.jpg")
+        secret = os.path.join(self.temp_dir.name, "private-native-detail")
+
+        with mock.patch.object(
+            local_library.BoundRootSession,
+            "stat_child",
+            autospec=True,
+            side_effect=BoundFileUnreadable(secret),
+        ):
+            report = scan_download_library(self.temp_dir.name)
+
+        self.assertEqual(report.scanned_candidates, 1)
+        self.assertEqual(report.status_counts["unreadable"], 1)
+        self.assertEqual(report.status_counts["unsafe_path"], 0)
+        self.assertEqual(report.entries[0].status, "unreadable")
+        self.assertEqual(report.entries[0].detail, "本地媒体不可读")
+        self.assertNotIn(secret, report.entries[0].detail)
 
     def test_candidate_and_directory_limits_fail_instead_of_partial_results(self):
         self._write_media("a.jpg")

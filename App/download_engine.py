@@ -22,6 +22,7 @@ from bound_file_reader import (
     BoundFileError,
     BoundFileMissing,
     BoundFileTooLarge,
+    BoundFileUnreadable,
     BoundRootSession,
 )
 from http_transport import Response, Session, TransportError
@@ -1949,6 +1950,8 @@ def _raise_bound_local_failure(
             message, status = "缺少本地元数据", "missing_metadata"
         elif isinstance(error, BoundFileTooLarge):
             message, status = "本地元数据超过安全上限", "invalid_metadata"
+        elif isinstance(error, BoundFileUnreadable):
+            message, status = "本地元数据不可读", "unreadable"
         else:
             message, status = "本地元数据路径不安全", "unsafe_path"
         if after_media:
@@ -1963,6 +1966,8 @@ def _raise_bound_local_failure(
         message, status = "本地媒体不存在", "missing_media"
     elif isinstance(error, BoundFileTooLarge):
         message, status = "本地媒体超过 50 GiB 安全上限", "changed"
+    elif isinstance(error, BoundFileUnreadable):
+        message, status = "本地媒体不可读", "unreadable"
     else:
         message, status = "本地媒体路径不安全", "unsafe_path"
     raise LocalIntegrityError(

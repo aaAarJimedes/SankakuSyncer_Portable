@@ -14,7 +14,7 @@ from types import SimpleNamespace
 import unittest
 from unittest import mock
 
-from bound_file_reader import BoundRootSession, open_bound_root
+from bound_file_reader import BoundFileUnreadable, BoundRootSession, open_bound_root
 import download_engine
 import request_gate
 from download_engine import (
@@ -1718,6 +1718,92 @@ class LocalDownloadVerificationTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.status, "changed")
         self.assertEqual(raised.exception.checked_bytes, len(JPEG))
+
+    def test_bound_unreadable_media_stat_is_preserved(self):
+        self._write_pair()
+        secret = os.path.join(self.temp_dir.name, "private-stat-detail")
+
+        with open_bound_root(self.temp_dir.name) as session, mock.patch.object(
+            BoundRootSession,
+            "stat_child",
+            autospec=True,
+            side_effect=BoundFileUnreadable(secret),
+        ):
+            with self.assertRaises(LocalIntegrityError) as raised:
+                verify_bound_local_download(session, "Post_local.jpg")
+
+        self.assertEqual(raised.exception.status, "unreadable")
+        self.assertEqual(raised.exception.checked_bytes, 0)
+        self.assertEqual(str(raised.exception), "本地媒体不可读")
+        self.assertNotIn(secret, str(raised.exception))
+
+    def test_bound_unreadable_initial_sidecar_does_not_hash_media(self):
+        self._write_pair()
+        secret = os.path.join(self.temp_dir.name, "private-sidecar-detail")
+
+        with open_bound_root(self.temp_dir.name) as session, mock.patch.object(
+            BoundRootSession,
+            "read_small_file",
+            autospec=True,
+            side_effect=BoundFileUnreadable(secret),
+        ), mock.patch.object(
+            BoundRootSession, "inspect_child", autospec=True
+        ) as inspect:
+            with self.assertRaises(LocalMetadataError) as raised:
+                verify_bound_local_download(session, "Post_local.jpg")
+
+        self.assertEqual(raised.exception.status, "unreadable")
+        self.assertEqual(str(raised.exception), "本地元数据不可读")
+        self.assertNotIn(secret, str(raised.exception))
+        inspect.assert_not_called()
+
+    def test_bound_unreadable_media_read_never_commits_verification(self):
+        self._write_pair()
+        secret = os.path.join(self.temp_dir.name, "private-media-detail")
+
+        with open_bound_root(self.temp_dir.name) as session, mock.patch.object(
+            BoundRootSession,
+            "inspect_child",
+            autospec=True,
+            side_effect=BoundFileUnreadable(secret),
+        ):
+            with self.assertRaises(LocalIntegrityError) as raised:
+                verify_bound_local_download(session, "Post_local.jpg")
+
+        self.assertEqual(raised.exception.status, "unreadable")
+        self.assertEqual(raised.exception.checked_bytes, 0)
+        self.assertEqual(str(raised.exception), "本地媒体不可读")
+        self.assertNotIn(secret, str(raised.exception))
+
+    def test_bound_unreadable_refreshed_sidecar_preserves_checked_bytes(self):
+        self._write_pair()
+        secret = os.path.join(self.temp_dir.name, "private-refresh-detail")
+
+        with open_bound_root(self.temp_dir.name) as session:
+            real_read = session.read_small_file
+            call_count = 0
+
+            def fail_second_read(_session, *args, **kwargs):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 2:
+                    raise BoundFileUnreadable(secret)
+                return real_read(*args, **kwargs)
+
+            with mock.patch.object(
+                BoundRootSession,
+                "read_small_file",
+                autospec=True,
+                side_effect=fail_second_read,
+            ):
+                with self.assertRaises(LocalIntegrityError) as raised:
+                    verify_bound_local_download(session, "Post_local.jpg")
+
+        self.assertEqual(call_count, 2)
+        self.assertEqual(raised.exception.status, "unreadable")
+        self.assertEqual(raised.exception.checked_bytes, len(JPEG))
+        self.assertEqual(str(raised.exception), "本地元数据不可读")
+        self.assertNotIn(secret, str(raised.exception))
 
     def test_bound_pre_cancelled_verification_uses_shared_cancelled_error(self):
         self._write_pair()

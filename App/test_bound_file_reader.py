@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ctypes
 from dataclasses import replace
+import errno
 import hashlib
 import os
 import tempfile
@@ -18,6 +19,7 @@ from bound_file_reader import (
     BoundFileCancelled,
     BoundFileError,
     BoundFileMissing,
+    BoundFileUnreadable,
     MAX_BOUND_FILE_BYTES,
     MAX_BOUND_STREAM_BYTES,
     get_bound_root_identity,
@@ -113,6 +115,60 @@ class BoundFileReaderTests(unittest.TestCase):
                         operation()
                     self.assertEqual(str(caught.exception), "本地文件不存在")
                     self.assertNotIn(secret_name, str(caught.exception))
+
+    def test_posix_open_error_classifies_only_known_operational_failures(self):
+        secret = os.path.join(self.base, "private-native-detail")
+        for code in (errno.EACCES, errno.EPERM, errno.EBUSY, errno.EIO):
+            with self.subTest(code=code):
+                translated = bound_file_reader._posix_child_open_error(
+                    OSError(code, secret)
+                )
+                self.assertIsInstance(translated, BoundFileUnreadable)
+                self.assertEqual(str(translated), "本地文件不可读")
+                self.assertNotIn(secret, str(translated))
+
+        for code in (errno.ELOOP, errno.EISDIR, errno.ENOTDIR, 123_456):
+            with self.subTest(code=code):
+                translated = bound_file_reader._posix_child_open_error(
+                    OSError(code, secret)
+                )
+                self.assertIs(type(translated), BoundFileError)
+                self.assertEqual(str(translated), "本地文件无法安全读取")
+                self.assertNotIn(secret, str(translated))
+
+        contradictory = bound_file_reader._posix_child_open_error(
+            PermissionError(errno.ELOOP, secret)
+        )
+        self.assertIs(type(contradictory), BoundFileError)
+        self.assertEqual(str(contradictory), "本地文件无法安全读取")
+
+    def test_opened_file_io_failures_are_unreadable_and_release_descriptors(self):
+        payload = b"operational-io-failure"
+        name = "Post_unreadable.bin"
+        self._write(name, payload)
+        secret = os.path.join(self.base, "private-read-detail")
+
+        with open_bound_root(self.root) as session:
+            with mock.patch(
+                "bound_file_reader.os.fstat",
+                side_effect=OSError(errno.EIO, secret),
+            ):
+                with self.assertRaises(BoundFileUnreadable) as caught:
+                    session.stat_child(name)
+            self.assertEqual(str(caught.exception), "本地文件不可读")
+            self.assertNotIn(secret, str(caught.exception))
+            self.assertIn(name, session.list_names())
+
+        identity = get_bound_root_identity(self.root)
+        with mock.patch(
+            "bound_file_reader.os.read",
+            side_effect=OSError(errno.EIO, secret),
+        ):
+            with self.assertRaises(BoundFileUnreadable) as caught:
+                self._read(name, payload, identity=identity)
+        self.assertEqual(str(caught.exception), "本地文件不可读")
+        self.assertNotIn(secret, str(caught.exception))
+        self._assert_root_can_be_renamed()
 
     def test_stream_inspection_hashes_large_file_without_payload_aggregation(self):
         size = MAX_BOUND_FILE_BYTES + 1_048_613
@@ -650,6 +706,44 @@ class BoundFileReaderTests(unittest.TestCase):
             | bound_file_reader._FILE_NON_DIRECTORY_FILE
             | bound_file_reader._FILE_OPEN_REPARSE_POINT,
         )
+
+    @unittest.skipUnless(os.name == "nt", "Windows NTSTATUS classification test")
+    def test_windows_open_statuses_keep_operational_and_unsafe_failures_distinct(
+        self,
+    ):
+        child_handle = 0x5151
+
+        def failing_open(status: int):
+            def fake_nt_create_file(output_handle, *_args) -> int:
+                output = ctypes.cast(
+                    output_handle,
+                    ctypes.POINTER(bound_file_reader.wintypes.HANDLE),
+                )
+                output.contents.value = child_handle
+                return status
+
+            return fake_nt_create_file
+
+        for status in bound_file_reader._WINDOWS_UNREADABLE_OPEN_STATUSES:
+            with self.subTest(status=status), mock.patch(
+                "bound_file_reader._NtCreateFile",
+                side_effect=failing_open(status),
+            ), mock.patch("bound_file_reader._win_close_handle") as close_handle:
+                with self.assertRaises(BoundFileUnreadable) as caught:
+                    bound_file_reader._win_open_child(0x4242, "Post_status.bin")
+                self.assertEqual(str(caught.exception), "本地文件不可读")
+                close_handle.assert_called_once_with(child_handle)
+
+        unsafe_status = ctypes.c_int32(0xC00000BA).value
+        with mock.patch(
+            "bound_file_reader._NtCreateFile",
+            side_effect=failing_open(unsafe_status),
+        ), mock.patch("bound_file_reader._win_close_handle") as close_handle:
+            with self.assertRaises(BoundFileError) as caught:
+                bound_file_reader._win_open_child(0x4242, "Post_status.bin")
+        self.assertIs(type(caught.exception), BoundFileError)
+        self.assertEqual(str(caught.exception), "本地文件无法安全读取")
+        close_handle.assert_called_once_with(child_handle)
 
 
 if __name__ == "__main__":

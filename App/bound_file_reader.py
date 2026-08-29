@@ -11,6 +11,7 @@ from __future__ import annotations
 import ctypes
 from ctypes import wintypes
 from dataclasses import dataclass
+import errno
 import hashlib
 import hmac
 import ntpath
@@ -35,11 +36,26 @@ _ERR_ROOT_UNAVAILABLE = "本地文件根目录不可用"
 _ERR_ROOT_UNSAFE = "本地文件根目录不安全"
 _ERR_ROOT_CHANGED = "本地文件根目录已变化"
 _ERR_CHILD_UNSAFE = "本地文件无法安全读取"
+_ERR_CHILD_UNREADABLE = "本地文件不可读"
 _ERR_CHILD_MISSING = "本地文件不存在"
 _ERR_CHILD_TOO_LARGE = "本地文件超过安全大小上限"
 _ERR_DIRECTORY_LIMIT = "本地目录项目超过安全上限"
 _ERR_SIZE_CHANGED = "本地文件长度与已验证记录不匹配"
 _ERR_DIGEST_CHANGED = "本地文件摘要与已验证记录不匹配"
+_POSIX_UNREADABLE_ERRNOS = frozenset(
+    value
+    for value in (
+        errno.EACCES,
+        errno.EPERM,
+        getattr(errno, "EBUSY", None),
+        getattr(errno, "ETXTBSY", None),
+        getattr(errno, "EIO", None),
+        getattr(errno, "EMFILE", None),
+        getattr(errno, "ENFILE", None),
+        getattr(errno, "ENOMEM", None),
+    )
+    if isinstance(value, int)
+)
 
 
 class BoundFileError(RuntimeError):
@@ -56,6 +72,10 @@ class BoundFileMissing(BoundFileError):
 
 class BoundFileTooLarge(BoundFileError):
     """A regular child exceeded the caller's explicit size budget."""
+
+
+class BoundFileUnreadable(BoundFileError):
+    """A child could not be opened or read for an operational reason."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -501,7 +521,7 @@ def _fd_regular_size(descriptor: int, max_bytes: int) -> int:
     try:
         current = os.fstat(descriptor)
     except OSError:
-        raise BoundFileError(_ERR_CHILD_UNSAFE) from None
+        raise BoundFileUnreadable(_ERR_CHILD_UNREADABLE) from None
     if not stat.S_ISREG(current.st_mode):
         raise BoundFileError(_ERR_CHILD_UNSAFE)
     size = int(current.st_size)
@@ -549,7 +569,7 @@ def _consume_fd(
     except BoundFileError:
         raise
     except OSError:
-        raise BoundFileError(_ERR_CHILD_UNSAFE) from None
+        raise BoundFileUnreadable(_ERR_CHILD_UNREADABLE) from None
     if final_size != initial_size or total != initial_size:
         raise BoundFileError(_ERR_SIZE_CHANGED)
     _check_cancelled(stop_event)
@@ -643,6 +663,12 @@ def _posix_root_identity(descriptor: int) -> BoundRootIdentity:
     )
 
 
+def _posix_child_open_error(error: OSError) -> BoundFileError:
+    if error.errno in _POSIX_UNREADABLE_ERRNOS:
+        return BoundFileUnreadable(_ERR_CHILD_UNREADABLE)
+    return BoundFileError(_ERR_CHILD_UNSAFE)
+
+
 def _posix_open_child(root_descriptor: int, basename: str) -> int:
     nofollow = getattr(os, "O_NOFOLLOW", None)
     nonblocking = getattr(os, "O_NONBLOCK", None)
@@ -659,15 +685,15 @@ def _posix_open_child(root_descriptor: int, basename: str) -> int:
         return os.open(basename, flags, dir_fd=root_descriptor)
     except FileNotFoundError:
         raise BoundFileMissing(_ERR_CHILD_MISSING) from None
-    except OSError:
-        raise BoundFileError(_ERR_CHILD_UNSAFE) from None
+    except OSError as exc:
+        raise _posix_child_open_error(exc) from None
 
 
 def _posix_validate_child(descriptor: int, expected_size: int) -> None:
     try:
         value = os.fstat(descriptor)
     except OSError:
-        raise BoundFileError(_ERR_CHILD_UNSAFE) from None
+        raise BoundFileUnreadable(_ERR_CHILD_UNREADABLE) from None
     if not stat.S_ISREG(value.st_mode):
         raise BoundFileError(_ERR_CHILD_UNSAFE)
     if int(value.st_size) != expected_size:
@@ -725,8 +751,20 @@ if os.name == "nt":
     _FILE_TYPE_DISK = 0x0001
 
     _STATUS_NO_SUCH_FILE = ctypes.c_int32(0xC000000F).value
+    _STATUS_ACCESS_DENIED = ctypes.c_int32(0xC0000022).value
     _STATUS_OBJECT_NAME_NOT_FOUND = ctypes.c_int32(0xC0000034).value
     _STATUS_OBJECT_PATH_NOT_FOUND = ctypes.c_int32(0xC000003A).value
+    _STATUS_SHARING_VIOLATION = ctypes.c_int32(0xC0000043).value
+    _STATUS_FILE_LOCK_CONFLICT = ctypes.c_int32(0xC0000054).value
+    _STATUS_LOCK_NOT_GRANTED = ctypes.c_int32(0xC0000055).value
+    _WINDOWS_UNREADABLE_OPEN_STATUSES = frozenset(
+        {
+            _STATUS_ACCESS_DENIED,
+            _STATUS_SHARING_VIOLATION,
+            _STATUS_FILE_LOCK_CONFLICT,
+            _STATUS_LOCK_NOT_GRANTED,
+        }
+    )
 
     _OBJ_CASE_INSENSITIVE = 0x00000040
     _FILE_OPEN = 0x00000001
@@ -961,6 +999,8 @@ def _win_open_child(root_handle: int, basename: str) -> int:
             _STATUS_OBJECT_PATH_NOT_FOUND,
         }:
             raise BoundFileMissing(_ERR_CHILD_MISSING)
+        if status_code in _WINDOWS_UNREADABLE_OPEN_STATUSES:
+            raise BoundFileUnreadable(_ERR_CHILD_UNREADABLE)
         raise BoundFileError(_ERR_CHILD_UNSAFE)
     return value
 
@@ -979,7 +1019,7 @@ def _win_validate_child(handle: int, expected_size: int) -> None:
     _win_validate_child_kind(handle)
     size = ctypes.c_longlong()
     if not _GetFileSizeEx(wintypes.HANDLE(handle), ctypes.byref(size)):
-        raise BoundFileError(_ERR_CHILD_UNSAFE)
+        raise BoundFileUnreadable(_ERR_CHILD_UNREADABLE)
     if int(size.value) != expected_size:
         raise BoundFileError(_ERR_SIZE_CHANGED)
 
@@ -987,7 +1027,9 @@ def _win_validate_child(handle: int, expected_size: int) -> None:
 def _win_handle_to_fd(handle: int) -> int:
     try:
         return msvcrt.open_osfhandle(handle, os.O_RDONLY | getattr(os, "O_BINARY", 0))
-    except (OSError, OverflowError, ValueError):
+    except OSError:
+        raise BoundFileUnreadable(_ERR_CHILD_UNREADABLE) from None
+    except (OverflowError, ValueError):
         raise BoundFileError(_ERR_CHILD_UNSAFE) from None
 
 
@@ -1034,6 +1076,7 @@ __all__ = [
     "BoundFileInspection",
     "BoundFileMissing",
     "BoundFileTooLarge",
+    "BoundFileUnreadable",
     "BoundRootIdentity",
     "BoundRootSession",
     "MAX_BOUND_BASENAME_BYTES",
