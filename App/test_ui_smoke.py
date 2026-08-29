@@ -62,6 +62,43 @@ class _FakeSearchWorker:
         self.finished.emit()
 
 
+class _FakeLibraryWorker:
+    instances = []
+
+    def __init__(self, output_dir, parent=None) -> None:
+        self.output_dir = os.path.abspath(output_dir)
+        self.parent = parent
+        self.progress = _FakeSignal()
+        self.succeeded = _FakeSignal()
+        self.failed = _FakeSignal()
+        self.cancelled = _FakeSignal()
+        self.finished = _FakeSignal()
+        self.running = False
+        self.cancel_count = 0
+        self.deleted = False
+        self.__class__.instances.append(self)
+
+    def start(self) -> None:
+        self.running = True
+
+    def isRunning(self) -> bool:  # noqa: N802 - Qt-compatible fake
+        return self.running
+
+    def cancel(self) -> None:
+        self.cancel_count += 1
+
+    def wait(self, _milliseconds: int) -> bool:
+        self.running = False
+        return True
+
+    def deleteLater(self) -> None:  # noqa: N802 - Qt-compatible fake
+        self.deleted = True
+
+    def complete(self) -> None:
+        self.running = False
+        self.finished.emit()
+
+
 class _MemoryVault:
     def __init__(self, state=None) -> None:
         self.state = state
@@ -143,10 +180,11 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
         ) as ensure_loaded:
             window = self.MainWindow(root)
             try:
-                self.assertEqual(window.tabs.count(), 4)
+                self.assertEqual(window.tabs.count(), 5)
                 self.assertIsNone(window.search_worker)
                 self.assertIsNone(window.login_worker)
                 self.assertIsNone(window.download_worker)
+                self.assertIsNone(window.library_worker)
                 self.assertEqual(window.results_summary.text(), "输入标签后点击搜索")
                 self.assertEqual(window.search_edit.accessibleName(), "搜索标签")
                 self.assertEqual(window.result_list.accessibleName(), "搜索结果")
@@ -309,6 +347,222 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 self.assertTrue(window.previous_button.isEnabled())
                 self.assertTrue(window.next_button.isEnabled())
             finally:
+                self._close(window)
+
+    def test_local_library_success_commits_report_filters_and_uses_saved_path(self):
+        from PySide6.QtCore import Qt
+        from local_library import LibraryEntry, LibraryReport
+
+        entries = (
+            LibraryEntry(
+                status="verified",
+                post_id="Post_A",
+                variant="original",
+                relative_path="Post_A.jpg",
+                size=2048,
+                content_type="image/jpeg",
+                rating="s",
+                author="artist",
+                tags=("tag_a", "tag_b"),
+                created_at="2026-01-01T00:00:00Z",
+                detail="",
+                sha256="a" * 64,
+            ),
+            LibraryEntry(
+                status="missing_metadata",
+                post_id="Post_B",
+                variant="sample",
+                relative_path="Post_B.sample.png",
+                size=1024,
+                content_type="image/png",
+                rating="",
+                author="",
+                tags=(),
+                created_at="",
+                detail="缺少相邻元数据",
+            ),
+        )
+        report = LibraryReport(
+            entries=entries,
+            scanned_candidates=2,
+            verified_count=1,
+            checked_bytes=2048,
+            status_counts={
+                "verified": 1,
+                "changed": 0,
+                "invalid_metadata": 0,
+                "missing_media": 0,
+                "missing_metadata": 1,
+                "unsafe_path": 0,
+                "unreadable": 0,
+            },
+        )
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.LibraryScanWorker", _FakeLibraryWorker
+        ):
+            _FakeLibraryWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window._start_library_scan()
+                worker = _FakeLibraryWorker.instances[-1]
+                self.assertEqual(
+                    worker.output_dir,
+                    os.path.abspath(os.path.join(root, "Downloads")),
+                )
+                self.assertFalse(window.library_scan_button.isEnabled())
+                self.assertTrue(window.library_stop_button.isEnabled())
+                worker.progress.emit(1, 2, 5_000_000_000)
+                self.assertIn("4.7 GiB", window.library_summary.text())
+                worker.succeeded.emit(report)
+                worker.complete()
+                self.assertIs(window._library_report, report)
+                self.assertEqual(window.library_model.rowCount(), 2)
+                self.assertIn("已验证 1", window.library_summary.text())
+                self.assertEqual(
+                    window.library_model.data(
+                        window.library_model.index(0, 7), Qt.ToolTipRole
+                    ),
+                    "tag_a tag_b",
+                )
+                self.assertIsNone(
+                    window.library_model.data(window.library_model.index(-1, 0))
+                )
+
+                missing_index = window.library_filter_combo.findData(
+                    "missing_metadata"
+                )
+                window.library_filter_combo.setCurrentIndex(missing_index)
+                self.assertEqual(window.library_model.rowCount(), 1)
+                self.assertEqual(
+                    window.library_model.data(window.library_model.index(0, 0)),
+                    "Post_B",
+                )
+                with mock.patch.object(window, "_open_post") as open_post:
+                    window._open_library_row(0, 0)
+                open_post.assert_called_once_with("Post_B")
+            finally:
+                self._close(window)
+
+    def test_local_library_stop_is_single_shot_and_late_success_is_ignored(self):
+        from local_library import LibraryReport
+
+        old = LibraryReport(
+            entries=(),
+            scanned_candidates=7,
+            verified_count=0,
+            checked_bytes=0,
+            status_counts={},
+        )
+        late = LibraryReport(
+            entries=(),
+            scanned_candidates=99,
+            verified_count=0,
+            checked_bytes=0,
+            status_counts={},
+        )
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.LibraryScanWorker", _FakeLibraryWorker
+        ):
+            _FakeLibraryWorker.instances.clear()
+            window = self.MainWindow(root)
+            window._library_report = old
+            try:
+                window._start_library_scan()
+                worker = _FakeLibraryWorker.instances[-1]
+                window._stop_library_scan()
+                window._stop_library_scan()
+                self.assertEqual(worker.cancel_count, 1)
+                worker.succeeded.emit(late)
+                worker.cancelled.emit()
+                worker.complete()
+                self.assertIs(window._library_report, old)
+                self.assertIn("已取消", window.status_label.text())
+                self.assertNotIn("正在", window.library_summary.text())
+                self.assertIn("显示 0 / 0", window.library_summary.text())
+                self.assertTrue(window.library_scan_button.isEnabled())
+            finally:
+                self._close(window)
+
+    def test_local_library_failure_without_old_report_restores_terminal_summary(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.LibraryScanWorker", _FakeLibraryWorker
+        ):
+            _FakeLibraryWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window._start_library_scan()
+                worker = _FakeLibraryWorker.instances[-1]
+                worker.progress.emit(1, 3, 4096)
+                worker.failed.emit("下载目录不可用（PermissionError）")
+                worker.complete()
+                self.assertIsNone(window._library_report)
+                self.assertEqual(window.library_model.rowCount(), 0)
+                self.assertEqual(window.library_summary.text(), "扫描失败，未生成报告")
+                self.assertNotIn("正在", window.library_summary.text())
+            finally:
+                self._close(window)
+
+    def test_local_library_worker_construction_failure_restores_summary(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.LibraryScanWorker",
+            side_effect=RuntimeError("sensitive detail"),
+        ), mock.patch("ui_main_window.QMessageBox.warning") as warning:
+            window = self.MainWindow(root)
+            try:
+                window._start_library_scan()
+                self.assertIsNone(window.library_worker)
+                self.assertEqual(window.library_summary.text(), "未能启动扫描")
+                self.assertTrue(window.library_scan_button.isEnabled())
+                self.assertFalse(window.library_stop_button.isEnabled())
+                self.assertNotIn("sensitive detail", warning.call_args.args[-1])
+            finally:
+                self._close(window)
+
+    def test_local_library_and_download_batches_are_mutually_exclusive(self):
+        class IdleWorker:
+            def isRunning(self) -> bool:  # noqa: N802 - Qt-compatible fake
+                return False
+
+        with tempfile.TemporaryDirectory() as root:
+            window = self.MainWindow(root)
+            try:
+                window.library_worker = IdleWorker()
+                window._start_download(selected_only=False)
+                self.assertIn("本地库校验", window.status_label.text())
+                window.library_worker = None
+
+                window.download_worker = IdleWorker()
+                window._start_library_scan()
+                self.assertIn("下载批次", window.status_label.text())
+            finally:
+                window.download_worker = None
+                window.library_worker = None
+                self._close(window)
+
+    def test_close_cancels_and_waits_for_an_active_library_scan(self):
+        class FakeEvent:
+            accepted = False
+            ignored = False
+
+            def accept(self):
+                self.accepted = True
+
+            def ignore(self):
+                self.ignored = True
+
+        with tempfile.TemporaryDirectory() as root:
+            window = self.MainWindow(root)
+            worker = _FakeLibraryWorker(root, window)
+            worker.start()
+            window.library_worker = worker
+            event = FakeEvent()
+            try:
+                window.closeEvent(event)
+                self.assertEqual(worker.cancel_count, 1)
+                self.assertTrue(event.accepted)
+                self.assertFalse(event.ignored)
+            finally:
+                window.library_worker = None
                 self._close(window)
 
     def test_default_download_directory_moves_with_portable_root(self):

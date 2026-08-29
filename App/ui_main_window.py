@@ -11,9 +11,11 @@ import time
 from typing import Iterable
 
 from PySide6.QtCore import (
+    QAbstractTableModel,
     QByteArray,
     QBuffer,
     QIODevice,
+    QModelIndex,
     QSize,
     Qt,
     QThreadPool,
@@ -45,6 +47,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QSplitter,
     QStatusBar,
+    QTableView,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -59,6 +62,7 @@ from credential_persistence import (
     CredentialPersistence,
     CredentialPersistenceError,
 )
+from local_library import LibraryEntry, LibraryReport
 from sankaku_api import SankakuPost, SearchPage
 from sankaku_url_policy import (
     canonical_post_url,
@@ -70,7 +74,13 @@ from sankaku_url_policy import (
 from settings_store import SettingsError, SettingsStore
 from task_store import DownloadTask, TaskStore, TaskStoreCorruptError, TaskStoreError
 from version import APP_DISPLAY_NAME
-from workers import DownloadWorker, LoginWorker, SearchWorker, ThumbnailWorker
+from workers import (
+    DownloadWorker,
+    LibraryScanWorker,
+    LoginWorker,
+    SearchWorker,
+    ThumbnailWorker,
+)
 
 try:
     from ui_browser_tab import BrowserTab, WEBENGINE_AVAILABLE
@@ -89,6 +99,93 @@ _STATUS_TEXT = {
     "cancelled": "已取消",
 }
 _RATING_TEXT = {"s": "Safe", "q": "Questionable", "e": "Explicit", "": "未知"}
+_LIBRARY_STATUS_TEXT = {
+    "verified": "已验证",
+    "changed": "内容已变化",
+    "invalid_metadata": "元数据无效",
+    "missing_media": "缺少媒体",
+    "missing_metadata": "缺少元数据",
+    "unsafe_path": "路径不安全",
+    "unreadable": "无法读取",
+}
+
+
+def _format_file_size(value: object) -> str:
+    if type(value) is not int or value < 0:
+        return "—"
+    size = float(value)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if size < 1024.0 or unit == "TiB":
+            return f"{int(size)} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024.0
+    return "—"
+
+
+class _LibraryTableModel(QAbstractTableModel):
+    """Expose a bounded library report without allocating one widget per cell."""
+
+    _HEADERS = (
+        "作品 ID",
+        "版本",
+        "完整性",
+        "大小",
+        "类型",
+        "分级",
+        "作者",
+        "文件 / 说明",
+    )
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._entries: tuple[LibraryEntry, ...] = ()
+
+    def set_entries(self, entries: Iterable[LibraryEntry]) -> None:
+        prepared = tuple(entries)
+        self.beginResetModel()
+        self._entries = prepared
+        self.endResetModel()
+
+    def rowCount(self, parent=QModelIndex()) -> int:  # noqa: N802 - Qt API
+        return 0 if parent.isValid() else len(self._entries)
+
+    def columnCount(self, parent=QModelIndex()) -> int:  # noqa: N802 - Qt API
+        return 0 if parent.isValid() else len(self._HEADERS)
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):  # noqa: N802
+        if (
+            role == Qt.DisplayRole
+            and orientation == Qt.Horizontal
+            and 0 <= section < len(self._HEADERS)
+        ):
+            return self._HEADERS[section]
+        return None
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid() or not 0 <= index.row() < len(self._entries):
+            return None
+        entry = self._entries[index.row()]
+        column = index.column()
+        if role == Qt.ToolTipRole and column == 7 and entry.tags:
+            return " ".join(entry.tags)
+        if role != Qt.DisplayRole:
+            return None
+        detail = entry.relative_path
+        if entry.detail:
+            detail = f"{detail} · {entry.detail}" if detail else entry.detail
+        values = (
+            entry.post_id,
+            entry.variant,
+            _LIBRARY_STATUS_TEXT.get(entry.status, entry.status),
+            _format_file_size(entry.size),
+            entry.content_type,
+            _RATING_TEXT.get(entry.rating, entry.rating or "未知"),
+            entry.author,
+            detail,
+        )
+        return values[column] if 0 <= column < len(values) else None
+
+    def entry_at(self, row: int) -> LibraryEntry | None:
+        return self._entries[row] if 0 <= row < len(self._entries) else None
 
 
 class MainWindow(QMainWindow):
@@ -151,6 +248,7 @@ class MainWindow(QMainWindow):
         self.search_worker: SearchWorker | None = None
         self.login_worker: LoginWorker | None = None
         self.download_worker: DownloadWorker | None = None
+        self.library_worker: LibraryScanWorker | None = None
         self._download_block_reason = ""
         self.thumbnail_pool = QThreadPool(self)
         self.thumbnail_pool.setMaxThreadCount(2)
@@ -165,6 +263,9 @@ class MainWindow(QMainWindow):
         self._search_cancel_requested = False
         self._search_terminal_received = False
         self._search_posts: dict[str, SankakuPost] = {}
+        self._library_report: LibraryReport | None = None
+        self._library_cancel_requested = False
+        self._library_terminal_received = False
 
         self.setWindowTitle(APP_DISPLAY_NAME)
         self.resize(1320, 860)
@@ -204,6 +305,7 @@ class MainWindow(QMainWindow):
         self.browser_tab = self._build_browser_tab()
         self.tabs.addTab(self.browser_tab, "站内浏览")
         self.tabs.addTab(self._build_tasks_tab(), "下载任务")
+        self.tabs.addTab(self._build_library_tab(), "本地下载库")
         self.tabs.addTab(self._build_settings_tab(), "账号与设置")
         self.tabs.currentChanged.connect(self._tab_changed)
         outer.addWidget(self.tabs, 1)
@@ -361,6 +463,79 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.log_view)
         splitter.setSizes([540, 180])
         layout.addWidget(splitter, 1)
+        return page
+
+    def _build_library_tab(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(12, 12, 12, 12)
+
+        actions = QHBoxLayout()
+        self.library_scan_button = QPushButton("扫描并校验")
+        self.library_scan_button.setAccessibleName("扫描本地下载库")
+        self.library_scan_button.clicked.connect(self._start_library_scan)
+        actions.addWidget(self.library_scan_button)
+        self.library_stop_button = QPushButton("停止校验")
+        self.library_stop_button.setAccessibleName("停止本地库校验")
+        self.library_stop_button.clicked.connect(self._stop_library_scan)
+        self.library_stop_button.setEnabled(False)
+        actions.addWidget(self.library_stop_button)
+        actions.addWidget(QLabel("状态"))
+        self.library_filter_combo = QComboBox()
+        self.library_filter_combo.setAccessibleName("本地库完整性状态筛选")
+        self.library_filter_combo.addItem("全部", "")
+        for status in (
+            "verified",
+            "changed",
+            "invalid_metadata",
+            "missing_media",
+            "missing_metadata",
+            "unsafe_path",
+            "unreadable",
+        ):
+            self.library_filter_combo.addItem(_LIBRARY_STATUS_TEXT[status], status)
+        self.library_filter_combo.currentIndexChanged.connect(
+            lambda _index: self._refresh_library_table()
+        )
+        actions.addWidget(self.library_filter_combo)
+        actions.addStretch(1)
+        self.library_summary = QLabel("尚未扫描")
+        actions.addWidget(self.library_summary)
+        layout.addLayout(actions)
+
+        self.library_path_label = QLabel(
+            self._resolve_download_dir(str(self.settings.get("download_dir", "")))
+        )
+        self.library_path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.library_path_label.setObjectName("subtleText")
+        layout.addWidget(self.library_path_label)
+
+        notice = QLabel(
+            "仅在已保存的下载目录第一层进行只读离线校验；不会联网、删除、修复或自动重下。"
+            "缺少元数据的文件不会被标记为完整性通过。"
+        )
+        notice.setWordWrap(True)
+        notice.setObjectName("noticeLabel")
+        layout.addWidget(notice)
+
+        self.library_table = QTableView()
+        self.library_table.setAccessibleName("本地下载库校验结果")
+        self.library_model = _LibraryTableModel(self.library_table)
+        self.library_table.setModel(self.library_model)
+        self.library_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.library_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.library_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.library_table.doubleClicked.connect(
+            lambda index: self._open_library_row(index.row(), index.column())
+        )
+        self.library_table.setAlternatingRowColors(True)
+        self.library_table.verticalHeader().setVisible(False)
+        header = self.library_table.horizontalHeader()
+        header.setResizeContentsPrecision(200)
+        for index in range(7):
+            header.setSectionResizeMode(index, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(7, QHeaderView.Stretch)
+        layout.addWidget(self.library_table, 1)
         return page
 
     def _build_settings_tab(self) -> QWidget:
@@ -870,6 +1045,163 @@ class MainWindow(QMainWindow):
         self._refresh_tasks()
         self.status_label.setText(f"已移除 {count} 项任务，媒体文件未改动")
 
+    # ------------------------------ local library ------------------------------
+
+    def _start_library_scan(self) -> None:
+        if self.library_worker is not None:
+            self.status_label.setText("本地库校验正在进行，请稍候")
+            return
+        if self.download_worker is not None:
+            self.status_label.setText("请等待当前下载批次结束后再校验本地库")
+            return
+        output_dir = self._resolve_download_dir(
+            str(self.settings.get("download_dir", ""))
+        )
+        self.library_path_label.setText(output_dir)
+        self._library_cancel_requested = False
+        self._library_terminal_received = False
+        self.library_scan_button.setEnabled(False)
+        self.library_stop_button.setEnabled(True)
+        self.library_summary.setText("正在枚举并校验…")
+        self.global_progress.setRange(0, 0)
+        self.global_progress.show()
+        try:
+            worker = LibraryScanWorker(output_dir, self)
+        except Exception as exc:
+            self.library_scan_button.setEnabled(True)
+            self.library_stop_button.setEnabled(False)
+            self.global_progress.hide()
+            self._restore_library_report_summary("未能启动扫描")
+            QMessageBox.warning(
+                self,
+                "无法开始本地库校验",
+                f"校验线程创建失败（{type(exc).__name__}）",
+            )
+            return
+        self.library_worker = worker
+        worker.progress.connect(self._library_scan_progress)
+        worker.succeeded.connect(self._library_scan_succeeded)
+        worker.failed.connect(self._library_scan_failed)
+        worker.cancelled.connect(self._library_scan_cancelled)
+        worker.finished.connect(self._library_scan_finished)
+        self.status_label.setText("正在只读校验本地下载库")
+        self._log("本地下载库校验开始；只读、离线、不删除文件。")
+        worker.start()
+
+    @Slot(int, int, object)
+    def _library_scan_progress(
+        self, done: int, total: int, checked_bytes: object
+    ) -> None:
+        if self._library_cancel_requested or self.library_worker is None:
+            return
+        checked = checked_bytes if type(checked_bytes) is int else 0
+        if total > 0:
+            self.global_progress.setRange(0, total)
+            self.global_progress.setValue(min(total, max(0, done)))
+        else:
+            self.global_progress.setRange(0, 0)
+        self.library_summary.setText(
+            f"已校验 {max(0, done)} / {max(0, total)} · {_format_file_size(checked)}"
+        )
+
+    @Slot(object)
+    def _library_scan_succeeded(self, result: object) -> None:
+        if self._library_cancel_requested:
+            return
+        if not isinstance(result, LibraryReport):
+            self._library_scan_failed("本地库报告格式无效")
+            return
+        self._library_report = result
+        self._library_terminal_received = True
+        self.library_stop_button.setEnabled(False)
+        self._refresh_library_table()
+        self.status_label.setText("本地下载库校验完成")
+        self._log(
+            f"本地库校验完成：候选 {result.scanned_candidates}，"
+            f"验证通过 {result.verified_count}。"
+        )
+
+    @Slot(str)
+    def _library_scan_failed(self, message: str) -> None:
+        if self._library_cancel_requested:
+            self._library_scan_cancelled()
+            return
+        self._library_terminal_received = True
+        self.library_stop_button.setEnabled(False)
+        self._restore_library_report_summary("扫描失败，未生成报告")
+        self.status_label.setText(message)
+        self._log(f"本地库校验失败：{message}")
+
+    @Slot()
+    def _library_scan_cancelled(self) -> None:
+        self._library_terminal_received = True
+        self.library_stop_button.setEnabled(False)
+        self._restore_library_report_summary("已取消，未生成报告")
+        self.status_label.setText("本地库校验已取消，保留上次完整报告")
+        self._log("本地库校验已取消；未提交不完整扫描结果。")
+
+    @Slot()
+    def _library_scan_finished(self) -> None:
+        if not self._library_terminal_received:
+            if self._library_cancel_requested:
+                self._library_scan_cancelled()
+            else:
+                self._library_scan_failed("本地库校验未返回完整报告")
+        self.library_scan_button.setEnabled(True)
+        self.library_stop_button.setEnabled(False)
+        self.global_progress.hide()
+        if self.library_worker:
+            self.library_worker.deleteLater()
+        self.library_worker = None
+        self._library_cancel_requested = False
+        self._library_terminal_received = False
+
+    def _stop_library_scan(self) -> None:
+        if (
+            self.library_worker
+            and self.library_worker.isRunning()
+            and not self._library_cancel_requested
+            and not self._library_terminal_received
+        ):
+            self._library_cancel_requested = True
+            self.library_stop_button.setEnabled(False)
+            self.library_worker.cancel()
+            self.status_label.setText("正在安全停止本地库校验…")
+
+    def _refresh_library_table(self) -> None:
+        report = self._library_report
+        if report is None:
+            self.library_model.set_entries(())
+            return
+        selected_status = str(self.library_filter_combo.currentData() or "")
+        entries = [
+            entry
+            for entry in report.entries
+            if not selected_status or entry.status == selected_status
+        ]
+        self.library_model.set_entries(entries)
+        counts = report.status_counts
+        self.library_summary.setText(
+            f"显示 {len(entries)} / {len(report.entries)} · "
+            f"已验证 {counts.get('verified', 0)} · "
+            f"变化 {counts.get('changed', 0)} · "
+            f"缺元数据 {counts.get('missing_metadata', 0)} · "
+            f"缺文件 {counts.get('missing_media', 0)} · "
+            f"不可读 {counts.get('unreadable', 0) + counts.get('unsafe_path', 0)}"
+        )
+
+    def _restore_library_report_summary(self, fallback: str) -> None:
+        if self._library_report is None:
+            self.library_summary.setText(fallback)
+        else:
+            self._refresh_library_table()
+
+    @Slot(int, int)
+    def _open_library_row(self, row: int, _column: int) -> None:
+        entry = self.library_model.entry_at(row)
+        if entry and entry.post_id:
+            self._open_post(entry.post_id)
+
     # ------------------------------ login and settings ------------------------------
 
     def _credential_persistence(self) -> CredentialPersistence:
@@ -1230,6 +1562,9 @@ class MainWindow(QMainWindow):
     # ------------------------------ downloads ------------------------------
 
     def _start_download(self, *, selected_only: bool) -> None:
+        if self.library_worker is not None:
+            self.status_label.setText("请等待本地库校验结束后再开始下载")
+            return
         if self.download_worker and self.download_worker.isRunning():
             self.status_label.setText("已有下载批次正在运行")
             return
@@ -1402,7 +1737,12 @@ class MainWindow(QMainWindow):
                 pass
 
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
-        workers = [self.search_worker, self.login_worker, self.download_worker]
+        workers = [
+            self.search_worker,
+            self.login_worker,
+            self.download_worker,
+            self.library_worker,
+        ]
         for worker in workers:
             if worker and worker.isRunning() and hasattr(worker, "cancel"):
                 worker.cancel()
@@ -1415,7 +1755,7 @@ class MainWindow(QMainWindow):
                     still_running = True
         if still_running:
             event.ignore()
-            self.status_label.setText("正在等待网络任务安全结束，请稍后再关闭")
+            self.status_label.setText("正在等待后台任务安全结束，请稍后再关闭")
             return
         self._cancel_thumbnail_workers()
         if not self.thumbnail_pool.waitForDone(3000):

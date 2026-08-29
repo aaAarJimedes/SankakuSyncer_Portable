@@ -19,8 +19,11 @@ import request_gate
 from download_engine import (
     DownloadError,
     DownloadResult,
+    LocalIntegrityError,
+    LocalMetadataError,
     MediaAccessDeniedError,
     MediaDownloader,
+    verify_local_download,
 )
 from sankaku_api import (
     CancelledError,
@@ -1567,6 +1570,257 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         self.assertNotIn("MEDIA_URL_SECRET", raw_state)
         self.assertNotIn("token", raw_state.lower())
         self.assertTrue(response.closed)
+
+
+class LocalDownloadVerificationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+
+    def _write_pair(
+        self,
+        *,
+        filename: str = "Post_local.jpg",
+        media: bytes = JPEG,
+        sidecar_media: bytes | None = None,
+        post_id: str = "Post_local",
+        variant: str = "original",
+        content_type: str = "image/jpeg",
+        extension: str = "jpg",
+        mutate: dict[str, object] | None = None,
+    ) -> tuple[str, str]:
+        media_path = os.path.join(self.temp_dir.name, filename)
+        with open(media_path, "wb") as file_obj:
+            file_obj.write(media)
+        described = media if sidecar_media is None else sidecar_media
+        payload = {
+            "schema_version": 2,
+            "post_id": post_id,
+            "variant": variant,
+            "filename": filename,
+            "content_type": content_type,
+            "extension": extension,
+            "size": len(described),
+            "sha256": hashlib.sha256(described).hexdigest(),
+            "post": {
+                "rating": "s",
+                "status": "active",
+                "width": 1200,
+                "height": 800,
+                "tags": ["cat", "blue_eyes"],
+                "author": "artist",
+                "created_at": "1700000000",
+                "is_premium": False,
+            },
+        }
+        if mutate:
+            payload.update(mutate)
+        metadata_path = media_path + ".json"
+        with open(metadata_path, "w", encoding="utf-8") as file_obj:
+            json.dump(payload, file_obj)
+        return media_path, metadata_path
+
+    def test_valid_pair_is_fully_verified_without_mutation(self):
+        media_path, metadata_path = self._write_pair()
+        with open(media_path, "rb") as file_obj:
+            media_before = file_obj.read()
+        with open(metadata_path, "rb") as file_obj:
+            metadata_before = file_obj.read()
+
+        result = verify_local_download(
+            media_path,
+            output_dir=self.temp_dir.name,
+        )
+
+        self.assertEqual(result.post_id, "Post_local")
+        self.assertEqual(result.variant, "original")
+        self.assertEqual(result.relative_path, "Post_local.jpg")
+        self.assertEqual(result.size, len(JPEG))
+        self.assertEqual(result.sha256, hashlib.sha256(JPEG).hexdigest())
+        self.assertEqual(result.content_type, "image/jpeg")
+        self.assertEqual(result.extension, "jpg")
+        self.assertEqual(result.tags, ("cat", "blue_eyes"))
+        with open(media_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), media_before)
+        with open(metadata_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), metadata_before)
+
+    def test_missing_or_invalid_sidecar_is_classified_before_hashing(self):
+        media_path = os.path.join(self.temp_dir.name, "Post_local.jpg")
+        with open(media_path, "wb") as file_obj:
+            file_obj.write(JPEG)
+        with mock.patch("download_engine._inspect_media_file") as inspect:
+            with self.assertRaises(LocalMetadataError) as raised:
+                verify_local_download(media_path, output_dir=self.temp_dir.name)
+            self.assertEqual(raised.exception.status, "missing_metadata")
+            inspect.assert_not_called()
+
+        metadata_path = media_path + ".json"
+        with open(metadata_path, "wb") as file_obj:
+            file_obj.write(b"not-json")
+        with mock.patch("download_engine._inspect_media_file") as inspect:
+            with self.assertRaises(LocalMetadataError) as raised:
+                verify_local_download(media_path, output_dir=self.temp_dir.name)
+            self.assertEqual(raised.exception.status, "invalid_metadata")
+            inspect.assert_not_called()
+
+    def test_missing_media_is_classified_from_orphan_sidecar(self):
+        media_path, _metadata_path = self._write_pair()
+        os.remove(media_path)
+
+        with self.assertRaises(LocalIntegrityError) as raised:
+            verify_local_download(media_path, output_dir=self.temp_dir.name)
+
+        self.assertEqual(raised.exception.status, "missing_media")
+
+    def test_tampered_media_is_changed_with_checked_byte_count(self):
+        media_path, _metadata_path = self._write_pair(
+            media=JPEG_ALT,
+            sidecar_media=JPEG,
+        )
+
+        with self.assertRaises(LocalIntegrityError) as raised:
+            verify_local_download(media_path, output_dir=self.temp_dir.name)
+
+        self.assertEqual(raised.exception.status, "changed")
+        self.assertEqual(raised.exception.checked_bytes, len(JPEG_ALT))
+        self.assertIn("SHA-256", str(raised.exception))
+
+    def test_hash_matching_non_media_signature_is_changed(self):
+        media_path, _metadata_path = self._write_pair(media=b"not-media")
+
+        with self.assertRaisesRegex(LocalIntegrityError, "签名") as raised:
+            verify_local_download(media_path, output_dir=self.temp_dir.name)
+
+        self.assertEqual(raised.exception.status, "changed")
+        self.assertEqual(raised.exception.checked_bytes, len(b"not-media"))
+
+    def test_metadata_filename_mismatch_is_rejected_before_hashing(self):
+        media_path, _metadata_path = self._write_pair(
+            mutate={"filename": "Other.jpg"}
+        )
+
+        with mock.patch("download_engine._inspect_media_file") as inspect:
+            with self.assertRaisesRegex(LocalMetadataError, "文件名") as raised:
+                verify_local_download(media_path, output_dir=self.temp_dir.name)
+            self.assertEqual(raised.exception.status, "invalid_metadata")
+            inspect.assert_not_called()
+
+    def test_nested_media_is_unsafe_before_file_access(self):
+        nested = os.path.join(self.temp_dir.name, "nested")
+        os.mkdir(nested)
+        media_path = os.path.join(nested, "Post_local.jpg")
+
+        with mock.patch("download_engine._plain_file_stat") as plain_stat:
+            with self.assertRaisesRegex(LocalIntegrityError, "第一层") as raised:
+                verify_local_download(media_path, output_dir=self.temp_dir.name)
+            self.assertEqual(raised.exception.status, "unsafe_path")
+            plain_stat.assert_not_called()
+
+    def test_plain_file_access_failure_is_unreadable(self):
+        media_path, _metadata_path = self._write_pair()
+        real_open = download_engine.os.open
+
+        def deny_media(path: str, flags: int, *args):
+            if os.path.normcase(path) == os.path.normcase(media_path):
+                raise PermissionError("denied")
+            return real_open(path, flags, *args)
+
+        with mock.patch("download_engine.os.open", side_effect=deny_media):
+            with self.assertRaises(LocalIntegrityError) as raised:
+                verify_local_download(media_path, output_dir=self.temp_dir.name)
+
+        self.assertEqual(raised.exception.status, "unreadable")
+
+    def test_sidecar_reparse_point_is_unsafe_even_before_parsing(self):
+        media_path, metadata_path = self._write_pair()
+        real_lstat = download_engine.os.lstat
+        metadata_stat = real_lstat(metadata_path)
+        unsafe = SimpleNamespace(
+            st_mode=metadata_stat.st_mode,
+            st_size=metadata_stat.st_size,
+            st_dev=metadata_stat.st_dev,
+            st_ino=metadata_stat.st_ino,
+            st_file_attributes=getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400),
+        )
+
+        def selective_lstat(path: str):
+            if os.path.normcase(path) == os.path.normcase(metadata_path):
+                return unsafe
+            return real_lstat(path)
+
+        with mock.patch("download_engine.os.lstat", side_effect=selective_lstat):
+            with self.assertRaises(LocalMetadataError) as raised:
+                verify_local_download(media_path, output_dir=self.temp_dir.name)
+
+        self.assertEqual(raised.exception.status, "unsafe_path")
+
+    def test_sidecar_content_change_during_media_hash_is_not_verified(self):
+        media_path, metadata_path = self._write_pair()
+        real_inspect = download_engine._inspect_media_file
+
+        def inspect_then_edit(path, stop_event):
+            inspection = real_inspect(path, stop_event)
+            with open(metadata_path, "r", encoding="utf-8") as file_obj:
+                document = json.load(file_obj)
+            document["post"]["author"] = "changed-during-scan"
+            with open(metadata_path, "w", encoding="utf-8") as file_obj:
+                json.dump(document, file_obj)
+            return inspection
+
+        with mock.patch(
+            "download_engine._inspect_media_file", side_effect=inspect_then_edit
+        ):
+            with self.assertRaises(LocalIntegrityError) as raised:
+                verify_local_download(media_path, output_dir=self.temp_dir.name)
+
+        self.assertEqual(raised.exception.status, "changed")
+        self.assertEqual(raised.exception.checked_bytes, len(JPEG))
+
+    def test_sidecar_path_replacement_during_media_hash_is_unsafe(self):
+        media_path, metadata_path = self._write_pair()
+        with open(metadata_path, "rb") as file_obj:
+            original = file_obj.read()
+        real_inspect = download_engine._inspect_media_file
+
+        def inspect_then_replace(path, stop_event):
+            inspection = real_inspect(path, stop_event)
+            replacement = metadata_path + ".replacement"
+            with open(replacement, "wb") as file_obj:
+                file_obj.write(original)
+            os.replace(replacement, metadata_path)
+            return inspection
+
+        with mock.patch(
+            "download_engine._inspect_media_file", side_effect=inspect_then_replace
+        ):
+            with self.assertRaises(LocalIntegrityError) as raised:
+                verify_local_download(media_path, output_dir=self.temp_dir.name)
+
+        self.assertEqual(raised.exception.status, "unsafe_path")
+        self.assertEqual(raised.exception.checked_bytes, len(JPEG))
+
+    def test_public_local_verification_api_is_exported(self):
+        self.assertTrue(
+            {
+                "LOCAL_MEDIA_EXTENSIONS",
+                "LocalIntegrityError",
+                "LocalMediaVerification",
+                "LocalMetadataError",
+                "verify_local_download",
+            }.issubset(download_engine.__all__)
+        )
+
+    def test_pre_cancelled_verification_uses_shared_cancelled_error(self):
+        stop_event = threading.Event()
+        stop_event.set()
+
+        with self.assertRaises(CancelledError):
+            verify_local_download(
+                os.path.join(self.temp_dir.name, "Post_local.jpg"),
+                output_dir=self.temp_dir.name,
+                stop_event=stop_event,
+            )
 
 
 if __name__ == "__main__":

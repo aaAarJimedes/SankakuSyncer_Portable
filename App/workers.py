@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Qt worker adapters for network and download operations."""
+"""Qt workers for native network, download, and bounded local operations."""
 
 from __future__ import annotations
 
 from email.utils import parsedate_to_datetime
+import os
 import threading
 import time
 from urllib.parse import urljoin
@@ -13,6 +14,7 @@ from PySide6.QtCore import QObject, QRunnable, QThread, Signal, Slot
 from credential_vault import Credentials
 from download_engine import DownloadError, MediaDownloader
 from http_transport import Session
+from local_library import LibraryScanError, scan_download_library
 from request_gate import GateCancelled, MEDIA_REQUEST_GATE
 from sankaku_api import (
     AuthenticationError,
@@ -436,8 +438,49 @@ class DownloadWorker(QThread):
             self.batch_finished.emit(succeeded, failed, self.stop_event.is_set())
 
 
+class LibraryScanWorker(QThread):
+    """Run the bounded, read-only local library verification off the UI thread."""
+
+    progress = Signal(int, int, object)
+    succeeded = Signal(object)
+    failed = Signal(str)
+    cancelled = Signal()
+
+    def __init__(self, output_dir: str, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self.output_dir = os.path.abspath(output_dir)
+        self.stop_event = threading.Event()
+
+    def cancel(self) -> None:
+        self.stop_event.set()
+
+    def _progress(self, done: int, total: int, checked_bytes: int) -> None:
+        if not self.stop_event.is_set():
+            self.progress.emit(done, total, checked_bytes)
+
+    def run(self) -> None:
+        try:
+            if self.stop_event.is_set():
+                raise CancelledError("本地库扫描已取消")
+            report = scan_download_library(
+                self.output_dir,
+                stop_event=self.stop_event,
+                progress=self._progress,
+            )
+            if self.stop_event.is_set():
+                raise CancelledError("本地库扫描已取消")
+            self.succeeded.emit(report)
+        except CancelledError:
+            self.cancelled.emit()
+        except LibraryScanError as exc:
+            self.failed.emit(str(exc))
+        except Exception as exc:
+            self.failed.emit(f"本地库扫描发生内部错误（{type(exc).__name__}）")
+
+
 __all__ = [
     "DownloadWorker",
+    "LibraryScanWorker",
     "LoginWorker",
     "SearchWorker",
     "ThumbnailWorker",

@@ -68,6 +68,8 @@ _MIME_EXTENSIONS = {
     "audio/wav": "wav",
 }
 _MEDIA_EXTENSIONS = frozenset(_MIME_EXTENSIONS.values())
+# Public, immutable candidate set used by the read-only local library scanner.
+LOCAL_MEDIA_EXTENSIONS = _MEDIA_EXTENSIONS
 _MIME_ALIASES = {
     "image/jpg": "image/jpeg",
     "audio/x-m4a": "audio/mp4",
@@ -105,6 +107,29 @@ class MediaAccessDeniedError(DownloadError):
     """One signed media URL is unavailable to the current account."""
 
 
+class LocalMetadataError(DownloadError):
+    """A local download has no trustworthy schema-2 metadata sidecar."""
+
+    def __init__(self, message: str, *, status: str = "invalid_metadata") -> None:
+        super().__init__(message)
+        self.status = status
+
+
+class LocalIntegrityError(DownloadError):
+    """A local media file failed path, identity, hash, or signature checks."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        status: str = "changed",
+        checked_bytes: int = 0,
+    ) -> None:
+        super().__init__(message)
+        self.status = status
+        self.checked_bytes = max(0, int(checked_bytes))
+
+
 class _PartSlotCollision(DownloadError):
     """A part/state slot was won concurrently; select another slot."""
 
@@ -121,6 +146,24 @@ class DownloadResult:
     metadata_warning: str = ""
     variant: str = "original"
     content_type: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class LocalMediaVerification:
+    """Trusted, read-only view of one fully revalidated local download."""
+
+    post_id: str
+    variant: str
+    file_path: str
+    relative_path: str
+    size: int
+    sha256: str
+    content_type: str
+    extension: str
+    rating: str
+    author: str
+    tags: tuple[str, ...]
+    created_at: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -1371,7 +1414,14 @@ def _load_part_state(path: str) -> _PartState | None:
             last_modified=last_modified,
             total_size=payload["total_size"],
         )
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError):
+    except (
+        OSError,
+        RecursionError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        TypeError,
+        ValueError,
+    ):
         return None
 
 
@@ -1672,10 +1722,23 @@ def _load_metadata_sidecar(path: str) -> dict[str, object] | None:
         if len(encoded) > _MAX_METADATA_BYTES:
             return None
         current = _plain_file_stat(path, "元数据文件")
-        if current is None or not _same_file_identity(opened_stat, current):
+        if (
+            current is None
+            or not _same_file_identity(opened_stat, current)
+            or current.st_size != opened_stat.st_size
+            or getattr(current, "st_mtime_ns", 0)
+            != getattr(opened_stat, "st_mtime_ns", 0)
+        ):
             raise DownloadError("元数据文件在读取期间被替换")
         payload = json.loads(encoded.decode("utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError):
+    except (
+        OSError,
+        RecursionError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+        TypeError,
+        ValueError,
+    ):
         return None
     if not isinstance(payload, dict) or set(payload) != {
         "schema_version",
@@ -1693,11 +1756,11 @@ def _load_metadata_sidecar(path: str) -> dict[str, object] | None:
         payload["schema_version"]
     ) is not int:
         return None
-    if not isinstance(payload["post_id"], str) or payload["variant"] not in {
-        "original",
-        "sample",
-        "preview",
-    }:
+    if (
+        not isinstance(payload["post_id"], str)
+        or not isinstance(payload["variant"], str)
+        or payload["variant"] not in {"original", "sample", "preview"}
+    ):
         return None
     filename = payload["filename"]
     if (
@@ -1772,6 +1835,209 @@ def _metadata_matches_file(
     )
 
 
+def _local_access_status(error: DownloadError, *, missing: str) -> str:
+    message = str(error)
+    if "不存在" in message:
+        return missing
+    if "路径不安全" in message or "被替换" in message:
+        return "unsafe_path"
+    if any(marker in message for marker in ("读取失败", "打开失败", "校验失败")):
+        return "unreadable"
+    return "changed"
+
+
+def verify_local_download(
+    media_path: str,
+    *,
+    output_dir: str | None = None,
+    stop_event: threading.Event | None = None,
+) -> LocalMediaVerification:
+    """Fully revalidate one first-level local download without modifying it.
+
+    The schema-2 sidecar is treated as untrusted input.  This facade deliberately
+    reuses the downloader's bounded sidecar parser, no-follow file opening,
+    streaming hashes, media signature resolver, and post-read identity check.
+    """
+
+    cancellation = stop_event or threading.Event()
+    if cancellation.is_set():
+        raise CancelledError("本地校验已取消")
+    try:
+        raw_path = os.fspath(media_path)
+        if not isinstance(raw_path, str) or not raw_path:
+            raise ValueError("empty path")
+        absolute_path = os.path.abspath(raw_path)
+        root = os.path.abspath(
+            os.fspath(output_dir)
+            if output_dir is not None
+            else os.path.dirname(absolute_path)
+        )
+        if not root:
+            raise ValueError("empty root")
+        common = os.path.commonpath((root, absolute_path))
+    except (OSError, TypeError, ValueError) as exc:
+        raise LocalIntegrityError("本地媒体路径无效", status="unsafe_path") from exc
+    if (
+        os.path.normcase(common) != os.path.normcase(root)
+        or os.path.normcase(os.path.dirname(absolute_path)) != os.path.normcase(root)
+    ):
+        raise LocalIntegrityError(
+            "本地媒体必须位于下载目录第一层", status="unsafe_path"
+        )
+
+    filename = os.path.basename(absolute_path)
+    try:
+        media_stat = _plain_file_stat(absolute_path, "本地媒体")
+    except DownloadError as exc:
+        raise LocalIntegrityError(
+            str(exc), status=_local_access_status(exc, missing="missing_media")
+        ) from exc
+    metadata_path = absolute_path + ".json"
+    try:
+        metadata_stat = _plain_file_stat(metadata_path, "本地元数据")
+    except DownloadError as exc:
+        raise LocalMetadataError(
+            str(exc), status=_local_access_status(exc, missing="missing_metadata")
+        ) from exc
+    if media_stat is None:
+        raise LocalIntegrityError("本地媒体不存在", status="missing_media")
+    if metadata_stat is None:
+        raise LocalMetadataError("缺少本地元数据", status="missing_metadata")
+    if media_stat.st_size <= 0:
+        raise LocalIntegrityError("本地媒体为空")
+    if media_stat.st_size > MAX_MEDIA_BYTES:
+        raise LocalIntegrityError("本地媒体超过 50 GiB 安全上限")
+    try:
+        payload = _load_metadata_sidecar(metadata_path)
+    except DownloadError as exc:
+        raise LocalMetadataError(
+            str(exc), status=_local_access_status(exc, missing="missing_metadata")
+        ) from exc
+    if payload is None:
+        raise LocalMetadataError("本地元数据格式无效")
+
+    post_id = payload["post_id"]
+    variant = payload["variant"]
+    extension = payload["extension"]
+    if normalize_post_id(post_id) != post_id:
+        raise LocalMetadataError("本地元数据中的作品编号无效")
+    suffix = "" if variant == "original" else f".{variant}"
+    pattern = re.compile(
+        _FINAL_FILENAME_RE_TEMPLATE.format(
+            post_id=re.escape(post_id),
+            variant_suffix=re.escape(suffix),
+        ),
+        re.IGNORECASE,
+    )
+    match = pattern.fullmatch(filename)
+    if (
+        payload["filename"] != filename
+        or match is None
+        or match.group(2).lower() != extension
+        or int(match.group(1) or 0) >= _MAX_COLLISION_SLOTS
+    ):
+        raise LocalMetadataError("本地元数据与文件名不匹配")
+
+    try:
+        inspection = _inspect_media_file(absolute_path, cancellation)
+    except CancelledError:
+        raise
+    except DownloadError as exc:
+        raise LocalIntegrityError(
+            str(exc), status=_local_access_status(exc, missing="missing_media")
+        ) from exc
+    if cancellation.is_set():
+        raise CancelledError("本地校验已取消")
+    if not _metadata_matches_file(
+        payload,
+        post_id=post_id,
+        variant=variant,
+        filename=filename,
+        filename_extension=extension,
+        inspection=inspection,
+    ):
+        raise LocalIntegrityError(
+            "本地媒体的长度或 SHA-256 与元数据不匹配",
+            checked_bytes=inspection.size,
+        )
+    try:
+        content_type, detected_extension = _resolve_media_format(
+            inspection,
+            declared_type=payload["content_type"],
+            expected_type=payload["content_type"],
+            expected_extension=extension,
+            expected_size=payload["size"],
+            expected_md5="",
+            require_concrete_declared=True,
+        )
+        if detected_extension != extension:
+            raise DownloadError("本地媒体扩展名与文件签名不匹配")
+        _assert_inspection_identity(absolute_path, inspection, "本地媒体")
+    except DownloadError as exc:
+        raise LocalIntegrityError(
+            str(exc), checked_bytes=inspection.size
+        ) from exc
+
+    if cancellation.is_set():
+        raise CancelledError("本地校验已取消")
+    try:
+        refreshed_payload = _load_metadata_sidecar(metadata_path)
+        current_metadata = _plain_file_stat(metadata_path, "本地元数据")
+    except DownloadError as exc:
+        raise LocalIntegrityError(
+            str(exc),
+            status=_local_access_status(exc, missing="missing_metadata"),
+            checked_bytes=inspection.size,
+        ) from exc
+    if current_metadata is None:
+        raise LocalIntegrityError(
+            "本地元数据在校验期间被删除",
+            status="missing_metadata",
+            checked_bytes=inspection.size,
+        )
+    if not _same_file_identity(metadata_stat, current_metadata):
+        raise LocalIntegrityError(
+            "本地元数据在校验期间被替换",
+            status="unsafe_path",
+            checked_bytes=inspection.size,
+        )
+    if refreshed_payload is None:
+        raise LocalIntegrityError(
+            "本地元数据在校验期间变为无效格式",
+            status="invalid_metadata",
+            checked_bytes=inspection.size,
+        )
+    if (
+        current_metadata.st_size != metadata_stat.st_size
+        or getattr(current_metadata, "st_mtime_ns", 0)
+        != getattr(metadata_stat, "st_mtime_ns", 0)
+        or refreshed_payload != payload
+    ):
+        raise LocalIntegrityError(
+            "本地元数据在校验期间发生变化",
+            status="changed",
+            checked_bytes=inspection.size,
+        )
+
+    post = payload["post"]
+    if cancellation.is_set():
+        raise CancelledError("本地校验已取消")
+    return LocalMediaVerification(
+        post_id=post_id,
+        variant=variant,
+        file_path=absolute_path,
+        relative_path=filename,
+        size=inspection.size,
+        sha256=inspection.sha256,
+        content_type=content_type,
+        extension=extension,
+        rating=post["rating"],
+        author=post["author"],
+        tags=tuple(post["tags"]),
+        created_at=post["created_at"],
+    )
+
+
 def _commit_file_no_replace(source: str, destination: str) -> None:
     """Atomically create *destination* without replacing an existing path."""
 
@@ -1835,7 +2101,12 @@ def _remove_quietly(path: str) -> None:
 __all__ = [
     "DownloadError",
     "DownloadResult",
+    "LOCAL_MEDIA_EXTENSIONS",
+    "LocalIntegrityError",
+    "LocalMediaVerification",
+    "LocalMetadataError",
     "MAX_MEDIA_BYTES",
     "MediaAccessDeniedError",
     "MediaDownloader",
+    "verify_local_download",
 ]

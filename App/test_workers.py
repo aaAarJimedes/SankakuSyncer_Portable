@@ -15,6 +15,7 @@ from download_engine import MediaAccessDeniedError
 from sankaku_api import AccessDeniedError
 from workers import (
     DownloadWorker,
+    LibraryScanWorker,
     LoginWorker,
     SearchWorker,
     ThumbnailWorker,
@@ -254,6 +255,82 @@ class ThumbnailWorkerOfflineTests(unittest.TestCase):
         self.assertEqual(succeeded, [])
         self.assertEqual(failed, [(7, "123")])
         self.assertTrue(response.closed)
+
+
+class LibraryScanWorkerOfflineTests(unittest.TestCase):
+    def test_success_forwards_progress_and_one_complete_report(self):
+        report = SimpleNamespace(entries=("entry",), checked_bytes=5_000_000_000)
+
+        def scan(_output_dir, *, stop_event, progress):
+            self.assertFalse(stop_event.is_set())
+            progress(2, 7, 5_000_000_000)
+            return report
+
+        worker = LibraryScanWorker("relative-library")
+        progress_values: list[tuple] = []
+        succeeded: list[object] = []
+        failed: list[str] = []
+        cancelled: list[bool] = []
+        worker.progress.connect(lambda *args: progress_values.append(args))
+        worker.succeeded.connect(succeeded.append)
+        worker.failed.connect(failed.append)
+        worker.cancelled.connect(lambda: cancelled.append(True))
+        with mock.patch("workers.scan_download_library", side_effect=scan):
+            worker.run()
+        self.assertEqual(progress_values, [(2, 7, 5_000_000_000)])
+        self.assertEqual(succeeded, [report])
+        self.assertEqual(failed, [])
+        self.assertEqual(cancelled, [])
+
+    def test_pre_cancel_and_cancel_after_scanner_return_never_emit_success(self):
+        pre_cancelled = LibraryScanWorker("library")
+        pre_cancelled.cancel()
+        pre_events: list[bool] = []
+        pre_cancelled.cancelled.connect(lambda: pre_events.append(True))
+        with mock.patch("workers.scan_download_library") as scan:
+            pre_cancelled.run()
+        scan.assert_not_called()
+        self.assertEqual(pre_events, [True])
+
+        late = LibraryScanWorker("library")
+        succeeded: list[object] = []
+        cancelled: list[bool] = []
+        late.succeeded.connect(succeeded.append)
+        late.cancelled.connect(lambda: cancelled.append(True))
+
+        def cancel_then_return(*_args, **_kwargs):
+            late.cancel()
+            return SimpleNamespace(entries=())
+
+        with mock.patch(
+            "workers.scan_download_library", side_effect=cancel_then_return
+        ):
+            late.run()
+        self.assertEqual(succeeded, [])
+        self.assertEqual(cancelled, [True])
+
+    def test_known_and_unknown_failures_are_safely_reported(self):
+        known = LibraryScanWorker("library")
+        known_errors: list[str] = []
+        known.failed.connect(known_errors.append)
+        with mock.patch(
+            "workers.scan_download_library",
+            side_effect=workers.LibraryScanError("目录候选项超过安全上限"),
+        ):
+            known.run()
+        self.assertEqual(known_errors, ["目录候选项超过安全上限"])
+
+        unknown = LibraryScanWorker("library")
+        unknown_errors: list[str] = []
+        unknown.failed.connect(unknown_errors.append)
+        with mock.patch(
+            "workers.scan_download_library",
+            side_effect=RuntimeError("sensitive raw path"),
+        ):
+            unknown.run()
+        self.assertEqual(len(unknown_errors), 1)
+        self.assertIn("RuntimeError", unknown_errors[0])
+        self.assertNotIn("sensitive raw path", unknown_errors[0])
 
 
 class WorkerLifecycleTests(unittest.TestCase):
