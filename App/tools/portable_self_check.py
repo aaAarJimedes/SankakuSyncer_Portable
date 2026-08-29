@@ -678,7 +678,10 @@ ui_main_window.BrowserTab = None
 ui_main_window.MainWindow._start_search = lambda self, reset: None
 application = QApplication(["portable-self-check", "-platform", "offscreen"])
 window = ui_main_window.MainWindow(sys.argv[1])
-if window.tabs.count() != 4:
+actual_tab_titles = tuple(
+    window.tabs.tabText(index) for index in range(window.tabs.count())
+)
+if actual_tab_titles != ui_main_window.MAIN_TAB_TITLES:
     raise RuntimeError("main window tab contract failed")
 window.close()
 window.deleteLater()

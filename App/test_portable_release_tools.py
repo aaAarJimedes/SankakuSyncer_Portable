@@ -16,6 +16,11 @@ from tools import build_manifest, portable_self_check
 
 
 class PortableSelfCheckTests(unittest.TestCase):
+    def test_gui_smoke_uses_the_shared_tab_contract(self):
+        code = portable_self_check._GUI_SMOKE_CODE
+        self.assertIn("ui_main_window.MAIN_TAB_TITLES", code)
+        self.assertNotIn("window.tabs.count() !=", code)
+
     def test_lock_parser_requires_exact_unique_pins(self):
         with tempfile.TemporaryDirectory() as temporary:
             lock = Path(temporary) / "requirements.lock.txt"

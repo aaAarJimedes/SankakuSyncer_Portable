@@ -99,6 +99,48 @@ class _FakeLibraryWorker:
         self.finished.emit()
 
 
+class _FakeDownloadWorker:
+    instances = []
+
+    def __init__(self, settings, token, tasks, parent=None) -> None:
+        self.settings = settings
+        self.token = token
+        self.tasks = list(tasks)
+        self.parent = parent
+        self.item_started = _FakeSignal()
+        self.item_progress = _FakeSignal()
+        self.item_succeeded = _FakeSignal()
+        self.item_warning = _FakeSignal()
+        self.item_failed = _FakeSignal()
+        self.batch_finished = _FakeSignal()
+        self.batch_blocked = _FakeSignal()
+        self.finished = _FakeSignal()
+        self.running = False
+        self.cancel_count = 0
+        self.deleted = False
+        self.__class__.instances.append(self)
+
+    def start(self) -> None:
+        self.running = True
+
+    def isRunning(self) -> bool:  # noqa: N802 - Qt-compatible fake
+        return self.running
+
+    def cancel(self) -> None:
+        self.cancel_count += 1
+
+    def wait(self, _milliseconds: int) -> bool:
+        self.running = False
+        return True
+
+    def deleteLater(self) -> None:  # noqa: N802 - Qt-compatible fake
+        self.deleted = True
+
+    def complete(self) -> None:
+        self.running = False
+        self.finished.emit()
+
+
 class _MemoryVault:
     def __init__(self, state=None) -> None:
         self.state = state
@@ -163,9 +205,10 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
         from PySide6.QtWidgets import QApplication
 
         cls.app = QApplication.instance() or QApplication([])
-        from ui_main_window import MainWindow
+        from ui_main_window import MAIN_TAB_TITLES, MainWindow
 
         cls.MainWindow = MainWindow
+        cls.main_tab_titles = MAIN_TAB_TITLES
 
     def _close(self, window) -> None:
         window.close()
@@ -180,7 +223,14 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
         ) as ensure_loaded:
             window = self.MainWindow(root)
             try:
-                self.assertEqual(window.tabs.count(), 5)
+                self.assertEqual(len(self.main_tab_titles), 5)
+                self.assertEqual(
+                    tuple(
+                        window.tabs.tabText(index)
+                        for index in range(window.tabs.count())
+                    ),
+                    self.main_tab_titles,
+                )
                 self.assertIsNone(window.search_worker)
                 self.assertIsNone(window.login_worker)
                 self.assertIsNone(window.download_worker)
@@ -563,6 +613,62 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 self.assertFalse(event.ignored)
             finally:
                 window.library_worker = None
+                self._close(window)
+
+    def test_new_download_waits_for_prior_finished_signal_after_thread_stops(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Post_A"])
+                window._start_download(selected_only=False)
+                first = _FakeDownloadWorker.instances[-1]
+                first.running = False
+
+                # QThread can report stopped before its queued finished signal
+                # reaches the window.  That ownership gap must stay closed.
+                window._start_download(selected_only=False)
+                self.assertEqual(len(_FakeDownloadWorker.instances), 1)
+                self.assertIs(window.download_worker, first)
+                self.assertIn("已有下载批次", window.status_label.text())
+
+                first.batch_finished.emit(0, 0, True)
+                first.complete()
+                self.assertIsNone(window.download_worker)
+
+                window._start_download(selected_only=False)
+                self.assertEqual(len(_FakeDownloadWorker.instances), 2)
+                self.assertIs(window.download_worker, _FakeDownloadWorker.instances[-1])
+            finally:
+                if window.download_worker is not None:
+                    window.download_worker.batch_finished.emit(0, 0, True)
+                    window.download_worker.complete()
+                self._close(window)
+
+    def test_stale_download_finished_signal_cannot_clear_new_owner(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Post_A"])
+                window._start_download(selected_only=False)
+                stale = _FakeDownloadWorker.instances[-1]
+                replacement = _FakeDownloadWorker({}, "", [], window)
+                replacement.start()
+                window.download_worker = replacement
+
+                stale.complete()
+
+                self.assertTrue(stale.deleted)
+                self.assertFalse(replacement.deleted)
+                self.assertIs(window.download_worker, replacement)
+            finally:
+                if window.download_worker is not None:
+                    window._download_thread_finished(window.download_worker)
                 self._close(window)
 
     def test_default_download_directory_moves_with_portable_root(self):

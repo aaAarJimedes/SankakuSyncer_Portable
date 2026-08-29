@@ -90,6 +90,13 @@ except (ImportError, RuntimeError):
 
 
 _URL_RE = re.compile(r"https://[^\s<>\"']+", re.IGNORECASE)
+MAIN_TAB_TITLES = (
+    "发现与搜索",
+    "站内浏览",
+    "下载任务",
+    "本地下载库",
+    "账号与设置",
+)
 _STATUS_TEXT = {
     "pending": "待处理",
     "queued": "排队中",
@@ -301,12 +308,12 @@ class MainWindow(QMainWindow):
         outer.addLayout(title_row)
 
         self.tabs = QTabWidget()
-        self.tabs.addTab(self._build_discovery_tab(), "发现与搜索")
+        self.tabs.addTab(self._build_discovery_tab(), MAIN_TAB_TITLES[0])
         self.browser_tab = self._build_browser_tab()
-        self.tabs.addTab(self.browser_tab, "站内浏览")
-        self.tabs.addTab(self._build_tasks_tab(), "下载任务")
-        self.tabs.addTab(self._build_library_tab(), "本地下载库")
-        self.tabs.addTab(self._build_settings_tab(), "账号与设置")
+        self.tabs.addTab(self.browser_tab, MAIN_TAB_TITLES[1])
+        self.tabs.addTab(self._build_tasks_tab(), MAIN_TAB_TITLES[2])
+        self.tabs.addTab(self._build_library_tab(), MAIN_TAB_TITLES[3])
+        self.tabs.addTab(self._build_settings_tab(), MAIN_TAB_TITLES[4])
         self.tabs.currentChanged.connect(self._tab_changed)
         outer.addWidget(self.tabs, 1)
 
@@ -1565,7 +1572,11 @@ class MainWindow(QMainWindow):
         if self.library_worker is not None:
             self.status_label.setText("请等待本地库校验结束后再开始下载")
             return
-        if self.download_worker and self.download_worker.isRunning():
+        # Keep ownership until this worker's queued ``finished`` signal has
+        # been handled.  QThread.isRunning() can already be false in that
+        # window; accepting a second batch would let stale cleanup erase the
+        # new worker and permit overlapping downloads.
+        if self.download_worker is not None:
             self.status_label.setText("已有下载批次正在运行")
             return
         selected = set(self._selected_task_ids()) if selected_only else None
@@ -1617,7 +1628,9 @@ class MainWindow(QMainWindow):
         worker.item_failed.connect(self._download_item_failed)
         worker.batch_finished.connect(self._download_batch_finished)
         worker.batch_blocked.connect(self._download_batch_blocked)
-        worker.finished.connect(self._download_thread_finished)
+        worker.finished.connect(
+            lambda owner=worker: self._download_thread_finished(owner)
+        )
         self.stop_download_button.setEnabled(True)
         self._download_block_reason = ""
         self.global_progress.setRange(0, 0)
@@ -1708,12 +1721,21 @@ class MainWindow(QMainWindow):
         self.status_label.setText(message)
         self._log(f"站点要求停止当前批次：{message}")
 
-    @Slot()
-    def _download_thread_finished(self) -> None:
+    @Slot(object)
+    def _download_thread_finished(self, owner: object) -> None:
+        # A queued signal must never clear a newer operation.  The non-None
+        # start guard above normally prevents this state; the identity check
+        # remains a defensive invariant for late/re-entrant delivery.
+        if owner is not self.download_worker:
+            delete_later = getattr(owner, "deleteLater", None)
+            if callable(delete_later):
+                delete_later()
+            return
         self.stop_download_button.setEnabled(False)
         self.global_progress.hide()
-        if self.download_worker:
-            self.download_worker.deleteLater()
+        delete_later = getattr(owner, "deleteLater", None)
+        if callable(delete_later):
+            delete_later()
         self.download_worker = None
 
     def _stop_download(self) -> None:
@@ -1780,4 +1802,4 @@ class MainWindow(QMainWindow):
         event.accept()
 
 
-__all__ = ["MainWindow"]
+__all__ = ["MAIN_TAB_TITLES", "MainWindow"]
