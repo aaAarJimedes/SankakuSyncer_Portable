@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 from contextlib import contextmanager
 import hashlib
 import json
@@ -37,6 +38,27 @@ from sankaku_api import (
 JPEG = b"\xff\xd8\xffabc"
 JPEG_ALT = b"\xff\xd8\xffxyz"
 JPEG_FIVE = b"\xff\xd8\xffok"
+JPEG_COMPLETE = base64.b64decode(
+    b"/9j/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+    b"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/xAAmAAEAAAAAAAAAAAAAAAAA"
+    b"AAAAEAEAAAAAAAAAAAAAAAAAAAAA/8AACwgAAQABAQERAP/aAAgBAQAAPwA//9k="
+)
+JPEG_COMPLETE_ALT = base64.b64decode(
+    b"/9j/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+    b"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/xAAmAAEAAAAAAAAAAAAAAAAA"
+    b"AAAAEAEAAAAAAAAAAAAAAAAAAAAA/8IACwgAAQABAQERAP/aAAgBAQAAAAB//9oA"
+    b"CAEBAAE/AH//2Q=="
+)
+PNG_COMPLETE = base64.b64decode(
+    b"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR42mNg"
+    b"AAAAAgAB5Sfe/AAAAABJRU5ErkJggg=="
+)
+GIF_COMPLETE = base64.b64decode(
+    b"R0lGODdhAQABAIAAAAAAAP///ywAAAAAAQABAAACAkQBADs="
+)
+WEBP_COMPLETE = base64.b64decode(
+    b"UklGRh4AAABXRUJQVlA4TBEAAAAvAAAAEAdQkUZ0pn+BiOh/AAA="
+)
 PNG = b"\x89PNG\r\n\x1a\nrest"
 GIF = b"GIF89arest"
 WEBP = b"RIFF\x04\x00\x00\x00WEBP"
@@ -883,8 +905,11 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
     def test_original_integrity_fields_do_not_apply_to_sample_fallback(self):
         response = FakeMediaResponse(
             200,
-            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
-            chunks=[JPEG],
+            headers={
+                "Content-Type": "image/jpeg",
+                "Content-Length": str(len(JPEG_COMPLETE)),
+            },
+            chunks=[JPEG_COMPLETE],
         )
         downloader, _api, _session = self._downloader(
             _post(file_url="", file_size=999, md5="0" * 32), response
@@ -892,7 +917,7 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
 
         result = downloader.download("Post_1")
 
-        self.assertEqual(result.size, len(JPEG))
+        self.assertEqual(result.size, len(JPEG_COMPLETE))
 
     def test_valid_existing_file_is_verified_and_metadata_is_supplemented(self):
         final_path, _part_path, _state_path = self._paths()
@@ -1123,9 +1148,9 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
                     200,
                     headers={
                         "Content-Type": "image/jpeg",
-                        "Content-Length": str(len(JPEG)),
+                        "Content-Length": str(len(JPEG_COMPLETE)),
                     },
-                    chunks=[JPEG],
+                    chunks=[JPEG_COMPLETE],
                 )
                 downloader, _api, _session = self._downloader(
                     post, response, prefer_original=False
@@ -1135,13 +1160,16 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
                 self.assertEqual(os.path.basename(result.file_path), expected_name)
                 self.assertEqual(result.variant, variant)
                 self.assertEqual(result.content_type, "image/jpeg")
-                self.assertEqual(result.size, len(JPEG))
+                self.assertEqual(result.size, len(JPEG_COMPLETE))
 
     def test_prefer_original_false_prefers_preview_before_original(self):
         response = FakeMediaResponse(
             200,
-            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
-            chunks=[JPEG],
+            headers={
+                "Content-Type": "image/jpeg",
+                "Content-Length": str(len(JPEG_COMPLETE)),
+            },
+            chunks=[JPEG_COMPLETE],
         )
         post = _post(sample_url="")
         downloader, _api, session = self._downloader(
@@ -1197,6 +1225,33 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         with self.assertRaisesRegex(DownloadError, "具体 Content-Type"):
             downloader.download("Post_1")
 
+    def test_derivative_rejects_header_only_jpeg_with_or_without_length(self):
+        for include_length in (False, True):
+            with self.subTest(include_length=include_length):
+                post_id = f"Post_header_{int(include_length)}"
+                headers = {"Content-Type": "image/jpeg"}
+                if include_length:
+                    headers["Content-Length"] = "3"
+                response = FakeMediaResponse(
+                    200,
+                    headers=headers,
+                    chunks=[b"\xff\xd8\xff"],
+                )
+                downloader, _api, _session = self._downloader(
+                    _post(post_id), response, prefer_original=False
+                )
+
+                with self.assertRaisesRegex(DownloadError, "容器边界"):
+                    downloader.download(post_id)
+                self.assertFalse(
+                    os.path.exists(
+                        os.path.join(
+                            self.temp_dir.name,
+                            f"{post_id}.sample.jpg",
+                        )
+                    )
+                )
+
     def test_original_extension_metadata_mismatch_is_rejected(self):
         response = FakeMediaResponse(
             200,
@@ -1216,8 +1271,11 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
             file_obj.write(JPEG)
         response = FakeMediaResponse(
             200,
-            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
-            chunks=[JPEG_ALT],
+            headers={
+                "Content-Type": "image/jpeg",
+                "Content-Length": str(len(JPEG_COMPLETE_ALT)),
+            },
+            chunks=[JPEG_COMPLETE_ALT],
         )
         downloader, _api, session = self._downloader(
             _post(), response, prefer_original=False
@@ -1233,8 +1291,8 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
     def test_valid_sample_schema2_sidecar_is_reused_after_full_revalidation(self):
         media_path = os.path.join(self.temp_dir.name, "Post_1.sample.jpg")
         with open(media_path, "wb") as file_obj:
-            file_obj.write(JPEG)
-        self._write_sidecar(media_path, JPEG)
+            file_obj.write(JPEG_COMPLETE)
+        self._write_sidecar(media_path, JPEG_COMPLETE)
         downloader, _api, session = self._downloader(
             _post(), prefer_original=False
         )
@@ -1276,9 +1334,9 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
                     200,
                     headers={
                         "Content-Type": "image/jpeg",
-                        "Content-Length": "6",
+                        "Content-Length": str(len(JPEG_COMPLETE_ALT)),
                     },
-                    chunks=[JPEG_ALT],
+                    chunks=[JPEG_COMPLETE_ALT],
                 )
                 downloader, _api, session = self._downloader(
                     _post(post_id), response, prefer_original=False
@@ -1523,6 +1581,62 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
                 )
                 self.assertEqual(detected, (content_type, extension))
 
+    def test_derived_boundary_resolver_covers_all_four_raster_formats(self):
+        cases = (
+            (JPEG_COMPLETE, "image/jpeg", "jpg"),
+            (PNG_COMPLETE, "image/png", "png"),
+            (GIF_COMPLETE, "image/gif", "gif"),
+            (WEBP_COMPLETE, "image/webp", "webp"),
+        )
+        for payload, content_type, extension in cases:
+            with self.subTest(content_type=content_type):
+                inspection = download_engine._FileInspection(
+                    size=len(payload),
+                    sha256=hashlib.sha256(payload).hexdigest(),
+                    md5=hashlib.md5(
+                        payload, usedforsecurity=False
+                    ).hexdigest(),
+                    prefix=payload,
+                    device=1,
+                    inode=1,
+                    suffix=payload[-12:],
+                )
+                detected = download_engine._resolve_media_format(
+                    inspection,
+                    declared_type=content_type,
+                    expected_type="",
+                    expected_extension="",
+                    expected_size=0,
+                    expected_md5="",
+                    require_concrete_declared=True,
+                    require_image_boundary=True,
+                )
+                self.assertEqual(detected, (content_type, extension))
+
+                damaged = payload[:-1]
+                damaged_inspection = download_engine._FileInspection(
+                    size=len(damaged),
+                    sha256=hashlib.sha256(damaged).hexdigest(),
+                    md5=hashlib.md5(
+                        damaged, usedforsecurity=False
+                    ).hexdigest(),
+                    prefix=damaged,
+                    device=1,
+                    inode=1,
+                    suffix=damaged[-12:],
+                )
+                with self.assertRaisesRegex(DownloadError, "容器边界"):
+                    download_engine._resolve_media_format(
+                        damaged_inspection,
+                        declared_type=content_type,
+                        expected_type="",
+                        expected_extension="",
+                        expected_size=0,
+                        expected_md5="",
+                        require_concrete_declared=True,
+                        require_image_boundary=True,
+                    )
+
     def test_ambiguous_containers_require_trusted_type(self):
         for payload in (MP4, ASF, OPUS):
             with self.subTest(payload=payload[:16]):
@@ -1765,6 +1879,50 @@ class LocalDownloadVerificationTests(unittest.TestCase):
             bound = verify_bound_local_download(session, "Post_local.jpg")
 
         self.assertEqual(bound, legacy)
+
+    def test_complete_sample_passes_plain_and_bound_revalidation(self):
+        media_path, _metadata_path = self._write_pair(
+            filename="Post_local.sample.jpg",
+            media=JPEG_COMPLETE,
+            variant="sample",
+        )
+        legacy = verify_local_download(
+            media_path,
+            output_dir=self.temp_dir.name,
+        )
+
+        with open_bound_root(self.temp_dir.name) as session:
+            bound = verify_bound_local_download(
+                session, "Post_local.sample.jpg"
+            )
+
+        self.assertEqual(legacy.variant, "sample")
+        self.assertEqual(legacy, bound)
+
+    def test_header_only_sample_fails_plain_and_bound_revalidation(self):
+        media_path, _metadata_path = self._write_pair(
+            filename="Post_local.sample.jpg",
+            media=b"\xff\xd8\xff",
+            variant="sample",
+        )
+
+        with self.assertRaisesRegex(
+            LocalIntegrityError, "容器边界"
+        ) as plain:
+            verify_local_download(
+                media_path,
+                output_dir=self.temp_dir.name,
+            )
+        self.assertEqual(plain.exception.checked_bytes, 3)
+
+        with open_bound_root(self.temp_dir.name) as session:
+            with self.assertRaisesRegex(
+                LocalIntegrityError, "容器边界"
+            ) as bound:
+                verify_bound_local_download(
+                    session, "Post_local.sample.jpg"
+                )
+        self.assertEqual(bound.exception.checked_bytes, 3)
 
     def test_bound_missing_or_invalid_sidecar_never_hashes_media(self):
         media_path = os.path.join(self.temp_dir.name, "Post_local.jpg")

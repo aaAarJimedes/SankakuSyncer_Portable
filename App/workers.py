@@ -12,6 +12,12 @@ from PySide6.QtCore import QObject, QRunnable, QThread, Signal, Slot
 from credential_vault import Credentials
 from download_engine import DownloadError, MediaDownloader
 from http_transport import Session
+from image_metadata_policy import (
+    BOUNDARY_PREFIX_BYTES,
+    BOUNDARY_SUFFIX_BYTES,
+    ImageMetadataPolicyError,
+    validate_minimum_image_container,
+)
 from library_thumbnail import (
     LibraryThumbnailError,
     VerifiedThumbnailSource,
@@ -304,27 +310,36 @@ def _thumbnail_content_type_allowed(value: object) -> bool:
 
 
 def _thumbnail_payload_allowed(content_type: object, payload: bytes) -> bool:
-    """Accept only bounded raster formats with an unambiguous file signature.
+    """Accept bounded raster formats with necessary container boundaries.
 
     Qt image plugins parse attacker-controlled bytes.  Keeping SVG/XML and
     uncommon image formats out of the preview path reduces that attack surface
-    even when a server lies about Content-Type.
+    even when a server lies about Content-Type.  This is deliberately a
+    boundary gate, not a claim that pixel decoding or the file middle is valid.
     """
 
     media_type = str(content_type or "").partition(";")[0].strip().lower()
-    if media_type in {"image/jpeg", "image/jpg", "image/pjpeg"}:
-        return payload.startswith(b"\xff\xd8\xff")
-    if media_type == "image/png":
-        return payload.startswith(b"\x89PNG\r\n\x1a\n")
-    if media_type == "image/gif":
-        return payload.startswith((b"GIF87a", b"GIF89a"))
-    if media_type == "image/webp":
-        return (
-            len(payload) >= 12
-            and payload.startswith(b"RIFF")
-            and payload[8:12] == b"WEBP"
+    formats = {
+        "image/jpeg": "jpeg",
+        "image/jpg": "jpeg",
+        "image/pjpeg": "jpeg",
+        "image/png": "png",
+        "image/gif": "gif",
+        "image/webp": "webp",
+    }
+    image_format = formats.get(media_type)
+    if image_format is None or type(payload) is not bytes:
+        return False
+    try:
+        validate_minimum_image_container(
+            image_format,
+            size=len(payload),
+            prefix=payload[:BOUNDARY_PREFIX_BYTES],
+            suffix=payload[-BOUNDARY_SUFFIX_BYTES:],
         )
-    return False
+    except ImageMetadataPolicyError:
+        return False
+    return True
 
 
 class DownloadWorker(QThread):

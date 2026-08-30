@@ -8,7 +8,10 @@ import zlib
 
 
 MAX_POLICY_PAYLOAD_BYTES = 20 * 1024 * 1024
+BOUNDARY_PREFIX_BYTES = 12
+BOUNDARY_SUFFIX_BYTES = 12
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+_PNG_IEND = b"\x00\x00\x00\x00IEND\xaeB\x60\x82"
 _PNG_ALLOWED_CHUNKS = frozenset(
     {
         b"IHDR",
@@ -38,6 +41,84 @@ class ImageMetadataPolicyError(ValueError):
     """An image structure is outside the metadata-free thumbnail policy."""
 
 
+def validate_minimum_image_container(
+    image_format: str,
+    *,
+    size: int,
+    prefix: bytes,
+    suffix: bytes,
+) -> None:
+    """Require format-specific start/end facts without claiming full decoding.
+
+    This deliberately checks only necessary container boundaries.  Callers can
+    use it while streaming very large files, but must not treat it as pixel,
+    metadata, or full middle-of-file validation.
+    """
+
+    if (
+        not isinstance(image_format, str)
+        or type(size) is not int
+        or size < 0
+        or type(prefix) is not bytes
+        or type(suffix) is not bytes
+        or len(prefix) > size
+        or len(suffix) > size
+    ):
+        raise ImageMetadataPolicyError("图片容器边界参数无效")
+
+    normalized = image_format.partition(";")[0].strip().casefold()
+    aliases = {
+        "jpeg": "jpeg",
+        "jpg": "jpeg",
+        "image/jpeg": "jpeg",
+        "image/jpg": "jpeg",
+        "image/pjpeg": "jpeg",
+        "png": "png",
+        "image/png": "png",
+        "gif": "gif",
+        "image/gif": "gif",
+        "webp": "webp",
+        "image/webp": "webp",
+    }
+    selected = aliases.get(normalized)
+    if selected is None:
+        raise ImageMetadataPolicyError("图片容器格式不受支持")
+
+    valid = False
+    if selected == "jpeg":
+        # A JPEG image needs more than SOI/EOI alone; 28 bytes is the smallest
+        # useful image syntax boundary while still remaining decoder-agnostic.
+        valid = (
+            size >= 28
+            and prefix.startswith(b"\xff\xd8\xff")
+            and suffix.endswith(b"\xff\xd9")
+        )
+    elif selected == "png":
+        # Signature + IHDR envelope + IEND is already 45 bytes.  Exact IEND at
+        # physical EOF rejects a missing or displaced terminator.
+        valid = (
+            size >= 45
+            and prefix.startswith(_PNG_SIGNATURE)
+            and suffix.endswith(_PNG_IEND)
+        )
+    elif selected == "gif":
+        valid = (
+            size >= 14
+            and prefix.startswith((b"GIF87a", b"GIF89a"))
+            and suffix.endswith(b";")
+        )
+    elif selected == "webp":
+        valid = (
+            size >= 20
+            and len(prefix) >= 12
+            and prefix.startswith(b"RIFF")
+            and prefix[8:12] == b"WEBP"
+            and int.from_bytes(prefix[4:8], "little") + 8 == size
+        )
+    if not valid:
+        raise ImageMetadataPolicyError("图片容器边界不完整")
+
+
 def validate_thumbnail_payload(payload: bytes, image_format: str) -> None:
     """Validate one bounded image without decoding pixels or metadata."""
 
@@ -48,6 +129,14 @@ def validate_thumbnail_payload(payload: bytes, image_format: str) -> None:
     if not isinstance(image_format, str):
         raise ImageMetadataPolicyError("缩略图格式无效")
     normalized = image_format.casefold()
+    if normalized not in {"png", "jpeg", "jpg", "webp"}:
+        raise ImageMetadataPolicyError("缩略图格式不受支持")
+    validate_minimum_image_container(
+        normalized,
+        size=len(payload),
+        prefix=payload[:BOUNDARY_PREFIX_BYTES],
+        suffix=payload[-BOUNDARY_SUFFIX_BYTES:],
+    )
     if normalized == "png":
         _validate_png(payload)
         return
@@ -57,7 +146,7 @@ def validate_thumbnail_payload(payload: bytes, image_format: str) -> None:
     if normalized == "webp":
         _validate_webp(payload)
         return
-    raise ImageMetadataPolicyError("缩略图格式不受支持")
+    raise AssertionError("unreachable")
 
 
 def _png_error() -> None:
@@ -450,7 +539,10 @@ def _validate_webp(payload: bytes) -> None:
 
 
 __all__ = [
+    "BOUNDARY_PREFIX_BYTES",
+    "BOUNDARY_SUFFIX_BYTES",
     "ImageMetadataPolicyError",
     "MAX_POLICY_PAYLOAD_BYTES",
+    "validate_minimum_image_container",
     "validate_thumbnail_payload",
 ]

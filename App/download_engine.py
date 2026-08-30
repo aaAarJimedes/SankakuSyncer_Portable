@@ -25,6 +25,11 @@ from bound_file_reader import (
     BoundRootSession,
 )
 from http_transport import Response, Session, TransportError
+from image_metadata_policy import (
+    BOUNDARY_SUFFIX_BYTES,
+    ImageMetadataPolicyError,
+    validate_minimum_image_container,
+)
 from request_gate import GateCancelled, MEDIA_REQUEST_GATE, retry_after_seconds
 from sankaku_api import (
     CancelledError,
@@ -200,6 +205,7 @@ class _FileInspection:
     device: int
     inode: int
     mtime_ns: int = 0
+    suffix: bytes = b""
 
 
 class _RetryableMediaResponse(RuntimeError):
@@ -812,6 +818,7 @@ class MediaDownloader:
                 expected_size=expected_size,
                 expected_md5=expected_md5,
                 require_concrete_declared=variant != "original",
+                require_image_boundary=variant != "original",
             )
         except DownloadError:
             raise
@@ -923,6 +930,7 @@ class MediaDownloader:
                         expected_size=expected_size,
                         expected_md5=expected_md5,
                         require_concrete_declared=True,
+                        require_image_boundary=variant != "original",
                     )
                 else:
                     content_type, detected_extension = _resolve_media_format(
@@ -933,6 +941,7 @@ class MediaDownloader:
                         expected_size=expected_size,
                         expected_md5=expected_md5,
                         require_concrete_declared=False,
+                        require_image_boundary=variant != "original",
                     )
                 if detected_extension != filename_extension:
                     continue
@@ -1454,6 +1463,7 @@ def _inspect_media_file(path: str, stop_event: threading.Event) -> _FileInspecti
     sha256 = hashlib.sha256()
     md5 = hashlib.md5(usedforsecurity=False)
     prefix = bytearray()
+    suffix = bytearray()
     size = 0
     try:
         opened, opened_stat = _open_plain_for_read(path, "媒体文件")
@@ -1466,6 +1476,13 @@ def _inspect_media_file(path: str, stop_event: threading.Event) -> _FileInspecti
                     break
                 if len(prefix) < _MAX_PREFIX_BYTES:
                     prefix.extend(chunk[: _MAX_PREFIX_BYTES - len(prefix)])
+                if len(chunk) >= BOUNDARY_SUFFIX_BYTES:
+                    suffix[:] = chunk[-BOUNDARY_SUFFIX_BYTES:]
+                else:
+                    suffix.extend(chunk)
+                    overflow = len(suffix) - BOUNDARY_SUFFIX_BYTES
+                    if overflow > 0:
+                        del suffix[:overflow]
                 size += len(chunk)
                 if size > MAX_MEDIA_BYTES:
                     raise DownloadError("媒体文件超过 50 GiB 安全上限")
@@ -1481,6 +1498,7 @@ def _inspect_media_file(path: str, stop_event: threading.Event) -> _FileInspecti
         device=opened_stat.st_dev,
         inode=opened_stat.st_ino,
         mtime_ns=getattr(opened_stat, "st_mtime_ns", 0),
+        suffix=bytes(suffix),
     )
 
 
@@ -1512,6 +1530,7 @@ def _resolve_media_format(
     expected_size: int,
     expected_md5: str,
     require_concrete_declared: bool,
+    require_image_boundary: bool = False,
 ) -> tuple[str, str]:
     if inspection.size <= 0:
         raise DownloadError("媒体文件为空")
@@ -1562,6 +1581,21 @@ def _resolve_media_format(
     extension = _MIME_EXTENSIONS[selected]
     if expected_extension and expected_extension != extension:
         raise DownloadError("原文件扩展名与文件签名不匹配")
+    if require_image_boundary and selected in {
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+    }:
+        try:
+            validate_minimum_image_container(
+                selected,
+                size=inspection.size,
+                prefix=inspection.prefix,
+                suffix=inspection.suffix,
+            )
+        except ImageMetadataPolicyError as exc:
+            raise DownloadError("衍生图片容器边界不完整") from exc
     return selected, extension
 
 
@@ -1941,6 +1975,7 @@ def _validate_local_media_pair(
             expected_size=payload["size"],
             expected_md5="",
             require_concrete_declared=True,
+            require_image_boundary=variant != "original",
         )
         if detected_extension != extension:
             raise DownloadError("本地媒体扩展名与文件签名不匹配")
@@ -2042,6 +2077,7 @@ def verify_bound_local_download(
             stop_event=cancellation,
             max_bytes=MAX_MEDIA_BYTES,
             prefix_bytes=_MAX_PREFIX_BYTES,
+            suffix_bytes=BOUNDARY_SUFFIX_BYTES,
         )
     except BoundFileError as exc:
         _raise_bound_local_failure(exc, target="media")
@@ -2052,6 +2088,7 @@ def verify_bound_local_download(
         prefix=bound_inspection.prefix,
         device=0,
         inode=0,
+        suffix=bound_inspection.suffix,
     )
     post_id, variant, extension = binding
     content_type = _validate_local_media_pair(

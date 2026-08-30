@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -26,6 +27,11 @@ from sankaku_api import CancelledError
 
 JPEG = b"\xff\xd8\xffabc"
 JPEG_ALT = b"\xff\xd8\xffxyz"
+JPEG_COMPLETE = base64.b64decode(
+    b"/9j/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+    b"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/xAAmAAEAAAAAAAAAAAAAAAAA"
+    b"AAAAEAEAAAAAAAAAAAAAAAAAAAAA/8AACwgAAQABAQERAP/aAAgBAQAAPwA//9k="
+)
 
 
 class LocalLibraryTests(unittest.TestCase):
@@ -175,9 +181,10 @@ class LocalLibraryTests(unittest.TestCase):
                 self.assertEqual(file_obj.read(), expected)
 
     def test_verified_entry_carries_trusted_metadata(self):
-        self._write_media("Post_1.sample (2).jpg")
+        self._write_media("Post_1.sample (2).jpg", JPEG_COMPLETE)
         self._write_sidecar(
             "Post_1.sample (2).jpg",
+            JPEG_COMPLETE,
             post_id="Post_1",
             variant="sample",
         )
@@ -193,7 +200,9 @@ class LocalLibraryTests(unittest.TestCase):
         self.assertEqual(entry.author, "artist")
         self.assertEqual(entry.tags, ("tag",))
         self.assertEqual(entry.created_at, "1700000000")
-        self.assertEqual(entry.sha256, hashlib.sha256(JPEG).hexdigest())
+        self.assertEqual(
+            entry.sha256, hashlib.sha256(JPEG_COMPLETE).hexdigest()
+        )
 
     def test_report_display_metadata_has_explicit_memory_bounds(self):
         self._write_media("Post_bounds.jpg")

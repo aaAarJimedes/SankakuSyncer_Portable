@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
+import base64
 import struct
 import unittest
 import zlib
 
 from image_metadata_policy import (
     ImageMetadataPolicyError,
+    validate_minimum_image_container,
     validate_thumbnail_payload,
 )
 
@@ -92,6 +94,87 @@ def _vp8_payload(extra=b"") -> bytes:
 
 
 class ImageMetadataPolicyTests(unittest.TestCase):
+    def test_minimum_container_boundaries_cover_supported_rasters(self):
+        gif = base64.b64decode(
+            b"R0lGODdhAQABAIEAAAECAwAAAAAAAAAAACwAAAAAAQABAAAIBAABBAQAOw=="
+        )
+        fixtures = (
+            ("jpeg", _synthetic_jpeg()),
+            ("png", _plain_png()),
+            ("gif", gif),
+            ("webp", _webp(_webp_chunk(b"VP8 ", _vp8_payload()))),
+        )
+        for image_format, payload in fixtures:
+            with self.subTest(image_format=image_format):
+                validate_minimum_image_container(
+                    image_format,
+                    size=len(payload),
+                    prefix=payload[:12],
+                    suffix=payload[-12:],
+                )
+                for damaged in (
+                    payload[:-1],
+                    payload + b"trailing",
+                ):
+                    with self.assertRaisesRegex(
+                        ImageMetadataPolicyError, "边界不完整"
+                    ):
+                        validate_minimum_image_container(
+                            image_format,
+                            size=len(damaged),
+                            prefix=damaged[:12],
+                            suffix=damaged[-12:],
+                        )
+
+    def test_minimum_container_rejects_header_only_and_bad_webp_length(self):
+        header_only = (
+            ("jpeg", b"\xff\xd8\xff"),
+            ("png", b"\x89PNG\r\n\x1a\n"),
+            ("gif", b"GIF89a"),
+            ("webp", b"RIFF\x04\x00\x00\x00WEBP"),
+        )
+        for image_format, payload in header_only:
+            with self.subTest(image_format=image_format), self.assertRaisesRegex(
+                ImageMetadataPolicyError, "边界不完整"
+            ):
+                validate_minimum_image_container(
+                    image_format,
+                    size=len(payload),
+                    prefix=payload[:12],
+                    suffix=payload[-12:],
+                )
+
+        valid = _webp(_webp_chunk(b"VP8 ", _vp8_payload()))
+        bad_size = bytearray(valid)
+        struct.pack_into("<I", bad_size, 4, len(valid) - 9)
+        with self.assertRaisesRegex(ImageMetadataPolicyError, "边界不完整"):
+            validate_minimum_image_container(
+                "image/webp",
+                size=len(bad_size),
+                prefix=bytes(bad_size[:12]),
+                suffix=bytes(bad_size[-12:]),
+            )
+
+    def test_minimum_container_arguments_are_fixed_and_redacted(self):
+        secret = b"PRIVATE_BOUNDARY_SECRET"
+        cases = (
+            (None, 30, b"\xff\xd8\xff", b"\xff\xd9"),
+            ("jpeg", True, b"\xff\xd8\xff", b"\xff\xd9"),
+            ("jpeg", 1, secret, b""),
+            ("bmp", 30, b"BM", b""),
+        )
+        for image_format, size, prefix, suffix in cases:
+            with self.subTest(image_format=image_format), self.assertRaises(
+                ImageMetadataPolicyError
+            ) as caught:
+                validate_minimum_image_container(
+                    image_format,
+                    size=size,
+                    prefix=prefix,
+                    suffix=suffix,
+                )
+            self.assertNotIn("PRIVATE_BOUNDARY_SECRET", str(caught.exception))
+
     def test_plain_png_passes(self):
         validate_thumbnail_payload(_plain_png(), "png")
 

@@ -196,6 +196,7 @@ class BoundFileReaderTests(unittest.TestCase):
                     name,
                     max_bytes=MAX_BOUND_STREAM_BYTES,
                     prefix_bytes=37,
+                    suffix_bytes=41,
                 )
                 _current, peak = tracemalloc.get_traced_memory()
                 tracemalloc.stop()
@@ -205,11 +206,42 @@ class BoundFileReaderTests(unittest.TestCase):
             self.assertEqual(inspection.sha256, expected_sha256.hexdigest())
             self.assertEqual(inspection.md5, expected_md5.hexdigest())
             self.assertEqual(inspection.prefix, b"\x00" * 37)
+            self.assertEqual(inspection.suffix, b"\x00" * 41)
 
             with mock.patch("bound_file_reader.os.read") as read_body:
                 with self.assertRaisesRegex(BoundFileError, "超过安全大小上限"):
                     session.read_small_file(name)
             read_body.assert_not_called()
+
+    def test_stream_inspection_keeps_rolling_suffix_and_validates_limit(self):
+        payload = (
+            b"prefix-"
+            + b"x" * (bound_file_reader._READ_CHUNK_BYTES + 17)
+            + b"-distinct-suffix"
+        )
+        self._write("Post_suffix.bin", payload)
+
+        with open_bound_root(self.root) as session:
+            inspection = session.inspect_child(
+                "Post_suffix.bin",
+                prefix_bytes=7,
+                suffix_bytes=16,
+            )
+            self.assertEqual(inspection.prefix, payload[:7])
+            self.assertEqual(inspection.suffix, payload[-16:])
+
+            for invalid in (
+                -1,
+                True,
+                bound_file_reader.MAX_BOUND_SUFFIX_BYTES + 1,
+            ):
+                with self.subTest(invalid=invalid), self.assertRaisesRegex(
+                    BoundFileError, "参数无效"
+                ):
+                    session.inspect_child(
+                        "Post_suffix.bin",
+                        suffix_bytes=invalid,
+                    )
 
     def test_session_stream_cancellation_closes_child_but_not_root(self):
         payload = b"x" * (bound_file_reader._READ_CHUNK_BYTES * 2 + 19)

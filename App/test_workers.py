@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 from contextlib import contextmanager
 import os
 import threading
@@ -24,6 +25,23 @@ from workers import (
     SearchWorker,
     ThumbnailWorker,
     _thumbnail_payload_allowed,
+)
+
+
+JPEG_THUMBNAIL = base64.b64decode(
+    b"/9j/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+    b"AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/xAAmAAEAAAAAAAAAAAAAAAAA"
+    b"AAAAEAEAAAAAAAAAAAAAAAAAAAAA/8AACwgAAQABAQERAP/aAAgBAQAAPwA//9k="
+)
+PNG_THUMBNAIL = base64.b64decode(
+    b"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR42mNg"
+    b"AAAAAgAB5Sfe/AAAAABJRU5ErkJggg=="
+)
+GIF_THUMBNAIL = base64.b64decode(
+    b"R0lGODdhAQABAIEAAAECAwAAAAAAAAAAACwAAAAAAQABAAAIBAABBAQAOw=="
+)
+WEBP_THUMBNAIL = base64.b64decode(
+    b"UklGRiAAAABXRUJQVlA4TBQAAAAvAAAAAAdQgVQIIAAKmv7HiIj+Bw=="
 )
 
 
@@ -97,11 +115,14 @@ class ThumbnailWorkerOfflineTests(unittest.TestCase):
     def test_success_uses_identity_encoding_shared_pacing_and_no_ambient_proxy(self):
         response = FakeResponse(
             200,
-            headers={"Content-Type": "image/jpeg", "Content-Length": "7"},
-            chunks=[b"\xff\xd8\xffabc", b"d"],
+            headers={
+                "Content-Type": "image/jpeg",
+                "Content-Length": str(len(JPEG_THUMBNAIL)),
+            },
+            chunks=[JPEG_THUMBNAIL[:80], JPEG_THUMBNAIL[80:]],
         )
         worker, session, gate, succeeded, failed = self._run(response)
-        self.assertEqual(succeeded, [(7, "123", b"\xff\xd8\xffabcd")])
+        self.assertEqual(succeeded, [(7, "123", JPEG_THUMBNAIL)])
         self.assertEqual(failed, [])
         self.assertEqual(gate.min_intervals, [0.5])
         self.assertFalse(session.trust_env)
@@ -183,10 +204,10 @@ class ThumbnailWorkerOfflineTests(unittest.TestCase):
 
     def test_supported_raster_signatures_match_the_declared_type(self):
         accepted = (
-            ("image/jpeg; charset=binary", b"\xff\xd8\xffx"),
-            ("image/png", b"\x89PNG\r\n\x1a\nrest"),
-            ("image/gif", b"GIF89arest"),
-            ("image/webp", b"RIFF\x04\x00\x00\x00WEBPdata"),
+            ("image/jpeg; charset=binary", JPEG_THUMBNAIL),
+            ("image/png", PNG_THUMBNAIL),
+            ("image/gif", GIF_THUMBNAIL),
+            ("image/webp", WEBP_THUMBNAIL),
         )
         for content_type, payload in accepted:
             with self.subTest(content_type=content_type):
@@ -194,6 +215,43 @@ class ThumbnailWorkerOfflineTests(unittest.TestCase):
         self.assertFalse(
             _thumbnail_payload_allowed("image/png", b"\xff\xd8\xffnot-png")
         )
+
+    def test_truncated_appended_and_bad_length_rasters_are_rejected(self):
+        bad_webp = bytearray(WEBP_THUMBNAIL)
+        bad_webp[4:8] = (len(WEBP_THUMBNAIL) - 9).to_bytes(4, "little")
+        rejected = (
+            ("image/jpeg", b"\xff\xd8\xff"),
+            ("image/jpeg", JPEG_THUMBNAIL[:-2]),
+            ("image/jpeg", JPEG_THUMBNAIL + b"x"),
+            ("image/png", PNG_THUMBNAIL[:-12]),
+            ("image/png", PNG_THUMBNAIL + b"x"),
+            ("image/gif", GIF_THUMBNAIL[:-1]),
+            ("image/gif", GIF_THUMBNAIL + b"x"),
+            ("image/webp", WEBP_THUMBNAIL[:-1]),
+            ("image/webp", WEBP_THUMBNAIL + b"x"),
+            ("image/webp", bytes(bad_webp)),
+        )
+        for content_type, payload in rejected:
+            with self.subTest(content_type=content_type, size=len(payload)):
+                self.assertFalse(
+                    _thumbnail_payload_allowed(content_type, payload)
+                )
+
+    def test_header_only_jpeg_never_emits_thumbnail_success(self):
+        for headers in (
+            {"Content-Type": "image/jpeg", "Content-Length": "3"},
+            {"Content-Type": "image/jpeg"},
+        ):
+            with self.subTest(headers=headers):
+                response = FakeResponse(
+                    200,
+                    headers=headers,
+                    chunks=[b"\xff\xd8\xff"],
+                )
+                _worker, _session, _gate, succeeded, failed = self._run(response)
+                self.assertEqual(succeeded, [])
+                self.assertEqual(failed, [(7, "123")])
+                self.assertTrue(response.closed)
 
     def test_rate_limit_defers_the_process_gate_and_fails_closed(self):
         response = FakeResponse(429, headers={"Retry-After": "30"})

@@ -25,6 +25,7 @@ import unicodedata
 MAX_BOUND_FILE_BYTES = 20 * 1024 * 1024
 MAX_BOUND_STREAM_BYTES = 50 * 1024 * 1024 * 1024
 MAX_BOUND_PREFIX_BYTES = 1024 * 1024
+MAX_BOUND_SUFFIX_BYTES = 1024 * 1024
 MAX_BOUND_DIRECTORY_ENTRIES = 100_000
 MAX_BOUND_BASENAME_BYTES = 1024
 _READ_CHUNK_BYTES = 256 * 1024
@@ -107,6 +108,7 @@ class BoundFileInspection:
     sha256: str
     md5: str
     prefix: bytes
+    suffix: bytes = b""
 
 
 class BoundRootSession:
@@ -249,6 +251,7 @@ class BoundRootSession:
                         stop_event=stop_event,
                         max_bytes=limit,
                         prefix_bytes=0,
+                        suffix_bytes=0,
                         collect_payload=True,
                     )
                     assert payload is not None
@@ -266,12 +269,14 @@ class BoundRootSession:
         stop_event: threading.Event | None = None,
         max_bytes: int = MAX_BOUND_STREAM_BYTES,
         prefix_bytes: int = 0,
+        suffix_bytes: int = 0,
     ) -> BoundFileInspection:
-        """Stream SHA-256/MD5 and a bounded prefix without retaining the file."""
+        """Stream hashes plus bounded ends without retaining the whole file."""
 
         name = _validated_basename(basename)
         limit = _validated_limit(max_bytes, MAX_BOUND_STREAM_BYTES)
         prefix_limit = _validated_prefix_limit(prefix_bytes)
+        suffix_limit = _validated_suffix_limit(suffix_bytes)
         try:
             with self._lock:
                 token = self._require_open()
@@ -283,6 +288,7 @@ class BoundRootSession:
                         stop_event=stop_event,
                         max_bytes=limit,
                         prefix_bytes=prefix_limit,
+                        suffix_bytes=suffix_limit,
                         collect_payload=False,
                     )
                     return inspection
@@ -500,6 +506,12 @@ def _validated_prefix_limit(value: object) -> int:
     return value
 
 
+def _validated_suffix_limit(value: object) -> int:
+    if type(value) is not int or not 0 <= value <= MAX_BOUND_SUFFIX_BYTES:
+        raise BoundFileError(_ERR_ARGUMENTS)
+    return value
+
+
 def _check_cancelled(stop_event: threading.Event | None) -> None:
     if stop_event is None:
         return
@@ -538,11 +550,13 @@ def _consume_fd(
     stop_event: threading.Event | None,
     max_bytes: int,
     prefix_bytes: int,
+    suffix_bytes: int,
     collect_payload: bool,
 ) -> tuple[BoundFileInspection, bytes | None]:
     initial_size = _fd_regular_size(descriptor, max_bytes)
     payload = bytearray() if collect_payload else None
     prefix = bytearray()
+    suffix = bytearray()
     total = 0
     sha256 = hashlib.sha256()
     md5 = hashlib.md5(usedforsecurity=False)
@@ -564,6 +578,14 @@ def _consume_fd(
                 payload.extend(chunk)
             if len(prefix) < prefix_bytes:
                 prefix.extend(chunk[: prefix_bytes - len(prefix)])
+            if suffix_bytes:
+                if len(chunk) >= suffix_bytes:
+                    suffix[:] = chunk[-suffix_bytes:]
+                else:
+                    suffix.extend(chunk)
+                    overflow = len(suffix) - suffix_bytes
+                    if overflow > 0:
+                        del suffix[:overflow]
         _check_cancelled(stop_event)
         final_size = _fd_regular_size(descriptor, max_bytes)
     except BoundFileError:
@@ -581,6 +603,7 @@ def _consume_fd(
             sha256=sha256.hexdigest(),
             md5=md5.hexdigest(),
             prefix=bytes(prefix),
+            suffix=bytes(suffix),
         ),
         result_payload,
     )
@@ -599,6 +622,7 @@ def _read_fd_verified(
         stop_event=stop_event,
         max_bytes=max_bytes,
         prefix_bytes=0,
+        suffix_bytes=0,
         collect_payload=True,
     )
     if inspection.size != expected_size:
@@ -1083,6 +1107,7 @@ __all__ = [
     "MAX_BOUND_DIRECTORY_ENTRIES",
     "MAX_BOUND_FILE_BYTES",
     "MAX_BOUND_PREFIX_BYTES",
+    "MAX_BOUND_SUFFIX_BYTES",
     "MAX_BOUND_STREAM_BYTES",
     "get_bound_root_identity",
     "open_bound_root",
