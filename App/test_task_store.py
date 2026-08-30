@@ -25,6 +25,7 @@ from task_store import (
     TaskStoreReadError,
     TaskStoreRecoveryError,
     TaskStoreWriteError,
+    quarantine_corrupt_task_store,
 )
 
 
@@ -415,11 +416,75 @@ class TaskStoreTests(unittest.TestCase):
                 with self.assertRaises(TaskStoreCorruptError):
                     TaskStore(self.data_dir)
 
+    def test_fully_hashed_corrupt_snapshot_can_be_quarantined_under_lock(self):
+        corrupt_bytes = b"{bounded-but-broken"
+        with open(self.store.path, "wb") as file_obj:
+            file_obj.write(corrupt_bytes)
+        with self.assertRaises(TaskStoreCorruptError) as raised:
+            TaskStore(self.data_dir)
+        signature = raised.exception.snapshot_signature
+        recovery_path = os.path.join(
+            self.data_dir, "tasks.corrupt.unit-test.json"
+        )
+
+        quarantine_corrupt_task_store(
+            self.data_dir,
+            recovery_path,
+            signature,
+        )
+
+        self.assertFalse(os.path.lexists(self.store.path))
+        with open(recovery_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), corrupt_bytes)
+        self.assertEqual(TaskStore(self.data_dir).list(), [])
+
+    def test_quarantine_rejects_a_task_file_changed_after_corrupt_read(self):
+        with open(self.store.path, "wb") as file_obj:
+            file_obj.write(b"{old-broken-snapshot")
+        with self.assertRaises(TaskStoreCorruptError) as raised:
+            TaskStore(self.data_dir)
+        recovery_path = os.path.join(
+            self.data_dir, "tasks.corrupt.must-not-exist.json"
+        )
+        self._write_json(
+            self._payload([_task_record("valuable_external_task")], revision=9)
+        )
+        with open(self.store.path, "rb") as file_obj:
+            current_bytes = file_obj.read()
+
+        with self.assertRaisesRegex(TaskStoreConflictError, "隔离前发生变化"):
+            quarantine_corrupt_task_store(
+                self.data_dir,
+                recovery_path,
+                raised.exception.snapshot_signature,
+            )
+
+        with open(self.store.path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), current_bytes)
+        self.assertFalse(os.path.lexists(recovery_path))
+        self.assertIsNotNone(TaskStore(self.data_dir).get("valuable_external_task"))
+
     def test_oversized_store_is_rejected_before_parsing(self):
         with open(self.store.path, "wb") as file_obj:
             file_obj.truncate(task_module._MAX_TASK_STORE_BYTES + 1)
-        with self.assertRaises(TaskStoreCorruptError):
+        with self.assertRaises(TaskStoreCorruptError) as raised:
             TaskStore(self.data_dir)
+        self.assertIsNone(raised.exception.snapshot_signature)
+
+        recovery_path = os.path.join(
+            self.data_dir, "tasks.corrupt.oversized.json"
+        )
+        with self.assertRaisesRegex(TaskStoreWriteError, "完整内容摘要"):
+            quarantine_corrupt_task_store(
+                self.data_dir,
+                recovery_path,
+                raised.exception.snapshot_signature,
+            )
+        self.assertEqual(
+            os.path.getsize(self.store.path),
+            task_module._MAX_TASK_STORE_BYTES + 1,
+        )
+        self.assertFalse(os.path.lexists(recovery_path))
 
     def test_oversized_encoded_update_is_rejected_before_disk_replace(self):
         self.store.add_many(["preserved_before_size_limit"])
@@ -568,11 +633,11 @@ class TaskStoreTests(unittest.TestCase):
         real_atomic_write = writer._atomic_write
         blocked = []
 
-        def interleaved_write(encoded):
+        def interleaved_write(encoded, expected_signature):
             with self.assertRaises(TaskStoreConflictError):
                 competing.update("locked_writer", rating="e")
             blocked.append(True)
-            real_atomic_write(encoded)
+            real_atomic_write(encoded, expected_signature)
 
         with mock.patch.object(
             writer, "_atomic_write", side_effect=interleaved_write
@@ -585,6 +650,197 @@ class TaskStoreTests(unittest.TestCase):
             TaskStore(self.data_dir).get("locked_writer").rating,
             "q",
         )
+
+    def test_noncooperating_write_during_temp_save_is_not_overwritten(self):
+        self.store.add_many(["noncooperating_writer"])
+        before_tasks = self.store.list()
+        before_revision = self.store.revision
+        external_bytes = json.dumps(
+            self._payload([], revision=21),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        real_fsync = task_module.os.fsync
+        injected = False
+
+        def fsync_then_replace_tasks(descriptor):
+            nonlocal injected
+            real_fsync(descriptor)
+            if not injected:
+                with open(self.store.path, "wb") as file_obj:
+                    file_obj.write(external_bytes)
+                injected = True
+
+        with mock.patch.object(
+            task_module.os,
+            "fsync",
+            side_effect=fsync_then_replace_tasks,
+        ):
+            with self.assertRaisesRegex(TaskStoreConflictError, "保存期间"):
+                self.store.update("noncooperating_writer", rating="q")
+
+        self.assertTrue(injected)
+        with open(self.store.path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), external_bytes)
+        self.assertEqual(self.store.list(), before_tasks)
+        self.assertEqual(self.store.revision, before_revision)
+        self.assertEqual(TaskStore(self.data_dir).revision, 21)
+        self.assertEqual(
+            [name for name in os.listdir(self.data_dir) if name.startswith(".tasks.")],
+            [],
+        )
+
+    def test_empty_hardlinked_lock_file_is_never_modified(self):
+        lock_path = os.path.join(self.data_dir, ".task-store.lock")
+        os.remove(lock_path)
+        victim_path = os.path.join(self.data_dir, "empty-task-lock-victim.bin")
+        with open(victim_path, "wb"):
+            pass
+        os.link(victim_path, lock_path)
+
+        loaded = TaskStore(self.data_dir)
+
+        self.assertEqual(loaded.list(), self.store.list())
+        with open(victim_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), b"")
+
+    def test_process_lock_acquire_error_survives_cleanup_close_error(self):
+        real_close = os.close
+
+        def close_then_fail(descriptor):
+            real_close(descriptor)
+            raise OSError("simulated cleanup close failure")
+
+        if os.name == "nt":
+            import msvcrt
+
+            acquire_failure = mock.patch.object(
+                msvcrt,
+                "locking",
+                side_effect=OSError("simulated lock contention"),
+            )
+        else:
+            import fcntl
+
+            acquire_failure = mock.patch.object(
+                fcntl,
+                "flock",
+                side_effect=OSError("simulated lock contention"),
+            )
+        with acquire_failure, mock.patch.object(
+            task_module.os,
+            "close",
+            side_effect=close_then_fail,
+        ):
+            with self.assertRaises(TaskStoreConflictError):
+                task_module._TaskStoreProcessLock(self.data_dir).__enter__()
+
+    def test_process_lock_close_error_does_not_hide_the_body_exception(self):
+        real_close = os.close
+
+        def close_then_fail(descriptor):
+            real_close(descriptor)
+            raise OSError("simulated close failure")
+
+        with mock.patch.object(
+            task_module.os,
+            "close",
+            side_effect=close_then_fail,
+        ):
+            with self.assertRaisesRegex(TaskStoreWriteError, "body failure"):
+                with task_module._TaskStoreProcessLock(self.data_dir):
+                    raise TaskStoreWriteError("body failure")
+
+    def test_commit_lock_exit_failure_keeps_the_previous_memory_baseline(self):
+        state = {"fail_exit": False}
+
+        class ExitFailLock:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, _exc_type, _exc, _traceback):
+                if state["fail_exit"]:
+                    raise OSError("simulated task lock release failure")
+
+        store = TaskStore(self.data_dir, lock_factory=lambda: ExitFailLock())
+        before_tasks = store.list()
+        before_revision = store.revision
+        state["fail_exit"] = True
+
+        with self.assertRaisesRegex(TaskStoreWriteError, "事务锁失败"):
+            store.add_many(["committed_before_lock_exit"])
+
+        committed = TaskStore(self.data_dir)
+        self.assertIsNotNone(committed.get("committed_before_lock_exit"))
+        self.assertEqual(committed.revision, before_revision + 1)
+        self.assertEqual(store.list(), before_tasks)
+        self.assertEqual(store.revision, before_revision)
+
+        state["fail_exit"] = False
+        with self.assertRaises(TaskStoreConflictError):
+            store.add_many(["must_not_overwrite_unknown_commit"])
+
+    def test_load_lock_exit_failure_keeps_the_previous_memory_snapshot(self):
+        self.store.add_many(["reload_lock_exit"])
+        state = {"fail_exit": False}
+
+        class ExitFailLock:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, _exc_type, _exc, _traceback):
+                if state["fail_exit"]:
+                    raise OSError("simulated task lock release failure")
+
+        loaded = TaskStore(self.data_dir, lock_factory=lambda: ExitFailLock())
+        before_tasks = loaded.list()
+        before_revision = loaded.revision
+        self.store.update("reload_lock_exit", rating="q")
+        state["fail_exit"] = True
+
+        with self.assertRaisesRegex(TaskStoreReadError, "事务锁失败"):
+            loaded.load()
+
+        self.assertEqual(loaded.list(), before_tasks)
+        self.assertEqual(loaded.revision, before_revision)
+        self.assertEqual(
+            TaskStore(self.data_dir).get("reload_lock_exit").rating,
+            "q",
+        )
+
+    def test_recovery_lock_exit_failure_retains_recovery_error_semantics(self):
+        state = {"fail_exit": False}
+
+        class ExitFailLock:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, _exc_type, _exc, _traceback):
+                if state["fail_exit"]:
+                    raise OSError("simulated recovery lock release failure")
+
+        store = TaskStore(self.data_dir, lock_factory=lambda: ExitFailLock())
+        self._write_json(
+            self._payload(
+                [_task_record("recovery_lock_exit", status="running")],
+                revision=12,
+            )
+        )
+        state["fail_exit"] = True
+
+        with self.assertRaisesRegex(TaskStoreRecoveryError, "恢复事务锁失败"):
+            store.load()
+
+        self.assertEqual(store.list(), [])
+        self.assertEqual(store.revision, 0)
+        with open(store.path, "r", encoding="utf-8") as file_obj:
+            committed = json.load(file_obj)
+        self.assertEqual(committed["revision"], 13)
+        self.assertEqual(committed["tasks"][0]["status"], "pending")
+
+        state["fail_exit"] = False
+        self.assertTrue(store.load())
+        self.assertEqual(store.revision, 13)
+        self.assertEqual(store.get("recovery_lock_exit").status, "pending")
 
     def test_load_retries_when_the_path_is_replaced_after_snapshot_read(self):
         old_payload = self._payload(
@@ -713,6 +969,46 @@ class TaskStoreTests(unittest.TestCase):
                 ],
                 [],
             )
+
+    def test_noncooperating_write_during_recovery_is_not_overwritten(self):
+        self._write_json(
+            self._payload(
+                [_task_record("interrupted_recovery", status="running")],
+                revision=12,
+            )
+        )
+        external_bytes = json.dumps(
+            self._payload([], revision=21),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        real_fsync = task_module.os.fsync
+        injected = False
+
+        def fsync_then_replace_tasks(descriptor):
+            nonlocal injected
+            real_fsync(descriptor)
+            if not injected:
+                with open(self.store.path, "wb") as file_obj:
+                    file_obj.write(external_bytes)
+                injected = True
+
+        with mock.patch.object(
+            task_module.os,
+            "fsync",
+            side_effect=fsync_then_replace_tasks,
+        ):
+            with self.assertRaises(TaskStoreRecoveryError) as raised:
+                TaskStore(self.data_dir)
+
+        self.assertTrue(injected)
+        self.assertIsInstance(raised.exception.__cause__, TaskStoreConflictError)
+        with open(self.store.path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), external_bytes)
+        self.assertEqual(TaskStore(self.data_dir).revision, 21)
+        self.assertEqual(
+            [name for name in os.listdir(self.data_dir) if name.startswith(".tasks.")],
+            [],
+        )
 
     def test_recovery_error_bypasses_legacy_corrupt_file_handler(self):
         self.assertTrue(issubclass(TaskStoreRecoveryError, TaskStoreFailure))

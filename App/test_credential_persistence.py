@@ -505,6 +505,112 @@ class CredentialPersistenceTests(unittest.TestCase):
         with persistence_module._CredentialProcessLock(self.data_dir):
             pass
 
+    def test_empty_hardlinked_process_lock_file_is_never_modified(self):
+        lock_path = os.path.join(self.data_dir, ".credential-transaction.lock")
+        if os.path.lexists(lock_path):
+            os.remove(lock_path)
+        victim_path = os.path.join(
+            self.data_dir, "empty-credential-lock-victim.bin"
+        )
+        with open(victim_path, "wb"):
+            pass
+        os.link(victim_path, lock_path)
+
+        with persistence_module._CredentialProcessLock(self.data_dir):
+            pass
+
+        with open(victim_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), b"")
+
+    def test_process_lock_close_failure_preserves_the_body_exception(self):
+        real_close = os.close
+
+        def close_then_fail(descriptor):
+            real_close(descriptor)
+            raise OSError("simulated close failure")
+
+        with mock.patch.object(
+            persistence_module.os,
+            "close",
+            side_effect=close_then_fail,
+        ):
+            with self.assertRaisesRegex(SettingsError, "body failure"):
+                with persistence_module._CredentialProcessLock(self.data_dir):
+                    raise SettingsError("body failure")
+
+    def test_process_lock_acquire_error_survives_cleanup_close_error(self):
+        real_close = os.close
+
+        def close_then_fail(descriptor):
+            real_close(descriptor)
+            raise OSError("simulated cleanup close failure")
+
+        if os.name == "nt":
+            import msvcrt
+
+            acquire_failure = mock.patch.object(
+                msvcrt,
+                "locking",
+                side_effect=OSError("simulated lock contention"),
+            )
+        else:
+            import fcntl
+
+            acquire_failure = mock.patch.object(
+                fcntl,
+                "flock",
+                side_effect=OSError("simulated lock contention"),
+            )
+        with acquire_failure, mock.patch.object(
+            persistence_module.os,
+            "close",
+            side_effect=close_then_fail,
+        ):
+            with self.assertRaises(CredentialPersistenceError):
+                persistence_module._CredentialProcessLock(
+                    self.data_dir
+                ).__enter__()
+
+    def test_process_lock_close_failure_does_not_false_fail_committed_changes(self):
+        real_close = os.close
+
+        def close_then_fail(descriptor):
+            real_close(descriptor)
+            raise OSError("simulated close failure")
+
+        session = StoredSession("close-user", "close-token")
+        with mock.patch.object(
+            persistence_module.os,
+            "close",
+            side_effect=close_then_fail,
+        ):
+            self.persistence.enable(
+                session,
+                previous_remember=False,
+                settings_write_allowed=True,
+            )
+
+        reloaded_settings = SettingsStore(self.data_dir)
+        receipt = VaultReceipt(
+            reloaded_settings.get("credential_vault_receipt")
+        ).validated()
+        self.assertTrue(reloaded_settings.get("remember_credentials"))
+        self.assertEqual(self.vault.load_matching(receipt), session)
+        self.assertFalse(self.journal.exists())
+
+        with mock.patch.object(
+            persistence_module.os,
+            "close",
+            side_effect=close_then_fail,
+        ):
+            self.persistence.disable(settings_write_allowed=True)
+
+        disabled_settings = SettingsStore(self.data_dir)
+        self.assertFalse(disabled_settings.get("remember_credentials"))
+        self.assertEqual(disabled_settings.get("credential_vault_receipt"), "")
+        self.assertFalse(self.vault.exists())
+        self.assertFalse(self.journal.exists())
+
     def test_barrier_confirmation_matrix_never_trusts_an_old_bound_session(self):
         old = StoredSession("old-user", "old-token")
         new = StoredSession("new-user", "new-token")

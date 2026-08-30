@@ -47,6 +47,15 @@ class TaskStoreError(TaskStoreFailure):
 class TaskStoreCorruptError(TaskStoreError):
     """The on-disk task store was read but failed structural validation."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        snapshot_signature: tuple[int, str] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.snapshot_signature = snapshot_signature
+
 
 class TaskStoreReadError(TaskStoreError):
     """The task store or its file identity could not be read."""
@@ -61,12 +70,12 @@ class TaskStoreConflictError(TaskStoreError):
 
 
 class TaskStoreRecoveryError(TaskStoreFailure):
-    """A valid store was parsed but interrupted-state recovery failed.
+    """A valid store was parsed but recovery could not be reported safely.
 
-    This intentionally does not inherit :class:`TaskStoreError`.  The existing
-    window startup path quarantines every ``TaskStoreError`` as corrupt.  A
-    recovery write failure must instead abort startup while leaving the valid
-    original file in place.
+    This intentionally does not inherit :class:`TaskStoreError`.  A recovery
+    transaction may already have committed a newer valid revision, so failure
+    must abort startup for a fresh load and must never enter corrupt-file
+    quarantine handling.
     """
 
 
@@ -170,9 +179,6 @@ class _TaskStoreProcessLock:
         try:
             os.makedirs(os.path.dirname(self.path), exist_ok=True)
             descriptor = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o600)
-            if os.fstat(descriptor).st_size == 0:
-                os.write(descriptor, b"\0")
-                os.fsync(descriptor)
             os.lseek(descriptor, 0, os.SEEK_SET)
             if os.name == "nt":
                 import msvcrt
@@ -184,7 +190,10 @@ class _TaskStoreProcessLock:
                 fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except (OSError, ImportError) as exc:
             if descriptor is not None:
-                os.close(descriptor)
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
             raise TaskStoreConflictError(
                 "任务篮正在被另一个程序更新，请稍后重试"
             ) from exc
@@ -197,17 +206,127 @@ class _TaskStoreProcessLock:
         if descriptor is None:
             return
         try:
-            os.lseek(descriptor, 0, os.SEEK_SET)
-            if os.name == "nt":
-                import msvcrt
-
-                msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
-            else:
-                import fcntl
-
-                fcntl.flock(descriptor, fcntl.LOCK_UN)
-        finally:
             os.close(descriptor)
+        except OSError:
+            # Closing releases both the Windows byte-range lock and POSIX
+            # flock.  A close error must not turn a committed task-store
+            # transaction into a reported failure.
+            pass
+
+
+def _signature_for(data: bytes) -> tuple[int, str]:
+    return len(data), hashlib.sha256(data).hexdigest()
+
+
+def _stat_identity(file_stat: os.stat_result) -> tuple[int, int, int, int, int]:
+    return (
+        file_stat.st_dev,
+        file_stat.st_ino,
+        file_stat.st_size,
+        getattr(file_stat, "st_mtime_ns", 0),
+        getattr(file_stat, "st_ctime_ns", 0),
+    )
+
+
+def _read_task_store_snapshot(
+    path: str,
+) -> tuple[bytes, tuple[int, str], bool] | None:
+    for _attempt in range(3):
+        try:
+            with open(path, "rb") as file_obj:
+                before = os.fstat(file_obj.fileno())
+                encoded = (
+                    b""
+                    if before.st_size > _MAX_TASK_STORE_BYTES
+                    else file_obj.read(_MAX_TASK_STORE_BYTES + 1)
+                )
+                after = os.fstat(file_obj.fileno())
+            current = os.stat(path)
+        except FileNotFoundError:
+            if os.path.lexists(path):
+                raise TaskStoreReadError("任务篮路径无法安全读取")
+            return None
+        except OSError as exc:
+            raise TaskStoreReadError(
+                f"任务篮读取失败（{type(exc).__name__}）"
+            ) from exc
+        if (
+            _stat_identity(before) != _stat_identity(after)
+            or not os.path.samestat(after, current)
+            or after.st_size != current.st_size
+            or getattr(after, "st_mtime_ns", 0)
+            != getattr(current, "st_mtime_ns", 0)
+        ):
+            continue
+        oversized = (
+            after.st_size > _MAX_TASK_STORE_BYTES
+            or len(encoded) > _MAX_TASK_STORE_BYTES
+        )
+        if oversized:
+            return b"", (after.st_size, "oversized"), True
+        if len(encoded) != after.st_size:
+            continue
+        return encoded, _signature_for(encoded), False
+    raise TaskStoreReadError("任务篮在读取期间持续发生变化")
+
+
+def quarantine_corrupt_task_store(
+    data_dir: str,
+    recovery_path: str,
+    expected_signature: tuple[int, str] | None,
+    *,
+    lock_factory: Callable[[], object] | None = None,
+) -> None:
+    """Move one fully hashed corrupt task snapshot aside under its lock."""
+
+    absolute_data_dir = os.path.abspath(os.fspath(data_dir))
+    source = os.path.join(absolute_data_dir, "tasks.json")
+    destination = os.path.abspath(os.fspath(recovery_path))
+    if (
+        not isinstance(expected_signature, tuple)
+        or len(expected_signature) != 2
+        or type(expected_signature[0]) is not int
+        or not 0 <= expected_signature[0] <= _MAX_TASK_STORE_BYTES
+        or not isinstance(expected_signature[1], str)
+        or len(expected_signature[1]) != 64
+        or any(char not in "0123456789abcdef" for char in expected_signature[1])
+    ):
+        raise TaskStoreWriteError(
+            "任务篮未取得完整内容摘要，不能安全隔离"
+        )
+    if (
+        os.path.normcase(os.path.dirname(destination))
+        != os.path.normcase(absolute_data_dir)
+        or os.path.normcase(destination) == os.path.normcase(source)
+        or os.path.lexists(destination)
+    ):
+        raise TaskStoreWriteError("损坏任务篮备份路径无效")
+    process_lock_factory = lock_factory or (
+        lambda: _TaskStoreProcessLock(absolute_data_dir)
+    )
+    try:
+        with process_lock_factory():
+            if os.path.lexists(destination):
+                raise TaskStoreWriteError("损坏任务篮备份路径已被占用")
+            snapshot = _read_task_store_snapshot(source)
+            if (
+                snapshot is None
+                or snapshot[2]
+                or snapshot[1] != expected_signature
+            ):
+                raise TaskStoreConflictError(
+                    "任务篮已在隔离前发生变化，请重新启动后再试"
+                )
+            try:
+                os.replace(source, destination)
+            except OSError as exc:
+                raise TaskStoreWriteError(
+                    f"损坏任务篮备份失败（{type(exc).__name__}）"
+                ) from exc
+    except OSError as exc:
+        raise TaskStoreWriteError(
+            f"任务篮事务锁失败（{type(exc).__name__}）"
+        ) from exc
 
 
 class TaskStore:
@@ -367,117 +486,143 @@ class TaskStore:
 
     def load(self) -> bool:
         with self._lock:
-            with self._process_lock_factory():
-                snapshot = self._read_file_snapshot()
-                if snapshot is None:
-                    self._tasks = {}
-                    self._revision = 0
-                    self._signature = None
-                    return True
-                encoded, signature, oversized = snapshot
-                if oversized:
-                    raise TaskStoreCorruptError("task store is too large")
-                try:
-                    payload = json.loads(encoded.decode("utf-8"))
-                except (
-                    UnicodeDecodeError,
-                    json.JSONDecodeError,
-                    ValueError,
-                    RecursionError,
-                ) as exc:
-                    raise TaskStoreCorruptError(
-                        f"任务篮内容损坏（{type(exc).__name__}）"
+            recovery_performed = False
+            try:
+                with self._process_lock_factory():
+                    (
+                        tasks,
+                        revision,
+                        signature,
+                        recovery_performed,
+                    ) = self._load_under_process_lock()
+            except OSError as exc:
+                if recovery_performed:
+                    raise TaskStoreRecoveryError(
+                        f"任务篮恢复事务锁失败（{type(exc).__name__}）"
                     ) from exc
-                try:
-                    if not isinstance(payload, dict) or set(payload) != {
-                        "schema_version",
-                        "revision",
-                        "tasks",
-                    }:
-                        raise TaskStoreCorruptError("invalid task store shape")
-                    if payload["schema_version"] != self.SCHEMA_VERSION:
-                        raise TaskStoreCorruptError("unsupported task schema")
-                    if (
-                        type(payload["revision"]) is not int
-                        or not 0 <= payload["revision"] <= MAX_REVISION
-                    ):
-                        raise TaskStoreCorruptError("invalid revision")
-                    if (
-                        not isinstance(payload["tasks"], list)
-                        or len(payload["tasks"]) > MAX_TASKS
-                    ):
-                        raise TaskStoreCorruptError("invalid task list")
-                    tasks: dict[str, DownloadTask] = {}
-                    for item in payload["tasks"]:
-                        if not isinstance(item, dict) or set(item) != {
-                            "post_id",
-                            "source_url",
-                            "status",
-                            "added_at",
-                            "updated_at",
-                            "rating",
-                            "error",
-                            "output_files",
-                        }:
-                            raise TaskStoreCorruptError("invalid task item")
-                        task = DownloadTask(**item).validated(
-                            recover_interrupted=True
-                        )
-                        if task.post_id in tasks:
-                            raise TaskStoreCorruptError("duplicate task")
-                        tasks[task.post_id] = task
-                except TaskStoreCorruptError:
-                    raise
-                except (TaskStoreError, TypeError, ValueError, OverflowError) as exc:
-                    raise TaskStoreCorruptError(
-                        f"任务篮内容损坏（{type(exc).__name__}）"
-                    ) from exc
+                raise TaskStoreReadError(
+                    f"任务篮事务锁失败（{type(exc).__name__}）"
+                ) from exc
+            self._tasks = tasks
+            self._revision = revision
+            self._signature = signature
+            return True
 
-                revision = payload["revision"]
-                interrupted = any(
-                    item.get("status") in ACTIVE_TASK_STATES
-                    for item in payload["tasks"]
-                )
-                if interrupted:
-                    try:
-                        if revision >= MAX_REVISION:
-                            raise TaskStoreWriteError(
-                                "任务篮版本号已达到安全上限"
-                            )
-                        recovered_revision = revision + 1
-                        recovered = self._encode(tasks, recovered_revision)
-                        if signature != self._file_signature():
-                            raise TaskStoreConflictError(
-                                "任务篮已被另一个程序修改，请重新打开后再试"
-                            )
-                        self._atomic_write(recovered)
-                        signature = self._verified_committed_signature(recovered)
-                    except TaskStoreFailure as exc:
-                        raise TaskStoreRecoveryError(
-                            f"任务篮恢复状态无法持久化（{type(exc).__name__}）"
-                        ) from exc
-                    revision = recovered_revision
+    def _load_under_process_lock(
+        self,
+    ) -> tuple[dict[str, DownloadTask], int, tuple[int, str] | None, bool]:
+        snapshot = self._read_file_snapshot()
+        if snapshot is None:
+            return {}, 0, None, False
+        encoded, signature, oversized = snapshot
+        if oversized:
+            raise TaskStoreCorruptError("task store is too large")
 
-                self._tasks = tasks
-                self._revision = revision
-                self._signature = signature
-                return True
+        def corrupt(message: str) -> TaskStoreCorruptError:
+            return TaskStoreCorruptError(
+                message,
+                snapshot_signature=signature,
+            )
+
+        try:
+            payload = json.loads(encoded.decode("utf-8"))
+        except (
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            ValueError,
+            RecursionError,
+        ) as exc:
+            raise corrupt(f"任务篮内容损坏（{type(exc).__name__}）") from exc
+        try:
+            if not isinstance(payload, dict) or set(payload) != {
+                "schema_version",
+                "revision",
+                "tasks",
+            }:
+                raise corrupt("invalid task store shape")
+            if payload["schema_version"] != self.SCHEMA_VERSION:
+                raise corrupt("unsupported task schema")
+            if (
+                type(payload["revision"]) is not int
+                or not 0 <= payload["revision"] <= MAX_REVISION
+            ):
+                raise corrupt("invalid revision")
+            if (
+                not isinstance(payload["tasks"], list)
+                or len(payload["tasks"]) > MAX_TASKS
+            ):
+                raise corrupt("invalid task list")
+            tasks: dict[str, DownloadTask] = {}
+            for item in payload["tasks"]:
+                if not isinstance(item, dict) or set(item) != {
+                    "post_id",
+                    "source_url",
+                    "status",
+                    "added_at",
+                    "updated_at",
+                    "rating",
+                    "error",
+                    "output_files",
+                }:
+                    raise corrupt("invalid task item")
+                task = DownloadTask(**item).validated(recover_interrupted=True)
+                if task.post_id in tasks:
+                    raise corrupt("duplicate task")
+                tasks[task.post_id] = task
+        except TaskStoreCorruptError:
+            raise
+        except (TaskStoreError, TypeError, ValueError, OverflowError) as exc:
+            raise corrupt(f"任务篮内容损坏（{type(exc).__name__}）") from exc
+
+        revision = payload["revision"]
+        interrupted = any(
+            item.get("status") in ACTIVE_TASK_STATES for item in payload["tasks"]
+        )
+        recovery_performed = False
+        if interrupted:
+            try:
+                if revision >= MAX_REVISION:
+                    raise TaskStoreWriteError(
+                        "任务篮版本号已达到安全上限"
+                    )
+                recovered_revision = revision + 1
+                recovered = self._encode(tasks, recovered_revision)
+                if signature != self._file_signature():
+                    raise TaskStoreConflictError(
+                        "任务篮已被另一个程序修改，请重新打开后再试"
+                    )
+                self._atomic_write(recovered, signature)
+                signature = self._verified_committed_signature(recovered)
+                recovery_performed = True
+            except TaskStoreFailure as exc:
+                raise TaskStoreRecoveryError(
+                    f"任务篮恢复状态无法持久化（{type(exc).__name__}）"
+                ) from exc
+            revision = recovered_revision
+
+        return tasks, revision, signature, recovery_performed
 
     def _commit(self, tasks: dict[str, DownloadTask]) -> None:
         if self._revision >= MAX_REVISION:
             raise TaskStoreWriteError("任务篮版本号已达到安全上限")
         revision = self._revision + 1
         encoded = self._encode(tasks, revision)
-        with self._process_lock_factory():
-            if self._signature != self._file_signature():
-                raise TaskStoreConflictError(
-                    "任务篮已被另一个程序修改，请重新打开后再试"
-                )
-            self._atomic_write(encoded)
-            signature = self._verified_committed_signature(encoded)
-            self._tasks = tasks
-            self._revision = revision
-            self._signature = signature
+        try:
+            with self._process_lock_factory():
+                if self._signature != self._file_signature():
+                    raise TaskStoreConflictError(
+                        "任务篮已被另一个程序修改，请重新打开后再试"
+                    )
+                expected_signature = self._signature
+                self._atomic_write(encoded, expected_signature)
+                signature = self._verified_committed_signature(encoded)
+        except OSError as exc:
+            raise TaskStoreWriteError(
+                f"任务篮事务锁失败（{type(exc).__name__}）"
+            ) from exc
+        self._tasks = tasks
+        self._revision = revision
+        self._signature = signature
 
     def _encode(self, tasks: dict[str, DownloadTask], revision: int) -> bytes:
         payload = {
@@ -502,56 +647,12 @@ class TaskStore:
 
     @staticmethod
     def _signature_for(data: bytes) -> tuple[int, str]:
-        return len(data), hashlib.sha256(data).hexdigest()
-
-    @staticmethod
-    def _stat_identity(file_stat: os.stat_result) -> tuple[int, int, int, int, int]:
-        return (
-            file_stat.st_dev,
-            file_stat.st_ino,
-            file_stat.st_size,
-            getattr(file_stat, "st_mtime_ns", 0),
-            getattr(file_stat, "st_ctime_ns", 0),
-        )
+        return _signature_for(data)
 
     def _read_file_snapshot(
         self,
     ) -> tuple[bytes, tuple[int, str], bool] | None:
-        for _attempt in range(3):
-            try:
-                with open(self.path, "rb") as file_obj:
-                    before = os.fstat(file_obj.fileno())
-                    encoded = (
-                        b""
-                        if before.st_size > _MAX_TASK_STORE_BYTES
-                        else file_obj.read(_MAX_TASK_STORE_BYTES + 1)
-                    )
-                    after = os.fstat(file_obj.fileno())
-                current = os.stat(self.path)
-            except FileNotFoundError:
-                return None
-            except OSError as exc:
-                raise TaskStoreReadError(
-                    f"任务篮读取失败（{type(exc).__name__}）"
-                ) from exc
-            if (
-                self._stat_identity(before) != self._stat_identity(after)
-                or not os.path.samestat(after, current)
-                or after.st_size != current.st_size
-                or getattr(after, "st_mtime_ns", 0)
-                != getattr(current, "st_mtime_ns", 0)
-            ):
-                continue
-            oversized = (
-                after.st_size > _MAX_TASK_STORE_BYTES
-                or len(encoded) > _MAX_TASK_STORE_BYTES
-            )
-            if oversized:
-                return b"", (after.st_size, "oversized"), True
-            if len(encoded) != after.st_size:
-                continue
-            return encoded, self._signature_for(encoded), False
-        raise TaskStoreReadError("任务篮在读取期间持续发生变化")
+        return _read_task_store_snapshot(self.path)
 
     def _file_signature(self) -> tuple[int, str] | None:
         snapshot = self._read_file_snapshot()
@@ -563,7 +664,11 @@ class TaskStore:
             raise TaskStoreConflictError("任务篮在保存后被另一个程序修改")
         return expected
 
-    def _atomic_write(self, data: bytes) -> None:
+    def _atomic_write(
+        self,
+        data: bytes,
+        expected_signature: tuple[int, str] | None,
+    ) -> None:
         temp_path = None
         try:
             os.makedirs(self.data_dir, exist_ok=True)
@@ -574,6 +679,10 @@ class TaskStore:
                 file_obj.write(data)
                 file_obj.flush()
                 os.fsync(file_obj.fileno())
+            if self._file_signature() != expected_signature:
+                raise TaskStoreConflictError(
+                    "任务篮在保存期间被另一个程序修改"
+                )
             os.replace(temp_path, self.path)
             temp_path = None
         except OSError as exc:
@@ -603,4 +712,5 @@ __all__ = [
     "TaskStoreReadError",
     "TaskStoreRecoveryError",
     "TaskStoreWriteError",
+    "quarantine_corrupt_task_store",
 ]

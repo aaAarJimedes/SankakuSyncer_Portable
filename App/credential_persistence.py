@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Crash-consistent coordination for the credential vault and settings flag.
+"""Process-crash-recoverable coordination for vault and settings state.
 
 The vault and ordinary settings are two independently replaced files.  This
 module uses a small, strictly validated, secret-free journal to make their
-combined state recoverable after power loss or process termination.
+combined state recoverable after abrupt process termination.  Strict sudden
+power-loss durability remains dependent on filesystem directory persistence.
 """
 
 from __future__ import annotations
@@ -268,9 +269,6 @@ class _CredentialProcessLock:
         try:
             os.makedirs(os.path.dirname(self.path), exist_ok=True)
             descriptor = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o600)
-            if os.fstat(descriptor).st_size == 0:
-                os.write(descriptor, b"\0")
-                os.fsync(descriptor)
             os.lseek(descriptor, 0, os.SEEK_SET)
             if os.name == "nt":
                 import msvcrt
@@ -282,7 +280,10 @@ class _CredentialProcessLock:
                 fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except (OSError, ImportError) as exc:
             if descriptor is not None:
-                os.close(descriptor)
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
             raise CredentialPersistenceError(
                 "credential state is being updated by another program instance"
             ) from exc
@@ -295,17 +296,12 @@ class _CredentialProcessLock:
         if descriptor is None:
             return
         try:
-            os.lseek(descriptor, 0, os.SEEK_SET)
-            if os.name == "nt":
-                import msvcrt
-
-                msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
-            else:
-                import fcntl
-
-                fcntl.flock(descriptor, fcntl.LOCK_UN)
-        finally:
             os.close(descriptor)
+        except OSError:
+            # Closing releases both supported lock kinds.  A close error must
+            # not report a fully committed credential transition as failed or
+            # hide the transaction body's original exception.
+            pass
 
 
 class CredentialPersistence:

@@ -90,6 +90,7 @@ from task_store import (
     TaskStore,
     TaskStoreCorruptError,
     TaskStoreError,
+    quarantine_corrupt_task_store,
 )
 from version import APP_DISPLAY_NAME
 from workers import (
@@ -438,16 +439,19 @@ class MainWindow(QMainWindow):
         try:
             self.task_store = TaskStore(self.data_dir)
         except TaskStoreCorruptError as exc:
-            task_path = os.path.join(self.data_dir, "tasks.json")
+            if exc.snapshot_signature is None:
+                raise
             stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
             recovery_path = os.path.join(self.data_dir, f"tasks.corrupt.{stamp}.json")
-            try:
-                os.replace(task_path, recovery_path)
-            except OSError:
-                raise exc
+            quarantine_corrupt_task_store(
+                self.data_dir,
+                recovery_path,
+                exc.snapshot_signature,
+            )
             self.task_store = TaskStore(self.data_dir)
             self._startup_messages.append(
-                f"损坏的任务篮已原样保留为 {os.path.basename(recovery_path)}，当前使用空任务篮。"
+                "损坏的任务篮已在内容摘要复核后原样保留为 "
+                f"{os.path.basename(recovery_path)}；任务篮已重新载入。"
             )
 
         self.search_worker: SearchWorker | None = None

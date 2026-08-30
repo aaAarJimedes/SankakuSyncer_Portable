@@ -134,7 +134,10 @@ class _SettingsProcessLock:
                 fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except (OSError, ImportError) as exc:
             if descriptor is not None:
-                os.close(descriptor)
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
             raise SettingsConflictError(
                 "设置正在被另一个程序更新，请稍后重试"
             ) from exc

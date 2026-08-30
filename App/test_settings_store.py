@@ -492,6 +492,37 @@ class SettingsStoreTests(unittest.TestCase):
         with open(victim_path, "rb") as file_obj:
             self.assertEqual(file_obj.read(), b"")
 
+    def test_process_lock_acquire_error_survives_cleanup_close_error(self):
+        real_close = os.close
+
+        def close_then_fail(descriptor):
+            real_close(descriptor)
+            raise OSError("simulated cleanup close failure")
+
+        if os.name == "nt":
+            import msvcrt
+
+            acquire_failure = mock.patch.object(
+                msvcrt,
+                "locking",
+                side_effect=OSError("simulated lock contention"),
+            )
+        else:
+            import fcntl
+
+            acquire_failure = mock.patch.object(
+                fcntl,
+                "flock",
+                side_effect=OSError("simulated lock contention"),
+            )
+        with acquire_failure, mock.patch.object(
+            settings_module.os,
+            "close",
+            side_effect=close_then_fail,
+        ):
+            with self.assertRaises(SettingsConflictError):
+                settings_module._SettingsProcessLock(self.data_dir).__enter__()
+
     def test_lock_exit_failure_does_not_publish_a_committed_baseline(self):
         fail_exit = False
 

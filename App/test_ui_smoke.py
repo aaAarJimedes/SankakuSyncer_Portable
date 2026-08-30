@@ -2713,6 +2713,60 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
             finally:
                 self._close(window)
 
+    def test_corrupt_task_quarantine_conflict_preserves_the_current_file(self):
+        from task_store import TaskStoreConflictError
+
+        with tempfile.TemporaryDirectory() as root:
+            data_dir = os.path.join(root, "Data")
+            os.makedirs(data_dir)
+            task_path = os.path.join(data_dir, "tasks.json")
+            original = b"{bounded-corrupt-task-file"
+            with open(task_path, "wb") as file_obj:
+                file_obj.write(original)
+
+            with mock.patch(
+                "ui_main_window.quarantine_corrupt_task_store",
+                side_effect=TaskStoreConflictError("simulated quarantine race"),
+            ):
+                with self.assertRaises(TaskStoreConflictError):
+                    self.MainWindow(root)
+
+            with open(task_path, "rb") as file_obj:
+                self.assertEqual(file_obj.read(), original)
+            self.assertEqual(
+                [
+                    name
+                    for name in os.listdir(data_dir)
+                    if name.startswith("tasks.corrupt.")
+                ],
+                [],
+            )
+
+    def test_oversized_task_file_is_not_automatically_quarantined(self):
+        import task_store as task_module
+        from task_store import TaskStoreCorruptError
+
+        with tempfile.TemporaryDirectory() as root:
+            data_dir = os.path.join(root, "Data")
+            os.makedirs(data_dir)
+            task_path = os.path.join(data_dir, "tasks.json")
+            oversized_size = task_module._MAX_TASK_STORE_BYTES + 1
+            with open(task_path, "wb") as file_obj:
+                file_obj.truncate(oversized_size)
+
+            with self.assertRaises(TaskStoreCorruptError):
+                self.MainWindow(root)
+
+            self.assertEqual(os.path.getsize(task_path), oversized_size)
+            self.assertEqual(
+                [
+                    name
+                    for name in os.listdir(data_dir)
+                    if name.startswith("tasks.corrupt.")
+                ],
+                [],
+            )
+
     def test_task_read_failure_is_not_mislabeled_or_quarantined_as_corrupt(self):
         from task_store import TaskStoreReadError
 
