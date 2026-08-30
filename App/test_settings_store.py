@@ -478,7 +478,7 @@ class SettingsStoreTests(unittest.TestCase):
         self.assertEqual(blocked, [True])
         self.assertEqual(SettingsStore(self.data_dir).get("page_size"), 40)
 
-    def test_empty_hardlinked_lock_file_is_never_modified(self):
+    def test_hardlinked_process_lock_is_rejected_without_modifying_target(self):
         lock_path = os.path.join(self.data_dir, ".settings-store.lock")
         os.remove(lock_path)
         victim_path = os.path.join(self.data_dir, "empty-victim.bin")
@@ -486,9 +486,10 @@ class SettingsStoreTests(unittest.TestCase):
             pass
         os.link(victim_path, lock_path)
 
-        loaded = SettingsStore(self.data_dir)
+        with self.assertRaises(SettingsConflictError):
+            with settings_module._SettingsProcessLock(self.data_dir):
+                self.fail("hardlinked settings lock was accepted")
 
-        self.assertIsNone(loaded.last_load_error)
         with open(victim_path, "rb") as file_obj:
             self.assertEqual(file_obj.read(), b"")
 

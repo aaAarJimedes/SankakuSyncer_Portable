@@ -167,6 +167,7 @@ def _check_required_files(
         root / "SECURITY.md",
         root / "LICENSE",
         root / "App" / "main.py",
+        root / "App" / "bound_process_lock.py",
         root / "App" / "http_transport.py",
         root / "App" / "runtime_environment.py",
         root / "App" / "requirements.lock.txt",

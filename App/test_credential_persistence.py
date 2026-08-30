@@ -505,7 +505,7 @@ class CredentialPersistenceTests(unittest.TestCase):
         with persistence_module._CredentialProcessLock(self.data_dir):
             pass
 
-    def test_empty_hardlinked_process_lock_file_is_never_modified(self):
+    def test_hardlinked_process_lock_is_rejected_without_modifying_target(self):
         lock_path = os.path.join(self.data_dir, ".credential-transaction.lock")
         if os.path.lexists(lock_path):
             os.remove(lock_path)
@@ -516,8 +516,9 @@ class CredentialPersistenceTests(unittest.TestCase):
             pass
         os.link(victim_path, lock_path)
 
-        with persistence_module._CredentialProcessLock(self.data_dir):
-            pass
+        with self.assertRaises(CredentialPersistenceError):
+            with persistence_module._CredentialProcessLock(self.data_dir):
+                self.fail("hardlinked credential lock was accepted")
 
         with open(victim_path, "rb") as file_obj:
             self.assertEqual(file_obj.read(), b"")

@@ -103,6 +103,22 @@ jobs:
           "label=$label" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "stage=$stage" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
+      - name: Run offline regression suite from assembled portable tree
+        shell: pwsh
+        env:
+          SANKAKU_RELEASE_STAGE: ${{ steps.assemble.outputs.stage }}
+        run: |
+          Push-Location -LiteralPath $env:SANKAKU_RELEASE_STAGE
+          try {
+            & .\run_tests.bat
+            if ($LASTEXITCODE -ne 0) {
+              throw "staged offline regression suite failed"
+            }
+          }
+          finally {
+            Pop-Location
+          }
+
       - name: Run read-only release and production WebEngine gates
         shell: pwsh
         env:

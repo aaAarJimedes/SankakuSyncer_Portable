@@ -16,11 +16,12 @@ from tools import build_manifest, portable_self_check
 
 
 class PortableSelfCheckTests(unittest.TestCase):
-    def test_release_requires_the_packaged_deterministic_zip_tools(self):
+    def test_release_requires_packaged_security_boundary_modules(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             runtime = root / "Runtime"
             for relative in (
+                Path("App/bound_process_lock.py"),
                 Path("App/tools/build_deterministic_zip.py"),
                 Path("App/tools/bound_archive_tree.py"),
             ):
@@ -44,6 +45,32 @@ class PortableSelfCheckTests(unittest.TestCase):
                     )
 
                 self.assertEqual(failures, [f"missing: {relative.as_posix()}"])
+
+    def test_release_workflow_regresses_the_assembled_tree_before_manifest(self):
+        workflow = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "release.yml"
+        if not workflow.is_file():
+            self.skipTest("source release workflow is outside the portable tree")
+        text = workflow.read_text("utf-8")
+        assembled = text.index("- name: Assemble explicit portable tree")
+        regression = text.index(
+            "- name: Run offline regression suite from assembled portable tree"
+        )
+        release_gates = text.index(
+            "- name: Run read-only release and production WebEngine gates"
+        )
+        manifest = text.index(".\\App\\tools\\build_manifest.py --root .")
+        package = text.index(
+            "- name: Package, extract under Unicode path, and independently re-verify"
+        )
+
+        self.assertLess(assembled, regression)
+        self.assertLess(regression, release_gates)
+        self.assertLess(regression, manifest)
+        self.assertLess(manifest, package)
+        self.assertIn(
+            "& .\\run_tests.bat",
+            text[regression:release_gates],
+        )
 
     def test_gui_smoke_uses_the_shared_tab_contract(self):
         code = portable_self_check._GUI_SMOKE_CODE

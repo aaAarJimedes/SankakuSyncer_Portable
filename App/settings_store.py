@@ -12,6 +12,7 @@ import tempfile
 import threading
 from typing import Callable
 
+from bound_process_lock import BoundProcessLock, BoundProcessLockError
 from http_transport import normalize_proxy
 
 
@@ -115,47 +116,25 @@ class _SettingsProcessLock:
     """Short-lived cross-process lock around one settings transaction."""
 
     def __init__(self, data_dir: str) -> None:
-        self.path = os.path.join(os.path.abspath(data_dir), _SETTINGS_LOCK_NAME)
-        self._descriptor: int | None = None
+        self._lock = BoundProcessLock(data_dir, _SETTINGS_LOCK_NAME)
+        self.path = self._lock.path
 
     def __enter__(self) -> "_SettingsProcessLock":
-        descriptor = None
         try:
-            os.makedirs(os.path.dirname(self.path), exist_ok=True)
-            descriptor = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o600)
-            os.lseek(descriptor, 0, os.SEEK_SET)
-            if os.name == "nt":
-                import msvcrt
-
-                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except (OSError, ImportError) as exc:
-            if descriptor is not None:
-                try:
-                    os.close(descriptor)
-                except OSError:
-                    pass
+            self._lock.__enter__()
+        except BoundProcessLockError as exc:
             raise SettingsConflictError(
                 "设置正在被另一个程序更新，请稍后重试"
             ) from exc
-        self._descriptor = descriptor
         return self
 
     def __exit__(self, _exc_type, _exc, _traceback) -> None:
-        descriptor = self._descriptor
-        self._descriptor = None
-        if descriptor is None:
-            return
         try:
-            os.close(descriptor)
-        except OSError:
-            # Both Windows byte-range locks and POSIX flock locks are released
-            # by closing the descriptor.  A close error must not turn an
-            # already committed settings transaction into a reported failure.
-            pass
+            self._lock.__exit__(_exc_type, _exc, _traceback)
+        except BoundProcessLockError as exc:
+            raise SettingsConflictError(
+                "设置正在被另一个程序更新，请稍后重试"
+            ) from exc
 
 
 class SettingsStore:

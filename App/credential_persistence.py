@@ -15,6 +15,7 @@ import os
 import tempfile
 from typing import Callable
 
+from bound_process_lock import BoundProcessLock, BoundProcessLockError
 from credential_vault import (
     CredentialVault,
     StoredSession,
@@ -261,47 +262,25 @@ class _CredentialProcessLock:
     """Short-lived cross-process lock for one portable Data directory."""
 
     def __init__(self, data_dir: str) -> None:
-        self.path = os.path.join(os.path.abspath(data_dir), _LOCK_NAME)
-        self._descriptor: int | None = None
+        self._lock = BoundProcessLock(data_dir, _LOCK_NAME)
+        self.path = self._lock.path
 
     def __enter__(self) -> "_CredentialProcessLock":
-        descriptor = None
         try:
-            os.makedirs(os.path.dirname(self.path), exist_ok=True)
-            descriptor = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o600)
-            os.lseek(descriptor, 0, os.SEEK_SET)
-            if os.name == "nt":
-                import msvcrt
-
-                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except (OSError, ImportError) as exc:
-            if descriptor is not None:
-                try:
-                    os.close(descriptor)
-                except OSError:
-                    pass
+            self._lock.__enter__()
+        except BoundProcessLockError as exc:
             raise CredentialPersistenceError(
                 "credential state is being updated by another program instance"
             ) from exc
-        self._descriptor = descriptor
         return self
 
     def __exit__(self, _exc_type, _exc, _traceback) -> None:
-        descriptor = self._descriptor
-        self._descriptor = None
-        if descriptor is None:
-            return
         try:
-            os.close(descriptor)
-        except OSError:
-            # Closing releases both supported lock kinds.  A close error must
-            # not report a fully committed credential transition as failed or
-            # hide the transaction body's original exception.
-            pass
+            self._lock.__exit__(_exc_type, _exc, _traceback)
+        except BoundProcessLockError as exc:
+            raise CredentialPersistenceError(
+                "credential state is being updated by another program instance"
+            ) from exc
 
 
 class CredentialPersistence:

@@ -29,7 +29,7 @@ jobs:
       - name: Compile handle-bound release sources without cache files
         run: >-
           python -B -c "from pathlib import Path;
-          files=[Path('App/bound_file_reader.py'),Path('App/tools/bound_archive_tree.py'),Path('App/tools/build_deterministic_zip.py')];
+          files=[Path('App/bound_file_reader.py'),Path('App/bound_process_lock.py'),Path('App/tools/bound_archive_tree.py'),Path('App/tools/build_deterministic_zip.py')];
           [compile(path.read_text(encoding='utf-8-sig'), str(path), 'exec') for path in files];
           print(f'compiled={len(files)}')"
       - name: Run POSIX handle-bound boundary tests
@@ -37,6 +37,7 @@ jobs:
           python -B -m unittest -v
           App.test_bound_archive_tree
           App.test_bound_file_reader
+          App.test_bound_process_lock
           App.test_deterministic_zip
 
   windows-tests:

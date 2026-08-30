@@ -13,6 +13,7 @@ import tempfile
 import threading
 from typing import Callable, Iterable
 
+from bound_process_lock import BoundProcessLock, BoundProcessLockError
 from sankaku_url_policy import canonical_post_url, normalize_page_url, normalize_post_id
 
 
@@ -171,47 +172,25 @@ class _TaskStoreProcessLock:
     """Short-lived cross-process lock around one task-store transaction."""
 
     def __init__(self, data_dir: str) -> None:
-        self.path = os.path.join(os.path.abspath(data_dir), _TASK_LOCK_NAME)
-        self._descriptor: int | None = None
+        self._lock = BoundProcessLock(data_dir, _TASK_LOCK_NAME)
+        self.path = self._lock.path
 
     def __enter__(self) -> "_TaskStoreProcessLock":
-        descriptor = None
         try:
-            os.makedirs(os.path.dirname(self.path), exist_ok=True)
-            descriptor = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o600)
-            os.lseek(descriptor, 0, os.SEEK_SET)
-            if os.name == "nt":
-                import msvcrt
-
-                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
-            else:
-                import fcntl
-
-                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except (OSError, ImportError) as exc:
-            if descriptor is not None:
-                try:
-                    os.close(descriptor)
-                except OSError:
-                    pass
+            self._lock.__enter__()
+        except BoundProcessLockError as exc:
             raise TaskStoreConflictError(
                 "任务篮正在被另一个程序更新，请稍后重试"
             ) from exc
-        self._descriptor = descriptor
         return self
 
     def __exit__(self, _exc_type, _exc, _traceback) -> None:
-        descriptor = self._descriptor
-        self._descriptor = None
-        if descriptor is None:
-            return
         try:
-            os.close(descriptor)
-        except OSError:
-            # Closing releases both the Windows byte-range lock and POSIX
-            # flock.  A close error must not turn a committed task-store
-            # transaction into a reported failure.
-            pass
+            self._lock.__exit__(_exc_type, _exc, _traceback)
+        except BoundProcessLockError as exc:
+            raise TaskStoreConflictError(
+                "任务篮正在被另一个程序更新，请稍后重试"
+            ) from exc
 
 
 def _signature_for(data: bytes) -> tuple[int, str]:
@@ -495,6 +474,12 @@ class TaskStore:
                         signature,
                         recovery_performed,
                     ) = self._load_under_process_lock()
+            except TaskStoreConflictError as exc:
+                if recovery_performed:
+                    raise TaskStoreRecoveryError(
+                        "任务篮恢复事务锁失败（TaskStoreConflictError）"
+                    ) from exc
+                raise
             except OSError as exc:
                 if recovery_performed:
                     raise TaskStoreRecoveryError(

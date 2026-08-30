@@ -12,6 +12,7 @@ import threading
 import unittest
 from unittest import mock
 
+import bound_process_lock as lock_module
 import task_store as task_module
 from sankaku_url_policy import canonical_post_url
 from task_store import (
@@ -689,7 +690,7 @@ class TaskStoreTests(unittest.TestCase):
             [],
         )
 
-    def test_empty_hardlinked_lock_file_is_never_modified(self):
+    def test_hardlinked_process_lock_is_rejected_without_modifying_target(self):
         lock_path = os.path.join(self.data_dir, ".task-store.lock")
         os.remove(lock_path)
         victim_path = os.path.join(self.data_dir, "empty-task-lock-victim.bin")
@@ -697,9 +698,10 @@ class TaskStoreTests(unittest.TestCase):
             pass
         os.link(victim_path, lock_path)
 
-        loaded = TaskStore(self.data_dir)
+        with self.assertRaises(TaskStoreConflictError):
+            with task_module._TaskStoreProcessLock(self.data_dir):
+                self.fail("hardlinked task lock was accepted")
 
-        self.assertEqual(loaded.list(), self.store.list())
         with open(victim_path, "rb") as file_obj:
             self.assertEqual(file_obj.read(), b"")
 
@@ -841,6 +843,35 @@ class TaskStoreTests(unittest.TestCase):
         self.assertTrue(store.load())
         self.assertEqual(store.revision, 13)
         self.assertEqual(store.get("recovery_lock_exit").status, "pending")
+
+    def test_bound_lock_exit_validation_failure_retains_recovery_semantics(self):
+        store = TaskStore(self.data_dir)
+        self._write_json(
+            self._payload(
+                [_task_record("bound_recovery_exit", status="running")],
+                revision=20,
+            )
+        )
+        validator = (
+            "_win_validate_held" if os.name == "nt" else "_posix_validate_held"
+        )
+
+        with mock.patch.object(
+            lock_module,
+            validator,
+            side_effect=lock_module.BoundProcessLockError(
+                "process lock is unavailable"
+            ),
+        ):
+            with self.assertRaisesRegex(TaskStoreRecoveryError, "恢复事务锁失败"):
+                store.load()
+
+        self.assertEqual(store.list(), [])
+        self.assertEqual(store.revision, 0)
+        with open(store.path, "r", encoding="utf-8") as file_obj:
+            committed = json.load(file_obj)
+        self.assertEqual(committed["revision"], 21)
+        self.assertEqual(committed["tasks"][0]["status"], "pending")
 
     def test_load_retries_when_the_path_is_replaced_after_snapshot_read(self):
         old_payload = self._payload(
