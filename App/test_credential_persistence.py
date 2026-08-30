@@ -19,7 +19,7 @@ from credential_persistence import (
     JournalEntry,
 )
 from credential_vault import CredentialVault, StoredSession, VaultReceipt
-from settings_store import SettingsError, SettingsStore
+from settings_store import SettingsConflictError, SettingsError, SettingsStore
 
 
 _PREFIX = b"test-protected:"
@@ -168,6 +168,7 @@ class CredentialPersistenceTests(unittest.TestCase):
                 self.assertFalse(settings.get("remember_credentials"))
                 self.assertEqual(settings.get("credential_vault_receipt"), "")
                 if replace_vault:
+                    self.assertTrue(self.settings.load())
                     self.persistence.enable(
                         old, previous_remember=False, settings_write_allowed=True
                     )
@@ -229,6 +230,98 @@ class CredentialPersistenceTests(unittest.TestCase):
         self.assertNotEqual(recovered.session, old)
         self.assertEqual(vault.load(), new)
         self.assertTrue(settings.get("remember_credentials"))
+
+    def test_enable_conflict_preserves_external_settings_and_recovers_new_vault(self):
+        session = StoredSession("conflict-user", "conflict-token")
+        external = SettingsStore(self.data_dir)
+        external.set("page_size", 32)
+        external.save()
+
+        with self.assertRaises(SettingsConflictError):
+            self.persistence.enable(
+                session,
+                previous_remember=False,
+                settings_write_allowed=True,
+            )
+
+        entry = self.journal.load()
+        self.assertIsNotNone(entry)
+        self.assertEqual(entry.operation, "enable")
+        self.assertEqual(entry.phase, "vault_written")
+        self.assertIsNotNone(entry.vault_receipt)
+        self.assertEqual(self.vault.load_matching(entry.vault_receipt), session)
+        self.assertTrue(self.persistence.prevents_automatic_load_except(session))
+
+        on_disk = SettingsStore(self.data_dir)
+        self.assertEqual(on_disk.get("page_size"), 32)
+        self.assertFalse(on_disk.get("remember_credentials"))
+        self.assertEqual(on_disk.get("credential_vault_receipt"), "")
+
+        recovered_vault = CredentialVault(
+            self.data_dir,
+            protect=_protect,
+            unprotect=_unprotect,
+        )
+        recovered_persistence = self._make_persistence(on_disk, recovered_vault)
+        recovered = recovered_persistence.recover_and_load(
+            settings_write_allowed=True
+        )
+
+        self.assertTrue(recovered.resolved)
+        self.assertEqual(recovered.session, session)
+        self.assertTrue(recovered.remember_credentials)
+        self.assertEqual(on_disk.get("page_size"), 32)
+        self.assertTrue(on_disk.get("remember_credentials"))
+        self.assertEqual(
+            on_disk.get("credential_vault_receipt"),
+            entry.vault_receipt.sha256,
+        )
+        self.assertFalse(self.journal.exists())
+
+    def test_disable_conflict_preserves_external_settings_and_recovers_disabled(self):
+        session = StoredSession("conflict-user", "conflict-token")
+        self.persistence.enable(
+            session,
+            previous_remember=False,
+            settings_write_allowed=True,
+        )
+        original_receipt = self.settings.get("credential_vault_receipt")
+
+        external = SettingsStore(self.data_dir)
+        external.set("page_size", 32)
+        external.save()
+
+        with self.assertRaises(CredentialPersistenceError):
+            self.persistence.disable(settings_write_allowed=True)
+
+        self.assertFalse(self.vault.exists())
+        self.assertEqual(self.journal.load(), JournalEntry("disable", "pending"))
+        self.assertTrue(self.persistence.prevents_automatic_load_except(None))
+
+        on_disk = SettingsStore(self.data_dir)
+        self.assertEqual(on_disk.get("page_size"), 32)
+        self.assertTrue(on_disk.get("remember_credentials"))
+        self.assertEqual(
+            on_disk.get("credential_vault_receipt"), original_receipt
+        )
+
+        recovered_vault = CredentialVault(
+            self.data_dir,
+            protect=_protect,
+            unprotect=_unprotect,
+        )
+        recovered_persistence = self._make_persistence(on_disk, recovered_vault)
+        recovered = recovered_persistence.recover_and_load(
+            settings_write_allowed=True
+        )
+
+        self.assertTrue(recovered.resolved)
+        self.assertFalse(recovered.remember_credentials)
+        self.assertIsNone(recovered.session)
+        self.assertEqual(on_disk.get("page_size"), 32)
+        self.assertFalse(on_disk.get("remember_credentials"))
+        self.assertEqual(on_disk.get("credential_vault_receipt"), "")
+        self.assertFalse(self.journal.exists())
 
     def test_disable_failure_leaves_barrier_and_recovery_is_idempotent(self):
         session = StoredSession("unit-user", "unit-token")

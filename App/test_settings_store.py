@@ -13,10 +13,12 @@ from unittest import mock
 
 import settings_store as settings_module
 from settings_store import (
+    SettingsConflictError,
     SettingsCorruptError,
     SettingsError,
     SettingsReadError,
     SettingsStore,
+    SettingsWriteError,
 )
 
 
@@ -255,6 +257,42 @@ class SettingsStoreTests(unittest.TestCase):
                 self.assertIsInstance(
                     self.store.last_load_error, SettingsCorruptError
                 )
+                with self.assertRaisesRegex(SettingsWriteError, "尚未可靠载入"):
+                    self.store.save()
+
+    def test_corrupt_snapshot_can_be_quarantined_reloaded_and_replaced(self):
+        original = b"{broken settings"
+        with open(self.store.path, "wb") as file_obj:
+            file_obj.write(original)
+        self.assertFalse(self.store.load())
+        recovery_path = os.path.join(self.data_dir, "settings.corrupt.test.json")
+
+        self.store.quarantine_corrupt(recovery_path)
+
+        with open(recovery_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), original)
+        self.assertFalse(os.path.exists(self.store.path))
+        self.assertTrue(self.store.load())
+        self.store.set("page_size", 40)
+        self.store.save()
+        self.assertEqual(SettingsStore(self.data_dir).get("page_size"), 40)
+
+    def test_quarantine_refuses_to_move_a_replaced_valid_file(self):
+        with open(self.store.path, "wb") as file_obj:
+            file_obj.write(b"{broken settings")
+        self.assertFalse(self.store.load())
+        valid = {"schema_version": 1, "page_size": 40}
+        replacement = os.path.join(self.data_dir, "valid.tmp")
+        with open(replacement, "w", encoding="utf-8") as file_obj:
+            json.dump(valid, file_obj, ensure_ascii=False)
+        os.replace(replacement, self.store.path)
+        recovery_path = os.path.join(self.data_dir, "settings.corrupt.test.json")
+
+        with self.assertRaises(SettingsConflictError):
+            self.store.quarantine_corrupt(recovery_path)
+
+        self.assertFalse(os.path.exists(recovery_path))
+        self.assertEqual(SettingsStore(self.data_dir).get("page_size"), 40)
 
     def test_temporary_read_failure_is_distinct_and_preserves_the_file(self):
         self.store.set("download_dir", "Downloads/custom")
@@ -275,26 +313,306 @@ class SettingsStoreTests(unittest.TestCase):
         with open(self.store.path, "rb") as file_obj:
             self.assertEqual(file_obj.read(), before)
 
+        self.store.set("page_size", 40)
+        with self.assertRaisesRegex(SettingsWriteError, "尚未可靠载入"):
+            self.store.save()
+        with open(self.store.path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), before)
+
         self.assertTrue(self.store.load())
         self.assertIsNone(self.store.last_load_error)
         self.assertEqual(self.store.get("download_dir"), "Downloads/custom")
         self.assertTrue(self.store.get("remember_credentials"))
 
-    def test_oversize_file_is_rejected_without_reading_it(self):
+        self.store.set("page_size", 40)
+        self.store.save()
+        self.assertEqual(SettingsStore(self.data_dir).get("page_size"), 40)
+
+    def test_oversize_file_is_rejected_without_reading_its_body(self):
         with open(self.store.path, "wb") as file_obj:
             file_obj.write(b"{}")
-        with (
-            mock.patch.object(
-                settings_module.os,
-                "stat",
-                return_value=mock.Mock(st_size=1024 * 1024 + 1),
-            ),
-            mock.patch("builtins.open") as opened,
-        ):
+        real_open = open
+
+        class OversizedReader:
+            def __init__(self, reader):
+                self.reader = reader
+
+            def __enter__(self):
+                self.reader.__enter__()
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                return self.reader.__exit__(exc_type, exc, traceback)
+
+            def fileno(self):
+                return self.reader.fileno()
+
+            def read(self, _size=-1):
+                raise AssertionError("oversized settings body must not be read")
+
+        def oversized_open(path, *args, **kwargs):
+            return OversizedReader(real_open(path, *args, **kwargs))
+
+        oversized_stat = mock.Mock(
+            st_dev=1,
+            st_ino=2,
+            st_size=1024 * 1024 + 1,
+            st_mtime_ns=3,
+            st_ctime_ns=4,
+        )
+        with mock.patch("builtins.open", side_effect=oversized_open), mock.patch.object(
+            settings_module.os, "fstat", return_value=oversized_stat
+        ), mock.patch.object(
+            settings_module.os, "stat", return_value=oversized_stat
+        ), mock.patch.object(settings_module.os.path, "samestat", return_value=True):
             self.assertFalse(self.store.load())
-        opened.assert_not_called()
         self.assertEqual(self.store.values, SettingsStore.DEFAULTS)
         self.assertIsInstance(self.store.last_load_error, SettingsCorruptError)
+        with self.assertRaisesRegex(SettingsWriteError, "尚未可靠载入"):
+            self.store.save()
+
+    def test_oversize_file_is_never_automatically_quarantined(self):
+        limit = 1024 * 1024 + 1
+        with open(self.store.path, "wb") as file_obj:
+            file_obj.write(b"A" * limit)
+        self.assertFalse(self.store.load())
+        replacement = os.path.join(self.data_dir, "oversize-replacement.tmp")
+        with open(replacement, "wb") as file_obj:
+            file_obj.write(b"B" * limit)
+        os.replace(replacement, self.store.path)
+        recovery_path = os.path.join(self.data_dir, "settings.corrupt.test.json")
+
+        with self.assertRaisesRegex(SettingsWriteError, "没有可安全隔离"):
+            self.store.quarantine_corrupt(recovery_path)
+
+        self.assertFalse(os.path.exists(recovery_path))
+        with open(self.store.path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(1), b"B")
+            self.assertEqual(os.fstat(file_obj.fileno()).st_size, limit)
+
+    def test_stale_missing_baseline_cannot_overwrite_first_creator(self):
+        first = SettingsStore(self.data_dir)
+        stale = SettingsStore(self.data_dir)
+        first.set("page_size", 40)
+        first.save()
+
+        stale.set("page_size", 32)
+        with self.assertRaisesRegex(SettingsConflictError, "另一个程序"):
+            stale.save()
+
+        self.assertEqual(stale.get("page_size"), 32)
+        self.assertEqual(SettingsStore(self.data_dir).get("page_size"), 40)
+
+    def test_stale_existing_baseline_cannot_overwrite_newer_settings(self):
+        self.store.save()
+        first = SettingsStore(self.data_dir)
+        stale = SettingsStore(self.data_dir)
+        first.set("request_timeout", 45)
+        first.save()
+
+        stale.set("page_size", 32)
+        with self.assertRaisesRegex(SettingsConflictError, "另一个程序"):
+            stale.save()
+
+        on_disk = SettingsStore(self.data_dir)
+        self.assertEqual(on_disk.get("request_timeout"), 45)
+        self.assertEqual(on_disk.get("page_size"), 24)
+
+    def test_digest_detects_equal_size_change_with_restored_mtime(self):
+        self.store.save()
+        writer = SettingsStore(self.data_dir)
+        stale = SettingsStore(self.data_dir)
+        before_stat = os.stat(self.store.path)
+        with open(self.store.path, "rb") as file_obj:
+            before_bytes = file_obj.read()
+
+        writer.set("page_size", 40)
+        writer.save()
+        os.utime(
+            self.store.path,
+            ns=(before_stat.st_atime_ns, before_stat.st_mtime_ns),
+        )
+        after_stat = os.stat(self.store.path)
+        with open(self.store.path, "rb") as file_obj:
+            after_bytes = file_obj.read()
+        self.assertEqual(after_stat.st_size, before_stat.st_size)
+        self.assertEqual(after_stat.st_mtime_ns, before_stat.st_mtime_ns)
+        self.assertNotEqual(after_bytes, before_bytes)
+
+        stale.set("page_size", 32)
+        with self.assertRaises(SettingsConflictError):
+            stale.save()
+        self.assertEqual(SettingsStore(self.data_dir).get("page_size"), 40)
+
+    def test_external_file_deletion_is_a_signature_conflict(self):
+        self.store.save()
+        os.remove(self.store.path)
+        self.store.set("page_size", 40)
+
+        with self.assertRaises(SettingsConflictError):
+            self.store.save()
+
+        self.assertFalse(os.path.exists(self.store.path))
+        self.assertEqual(self.store.get("page_size"), 40)
+
+    def test_process_lock_closes_check_then_replace_window(self):
+        self.store.save()
+        writer = SettingsStore(self.data_dir)
+        competing = SettingsStore(self.data_dir)
+        real_atomic_write = writer._atomic_write
+        blocked = []
+
+        def interleaved_write(encoded, expected_signature):
+            competing.set("page_size", 32)
+            with self.assertRaises(SettingsConflictError):
+                competing.save()
+            blocked.append(True)
+            real_atomic_write(encoded, expected_signature)
+
+        with mock.patch.object(
+            writer, "_atomic_write", side_effect=interleaved_write
+        ):
+            writer.set("page_size", 40)
+            writer.save()
+
+        self.assertEqual(blocked, [True])
+        self.assertEqual(SettingsStore(self.data_dir).get("page_size"), 40)
+
+    def test_empty_hardlinked_lock_file_is_never_modified(self):
+        lock_path = os.path.join(self.data_dir, ".settings-store.lock")
+        os.remove(lock_path)
+        victim_path = os.path.join(self.data_dir, "empty-victim.bin")
+        with open(victim_path, "wb"):
+            pass
+        os.link(victim_path, lock_path)
+
+        loaded = SettingsStore(self.data_dir)
+
+        self.assertIsNone(loaded.last_load_error)
+        with open(victim_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), b"")
+
+    def test_lock_exit_failure_does_not_publish_a_committed_baseline(self):
+        fail_exit = False
+
+        class ExitFailLock:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, _exc_type, _exc, _traceback):
+                if fail_exit:
+                    raise OSError("simulated lock release failure")
+
+        store = SettingsStore(
+            self.data_dir,
+            lock_factory=lambda: ExitFailLock(),
+        )
+        store.set("page_size", 40)
+        fail_exit = True
+
+        with self.assertRaisesRegex(SettingsWriteError, "事务锁失败"):
+            store.save()
+
+        self.assertEqual(SettingsStore(self.data_dir).get("page_size"), 40)
+        fail_exit = False
+        with self.assertRaises(SettingsConflictError):
+            store.save()
+
+    def test_quarantine_lock_exit_failure_keeps_unknown_baseline(self):
+        fail_exit = False
+
+        class ExitFailLock:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, _exc_type, _exc, _traceback):
+                if fail_exit:
+                    raise OSError("simulated lock release failure")
+
+        with open(self.store.path, "wb") as file_obj:
+            file_obj.write(b"{broken settings")
+        store = SettingsStore(
+            self.data_dir,
+            lock_factory=lambda: ExitFailLock(),
+        )
+        self.assertIsInstance(store.last_load_error, SettingsCorruptError)
+        recovery_path = os.path.join(self.data_dir, "settings.corrupt.test.json")
+        fail_exit = True
+
+        with self.assertRaisesRegex(SettingsWriteError, "事务锁失败"):
+            store.quarantine_corrupt(recovery_path)
+
+        self.assertFalse(os.path.exists(store.path))
+        self.assertTrue(os.path.isfile(recovery_path))
+        with self.assertRaisesRegex(SettingsWriteError, "尚未可靠载入"):
+            store.save()
+
+    def test_load_retries_when_path_is_replaced_after_snapshot_read(self):
+        old_payload = {"schema_version": 1, "page_size": 24}
+        new_payload = {"schema_version": 1, "page_size": 40}
+        self._write_json(old_payload)
+        replacement_path = os.path.join(self.data_dir, "replacement.tmp")
+        with open(replacement_path, "w", encoding="utf-8") as file_obj:
+            json.dump(new_payload, file_obj, ensure_ascii=False)
+
+        real_open = open
+        store_path = self.store.path
+        replaced = False
+
+        class ReplacingReader:
+            def __init__(self, reader):
+                self.reader = reader
+
+            def __enter__(self):
+                self.reader.__enter__()
+                return self
+
+            def __exit__(self, exc_type, exc, traceback):
+                nonlocal replaced
+                result = self.reader.__exit__(exc_type, exc, traceback)
+                if not replaced:
+                    os.replace(replacement_path, store_path)
+                    replaced = True
+                return result
+
+            def fileno(self):
+                return self.reader.fileno()
+
+            def read(self, size=-1):
+                return self.reader.read(size)
+
+        def replace_after_first_read(path, *args, **kwargs):
+            mode = args[0] if args else kwargs.get("mode", "r")
+            reader = real_open(path, *args, **kwargs)
+            if (
+                not replaced
+                and os.path.abspath(os.fspath(path))
+                == os.path.abspath(store_path)
+                and mode == "rb"
+            ):
+                return ReplacingReader(reader)
+            return reader
+
+        with mock.patch("builtins.open", side_effect=replace_after_first_read):
+            self.assertTrue(self.store.load())
+
+        self.assertTrue(replaced)
+        self.assertEqual(self.store.get("page_size"), 40)
+        self.store.set("page_size", 32)
+        self.store.save()
+        self.assertEqual(SettingsStore(self.data_dir).get("page_size"), 32)
+
+    def test_continuously_changing_snapshot_leaves_unknown_baseline(self):
+        self.store.save()
+        with mock.patch.object(
+            settings_module.os.path, "samestat", return_value=False
+        ):
+            self.assertFalse(self.store.load())
+
+        self.assertIsInstance(self.store.last_load_error, SettingsReadError)
+        self.store.set("page_size", 40)
+        with self.assertRaisesRegex(SettingsWriteError, "尚未可靠载入"):
+            self.store.save()
 
     def test_save_revalidates_directly_mutated_values(self):
         self.store.save()

@@ -2841,6 +2841,8 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 self._close(recovered)
 
     def test_corrupt_settings_are_backed_up_before_defaults_can_be_saved(self):
+        from settings_store import SettingsStore
+
         with tempfile.TemporaryDirectory() as root:
             data_dir = os.path.join(root, "Data")
             os.makedirs(data_dir)
@@ -2859,10 +2861,83 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 self.assertEqual(len(backups), 1)
                 with open(os.path.join(data_dir, backups[0]), "rb") as file_obj:
                     self.assertEqual(file_obj.read(), original)
-                self.assertFalse(os.path.exists(settings_path))
+                self.assertTrue(window._settings_state_available)
+                self.assertTrue(window._settings_save_allowed)
+                self.assertTrue(os.path.isfile(settings_path))
+                self.assertEqual(window.settings.get("download_dir"), "Downloads")
+
+                window.settings.set("request_delay", 4.5)
+                window.settings.save()
+                recovered = SettingsStore(data_dir)
+                self.assertIsNone(recovered.last_load_error)
+                self.assertEqual(recovered.get("request_delay"), 4.5)
             finally:
                 self._close(window)
             self.assertTrue(os.path.isfile(settings_path))
+
+    def test_oversize_settings_remain_in_place_and_window_is_read_only(self):
+        with tempfile.TemporaryDirectory() as root:
+            data_dir = os.path.join(root, "Data")
+            os.makedirs(data_dir)
+            settings_path = os.path.join(data_dir, "settings.json")
+            original = b"X" * (1024 * 1024 + 1)
+            with open(settings_path, "wb") as file_obj:
+                file_obj.write(original)
+
+            window = self.MainWindow(root)
+            try:
+                backups = [
+                    name
+                    for name in os.listdir(data_dir)
+                    if name.startswith("settings.corrupt.")
+                ]
+                self.assertEqual(backups, [])
+                self.assertFalse(window._settings_state_available)
+                self.assertFalse(window._settings_save_allowed)
+                self.assertFalse(window.login_button.isEnabled())
+                self.assertFalse(window.save_settings_button.isEnabled())
+                with open(settings_path, "rb") as file_obj:
+                    self.assertEqual(file_obj.read(), original)
+            finally:
+                self._close(window)
+
+    def test_close_warns_on_external_settings_conflict_without_overwriting(self):
+        from settings_store import SettingsStore
+
+        class FakeEvent:
+            def __init__(self):
+                self.accepted = False
+                self.ignored = False
+
+            def accept(self):
+                self.accepted = True
+
+            def ignore(self):
+                self.ignored = True
+
+        with tempfile.TemporaryDirectory() as root:
+            window = self.MainWindow(root)
+            event = FakeEvent()
+            settings_path = window.settings.path
+            external = SettingsStore(window.data_dir)
+            external.set("request_delay", 7.25)
+            external.save()
+            with open(settings_path, "rb") as file_obj:
+                external_payload = file_obj.read()
+            try:
+                with mock.patch("ui_main_window.QMessageBox.warning") as warning:
+                    window.closeEvent(event)
+
+                self.assertTrue(event.accepted)
+                self.assertFalse(event.ignored)
+                warning.assert_called_once()
+                self.assertEqual(warning.call_args.args[1], "窗口状态未保存")
+                self.assertIn("外部文件保持不变", warning.call_args.args[2])
+                with open(settings_path, "rb") as file_obj:
+                    self.assertEqual(file_obj.read(), external_payload)
+            finally:
+                window._settings_save_allowed = False
+                self._close(window)
 
     def test_close_is_refused_while_thumbnail_pool_is_still_running(self):
         class FakePool:

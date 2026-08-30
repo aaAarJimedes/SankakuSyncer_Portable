@@ -76,6 +76,7 @@ from sankaku_url_policy import (
     tag_search_url,
 )
 from settings_store import (
+    SettingsConflictError,
     SettingsCorruptError,
     SettingsError,
     SettingsReadError,
@@ -394,8 +395,8 @@ class MainWindow(QMainWindow):
                 self.data_dir, f"settings.corrupt.{stamp}.json"
             )
             try:
-                os.replace(self.settings.path, recovery_path)
-            except OSError as exc:
+                self.settings.quarantine_corrupt(recovery_path)
+            except SettingsError as exc:
                 self._settings_save_allowed = False
                 self._settings_state_available = False
                 self._startup_messages.append(
@@ -403,15 +404,29 @@ class MainWindow(QMainWindow):
                     f"（{type(exc).__name__}）。"
                 )
             else:
-                self._settings_state_available = True
                 self._startup_messages.append(
-                    f"损坏的设置已原样保留为 {os.path.basename(recovery_path)}。"
+                    "损坏的设置已在内容摘要复核后隔离为 "
+                    f"{os.path.basename(recovery_path)}。"
                 )
+                if self.settings.load():
+                    self._settings_state_available = True
+                else:
+                    self._settings_save_allowed = False
+                    self._settings_state_available = False
+                    self._startup_messages.append(
+                        "备份后仍无法建立可靠设置基线；本次不会保存设置或更改本机凭据。"
+                    )
         if not self.settings.get("download_dir"):
             self.settings.set("download_dir", "Downloads")
             if not self.settings.last_error:
                 try:
                     self.settings.save()
+                except SettingsConflictError:
+                    self._settings_save_allowed = False
+                    self._settings_state_available = False
+                    self._startup_messages.append(
+                        "设置已被外部程序更新；本次保持只读，请重新启动后再试。"
+                    )
                 except SettingsError:
                     pass
         self.vault = CredentialVault(self.data_dir)
@@ -2809,6 +2824,12 @@ class MainWindow(QMainWindow):
                 geometry = bytes(self.saveGeometry().toBase64()).decode("ascii")
                 self.settings.set("window_geometry", geometry)
                 self.settings.save()
+            except SettingsConflictError:
+                QMessageBox.warning(
+                    self,
+                    "窗口状态未保存",
+                    "设置已被外部程序更新；外部文件保持不变，请重新启动后再修改设置。",
+                )
             except (SettingsError, UnicodeDecodeError):
                 pass
         event.accept()

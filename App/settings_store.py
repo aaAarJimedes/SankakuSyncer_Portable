@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import ntpath
 import os
 import tempfile
+import threading
+from typing import Callable
 
 from http_transport import normalize_proxy
 
@@ -28,6 +31,10 @@ class SettingsWriteError(SettingsError):
     """A validated settings update could not be committed."""
 
 
+class SettingsConflictError(SettingsWriteError):
+    """The settings baseline changed before a validated update could commit."""
+
+
 _WINDOWS_RESERVED_BASENAMES = frozenset(
     {"CON", "PRN", "AUX", "NUL"}
     | {f"COM{index}" for index in range(1, 10)}
@@ -38,6 +45,8 @@ _WINDOWS_RESERVED_BASENAMES = frozenset(
 _WINDOWS_INVALID_COMPONENT_CHARS = frozenset('<>:"|?*')
 _WINDOWS_DEVICE_PREFIXES = ("\\\\?\\", "\\\\.\\", "\\??\\", "\\\\??\\")
 _MAX_SETTINGS_BYTES = 1024 * 1024
+_SETTINGS_LOCK_NAME = ".settings-store.lock"
+_UNKNOWN_BASELINE = object()
 
 
 def normalize_download_directory(value: object) -> str:
@@ -102,6 +111,50 @@ def _validate_windows_components(path: str, drive: str) -> None:
             raise SettingsError("invalid download directory")
 
 
+class _SettingsProcessLock:
+    """Short-lived cross-process lock around one settings transaction."""
+
+    def __init__(self, data_dir: str) -> None:
+        self.path = os.path.join(os.path.abspath(data_dir), _SETTINGS_LOCK_NAME)
+        self._descriptor: int | None = None
+
+    def __enter__(self) -> "_SettingsProcessLock":
+        descriptor = None
+        try:
+            os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            descriptor = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o600)
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (OSError, ImportError) as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            raise SettingsConflictError(
+                "设置正在被另一个程序更新，请稍后重试"
+            ) from exc
+        self._descriptor = descriptor
+        return self
+
+    def __exit__(self, _exc_type, _exc, _traceback) -> None:
+        descriptor = self._descriptor
+        self._descriptor = None
+        if descriptor is None:
+            return
+        try:
+            os.close(descriptor)
+        except OSError:
+            # Both Windows byte-range locks and POSIX flock locks are released
+            # by closing the descriptor.  A close error must not turn an
+            # already committed settings transaction into a reported failure.
+            pass
+
+
 class SettingsStore:
     SCHEMA_VERSION = 1
     DEFAULTS = {
@@ -119,102 +172,198 @@ class SettingsStore:
         "window_geometry": "",
     }
 
-    def __init__(self, data_dir: str) -> None:
+    def __init__(
+        self,
+        data_dir: str,
+        *,
+        lock_factory: Callable[[], object] | None = None,
+    ) -> None:
         self.data_dir = os.path.abspath(data_dir)
         self.path = os.path.join(self.data_dir, "settings.json")
+        self._lock = threading.RLock()
+        self._signature: tuple[int, str] | None | object = _UNKNOWN_BASELINE
+        self._corrupt_signature: tuple[int, str] | None = None
+        self._process_lock_factory = lock_factory or (
+            lambda: _SettingsProcessLock(self.data_dir)
+        )
         self.values = copy.deepcopy(self.DEFAULTS)
         self.last_error = ""
         self.last_load_error: SettingsError | None = None
         self.load()
 
     def get(self, key: str, default=None):
-        if key not in self.DEFAULTS:
-            return default
-        return self.values.get(key, self.DEFAULTS[key])
+        with self._lock:
+            if key not in self.DEFAULTS:
+                return default
+            return self.values.get(key, self.DEFAULTS[key])
 
     def set(self, key: str, value) -> None:
-        if key not in self.DEFAULTS:
-            raise SettingsError("unknown setting")
-        self.values[key] = self._normalize(key, value)
-
-    def update(self, mapping: dict) -> None:
-        candidate = copy.deepcopy(self.values)
-        for key, value in mapping.items():
+        with self._lock:
             if key not in self.DEFAULTS:
                 raise SettingsError("unknown setting")
-            candidate[key] = self._normalize(key, value)
-        self.values = candidate
+            self.values[key] = self._normalize(key, value)
+
+    def update(self, mapping: dict) -> None:
+        with self._lock:
+            candidate = copy.deepcopy(self.values)
+            for key, value in mapping.items():
+                if key not in self.DEFAULTS:
+                    raise SettingsError("unknown setting")
+                candidate[key] = self._normalize(key, value)
+            self.values = candidate
 
     def load(self) -> bool:
-        self.values = copy.deepcopy(self.DEFAULTS)
-        self.last_error = ""
-        self.last_load_error = None
-        try:
-            file_stat = os.stat(self.path)
-        except FileNotFoundError:
-            return True
-        except OSError as exc:
-            failure = SettingsReadError(
-                f"设置文件暂时无法读取（{type(exc).__name__}）"
-            )
-            self.last_load_error = failure
-            self.last_error = str(failure)
-            return False
-        try:
-            if file_stat.st_size > _MAX_SETTINGS_BYTES:
-                raise SettingsCorruptError("settings file is too large")
-            with open(self.path, "rb") as file_obj:
-                encoded = file_obj.read(_MAX_SETTINGS_BYTES + 1)
-            if len(encoded) > _MAX_SETTINGS_BYTES:
-                raise SettingsCorruptError("settings file is too large")
-            saved = json.loads(encoded.decode("utf-8"))
-            if (
-                not isinstance(saved, dict)
-                or type(saved.get("schema_version")) is not int
-                or saved.get("schema_version") != self.SCHEMA_VERSION
-            ):
-                raise SettingsCorruptError("unsupported settings schema")
-            unknown = set(saved) - {"schema_version", *self.DEFAULTS}
-            if unknown:
-                raise SettingsCorruptError("settings contain unknown fields")
-            normalized = copy.deepcopy(self.DEFAULTS)
-            for key in self.DEFAULTS:
-                if key in saved:
-                    normalized[key] = self._normalize(key, saved[key])
-            self.values = normalized
-            return True
-        except OSError as exc:
-            failure = SettingsReadError(
-                f"设置文件暂时无法读取（{type(exc).__name__}）"
-            )
-            self.last_load_error = failure
-            self.last_error = str(failure)
-            return False
-        except (
-            UnicodeDecodeError,
-            json.JSONDecodeError,
-            SettingsError,
-            OverflowError,
-            TypeError,
-            ValueError,
-            RecursionError,
-        ) as exc:
-            failure = SettingsCorruptError(
-                f"设置内容损坏，已使用默认值（{type(exc).__name__}）"
-            )
+        with self._lock:
+            self.values = copy.deepcopy(self.DEFAULTS)
+            self.last_error = ""
+            self.last_load_error = None
+            self._signature = _UNKNOWN_BASELINE
+            self._corrupt_signature = None
+            failed_signature: tuple[int, str] | None = None
+            try:
+                with self._process_lock_factory():
+                    snapshot = self._read_file_snapshot()
+                    if snapshot is None:
+                        normalized = copy.deepcopy(self.DEFAULTS)
+                        signature: tuple[int, str] | None = None
+                    else:
+                        encoded, signature, oversized = snapshot
+                        if oversized:
+                            raise SettingsCorruptError(
+                                "settings file is too large"
+                            )
+                        failed_signature = signature
+                        saved = json.loads(encoded.decode("utf-8"))
+                        if (
+                            not isinstance(saved, dict)
+                            or type(saved.get("schema_version")) is not int
+                            or saved.get("schema_version") != self.SCHEMA_VERSION
+                        ):
+                            raise SettingsCorruptError(
+                                "unsupported settings schema"
+                            )
+                        unknown = set(saved) - {
+                            "schema_version",
+                            *self.DEFAULTS,
+                        }
+                        if unknown:
+                            raise SettingsCorruptError(
+                                "settings contain unknown fields"
+                            )
+                        normalized = copy.deepcopy(self.DEFAULTS)
+                        for key in self.DEFAULTS:
+                            if key in saved:
+                                normalized[key] = self._normalize(
+                                    key, saved[key]
+                                )
+            except SettingsConflictError as exc:
+                failure = SettingsReadError(
+                    "设置文件正在被另一个程序更新，请稍后重试"
+                )
+                failure.__cause__ = exc
+            except SettingsReadError as exc:
+                failure = exc
+            except OSError as exc:
+                failure = SettingsReadError(
+                    f"设置文件暂时无法读取（{type(exc).__name__}）"
+                )
+                failure.__cause__ = exc
+            except (
+                UnicodeDecodeError,
+                json.JSONDecodeError,
+                SettingsError,
+                OverflowError,
+                TypeError,
+                ValueError,
+                RecursionError,
+            ) as exc:
+                failure = SettingsCorruptError(
+                    f"设置内容损坏，已使用默认值（{type(exc).__name__}）"
+                )
+                failure.__cause__ = exc
+                self._corrupt_signature = failed_signature
+            else:
+                self.values = normalized
+                self._signature = signature
+                return True
             self.last_load_error = failure
             self.last_error = str(failure)
             return False
 
     def save(self) -> None:
-        normalized = {
-            key: self._normalize(key, self.values.get(key, default))
-            for key, default in self.DEFAULTS.items()
-        }
-        payload = {"schema_version": self.SCHEMA_VERSION, **normalized}
-        encoded = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
-        self._atomic_write(encoded)
-        self.values = normalized
+        with self._lock:
+            normalized = {
+                key: self._normalize(key, self.values.get(key, default))
+                for key, default in self.DEFAULTS.items()
+            }
+            payload = {"schema_version": self.SCHEMA_VERSION, **normalized}
+            try:
+                encoded = json.dumps(
+                    payload, ensure_ascii=False, indent=2
+                ).encode("utf-8")
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise SettingsWriteError(
+                    f"设置序列化失败（{type(exc).__name__}）"
+                ) from exc
+            if len(encoded) > _MAX_SETTINGS_BYTES:
+                raise SettingsWriteError("设置超过 1 MiB 安全上限")
+            if self._signature is _UNKNOWN_BASELINE:
+                raise SettingsWriteError(
+                    "设置文件尚未可靠载入，不能安全覆盖"
+                )
+            try:
+                with self._process_lock_factory():
+                    if self._signature != self._file_signature():
+                        raise SettingsConflictError(
+                            "设置已被另一个程序修改，请重新启动后再试"
+                        )
+                    expected_signature = self._signature
+                    self._atomic_write(encoded, expected_signature)
+                    signature = self._verified_committed_signature(encoded)
+            except OSError as exc:
+                raise SettingsWriteError(
+                    f"设置事务锁失败（{type(exc).__name__}）"
+                ) from exc
+            self.values = normalized
+            self._signature = signature
+
+    def quarantine_corrupt(self, recovery_path: str) -> None:
+        """Move a fully hashed corrupt snapshot aside under the settings lock."""
+
+        destination = os.path.abspath(os.fspath(recovery_path))
+        with self._lock:
+            expected = self._corrupt_signature
+            if (
+                not isinstance(self.last_load_error, SettingsCorruptError)
+                or expected is None
+                or self._signature is not _UNKNOWN_BASELINE
+            ):
+                raise SettingsWriteError("没有可安全隔离的损坏设置快照")
+            if (
+                os.path.dirname(destination) != self.data_dir
+                or destination == self.path
+                or os.path.lexists(destination)
+            ):
+                raise SettingsWriteError("损坏设置备份路径无效")
+            try:
+                with self._process_lock_factory():
+                    if os.path.lexists(destination):
+                        raise SettingsWriteError("损坏设置备份路径已被占用")
+                    if self._file_signature() != expected:
+                        raise SettingsConflictError(
+                            "设置文件已在隔离前发生变化，请重新启动后再试"
+                        )
+                    try:
+                        os.replace(self.path, destination)
+                    except OSError as exc:
+                        raise SettingsWriteError(
+                            f"损坏设置备份失败（{type(exc).__name__}）"
+                        ) from exc
+            except OSError as exc:
+                raise SettingsWriteError(
+                    f"设置事务锁失败（{type(exc).__name__}）"
+                ) from exc
+            self._corrupt_signature = None
 
     @classmethod
     def _normalize(cls, key: str, value):
@@ -265,7 +414,11 @@ class SettingsStore:
             return value
         raise SettingsError("unknown setting")
 
-    def _atomic_write(self, data: bytes) -> None:
+    def _atomic_write(
+        self,
+        data: bytes,
+        expected_signature: tuple[int, str] | None,
+    ) -> None:
         temp_path = None
         try:
             os.makedirs(self.data_dir, exist_ok=True)
@@ -276,6 +429,10 @@ class SettingsStore:
                 file_obj.write(data)
                 file_obj.flush()
                 os.fsync(file_obj.fileno())
+            if self._file_signature() != expected_signature:
+                raise SettingsConflictError(
+                    "设置在保存期间被另一个程序修改"
+                )
             os.replace(temp_path, self.path)
             temp_path = None
         except OSError as exc:
@@ -289,8 +446,74 @@ class SettingsStore:
                 except OSError:
                     pass
 
+    @staticmethod
+    def _signature_for(data: bytes) -> tuple[int, str]:
+        return len(data), hashlib.sha256(data).hexdigest()
+
+    @staticmethod
+    def _stat_identity(file_stat: os.stat_result) -> tuple[int, int, int, int, int]:
+        return (
+            file_stat.st_dev,
+            file_stat.st_ino,
+            file_stat.st_size,
+            getattr(file_stat, "st_mtime_ns", 0),
+            getattr(file_stat, "st_ctime_ns", 0),
+        )
+
+    def _read_file_snapshot(
+        self,
+    ) -> tuple[bytes, tuple[int, str], bool] | None:
+        for _attempt in range(3):
+            try:
+                with open(self.path, "rb") as file_obj:
+                    before = os.fstat(file_obj.fileno())
+                    encoded = (
+                        b""
+                        if before.st_size > _MAX_SETTINGS_BYTES
+                        else file_obj.read(_MAX_SETTINGS_BYTES + 1)
+                    )
+                    after = os.fstat(file_obj.fileno())
+                current = os.stat(self.path)
+            except FileNotFoundError:
+                if os.path.lexists(self.path):
+                    raise SettingsReadError("设置文件路径无法安全读取")
+                return None
+            except OSError as exc:
+                raise SettingsReadError(
+                    f"设置文件暂时无法读取（{type(exc).__name__}）"
+                ) from exc
+            if (
+                self._stat_identity(before) != self._stat_identity(after)
+                or not os.path.samestat(after, current)
+                or after.st_size != current.st_size
+                or getattr(after, "st_mtime_ns", 0)
+                != getattr(current, "st_mtime_ns", 0)
+            ):
+                continue
+            oversized = (
+                after.st_size > _MAX_SETTINGS_BYTES
+                or len(encoded) > _MAX_SETTINGS_BYTES
+            )
+            if oversized:
+                return b"", (after.st_size, "oversized"), True
+            if len(encoded) != after.st_size:
+                continue
+            return encoded, self._signature_for(encoded), False
+        raise SettingsReadError("设置文件在读取期间持续发生变化")
+
+    def _file_signature(self) -> tuple[int, str] | None:
+        snapshot = self._read_file_snapshot()
+        return None if snapshot is None else snapshot[1]
+
+    def _verified_committed_signature(self, encoded: bytes) -> tuple[int, str]:
+        expected = self._signature_for(encoded)
+        if self._file_signature() != expected:
+            raise SettingsConflictError("设置在保存后被另一个程序修改")
+        return expected
+
 
 __all__ = [
+    "SettingsConflictError",
     "SettingsCorruptError",
     "SettingsError",
     "SettingsReadError",
