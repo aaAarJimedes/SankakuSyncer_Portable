@@ -16,6 +16,35 @@ from tools import build_manifest, portable_self_check
 
 
 class PortableSelfCheckTests(unittest.TestCase):
+    def test_release_requires_the_packaged_deterministic_zip_tools(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "Runtime"
+            for relative in (
+                Path("App/tools/build_deterministic_zip.py"),
+                Path("App/tools/bound_archive_tree.py"),
+            ):
+                missing = root / relative
+
+                def is_file(candidate: Path, *, target: Path = missing) -> bool:
+                    return candidate != target
+
+                failures: list[str] = []
+                with self.subTest(relative=relative.as_posix()), mock.patch.object(
+                    Path,
+                    "is_file",
+                    autospec=True,
+                    side_effect=is_file,
+                ):
+                    portable_self_check._check_required_files(
+                        root,
+                        runtime,
+                        release=True,
+                        failures=failures,
+                    )
+
+                self.assertEqual(failures, [f"missing: {relative.as_posix()}"])
+
     def test_gui_smoke_uses_the_shared_tab_contract(self):
         code = portable_self_check._GUI_SMOKE_CODE
         self.assertIn("ui_main_window.MAIN_TAB_TITLES", code)
@@ -215,9 +244,13 @@ class PortableSelfCheckTests(unittest.TestCase):
 
     def test_tool_help_entrypoints_work_with_isolated_embedded_python(self):
         tools = Path(portable_self_check.__file__).resolve().parent
-        for name in ("portable_self_check.py", "assemble_portable.py"):
+        for name in (
+            "portable_self_check.py",
+            "assemble_portable.py",
+            "build_deterministic_zip.py",
+        ):
             result = subprocess.run(
-                [sys.executable, "-B", str(tools / name), "--help"],
+                [sys.executable, "-I", "-B", str(tools / name), "--help"],
                 cwd=Path(tempfile.gettempdir()),
                 capture_output=True,
                 text=True,

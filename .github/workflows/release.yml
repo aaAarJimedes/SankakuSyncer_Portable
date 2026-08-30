@@ -141,7 +141,9 @@ jobs:
           $label = $env:SANKAKU_RELEASE_LABEL
           $stage = $env:SANKAKU_RELEASE_STAGE
           $zip = Join-Path $PWD ".release-build/SankakuSyncer_Portable-$label.zip"
-          python -B App/tools/build_deterministic_zip.py --source $stage --output $zip
+          $stagePython = Join-Path $stage "Runtime/python.exe"
+          $stageBuilder = Join-Path $stage "App/tools/build_deterministic_zip.py"
+          & $stagePython -B $stageBuilder --source $stage --output $zip
           if ($LASTEXITCODE -ne 0) { throw "deterministic ZIP creation failed" }
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $smoke = Join-Path $PWD ".release-build/搬移 复验/SankakuSyncer Portable"

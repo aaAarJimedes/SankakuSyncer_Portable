@@ -124,7 +124,9 @@ Runtime\python.exe -B App\tools\probe_webengine_codecs.py --require-no-patented-
 ```bat
 Runtime\python.exe -B -s App\tools\build_manifest.py --root "."
 Runtime\python.exe -B -s App\tools\build_manifest.py --root "." --check
-Runtime\python.exe -B -s App\tools\build_deterministic_zip.py --source "." --output "..\SankakuSyncer_Portable-v0.1.17.zip"
+Runtime\python.exe -B -s App\tools\build_deterministic_zip.py --source "." --output "..\SankakuSyncer_Portable-v0.1.18.zip"
 ```
 
-`SHA256SUMS.txt` 覆盖除私有目录和清单自身外的发行树。确定性 ZIP 工具按规范化 UTF-8 路径排序、写入固定 DOS 时间与权限属性、拒绝链接和树内输出；它还要求规范命名的 `Data/`、`Downloads/` 必须存在、为普通空目录，只写两个空目录项且从不遍历其内容，并在发布临时 ZIP 前复查。相同发行树的重复构建必须逐字节一致。最终 ZIP 还需另算 SHA-256，并按发布策略签名。把 ZIP 解压到含空格和非 ASCII 字符的一次性目录，再次运行清单检查和发布门禁，并人工检查启动、搜索、浏览、下载和取消。烟测产生的用户数据不能回灌正式发行目录。
+`SHA256SUMS.txt` 覆盖除私有目录和清单自身外的发行树。确定性 ZIP 工具按规范化 UTF-8 路径排序、写入固定 DOS 时间与权限属性，并在整个构建期间保留源码根句柄；Windows 从目录 HANDLE 枚举并逐层根相对打开，POSIX 使用目录 fd 与 `openat`/`O_NOFOLLOW`。文件会先建立 SHA-256 快照，写入时再次核对完整祖先链和摘要；链接、重解析点、多链接普通文件、跨卷节点、大小写冲突、超过 100,000 个项目/128 层/单文件 50 GiB/总计 100 GiB 的输入及构建期间结构变化都会失败关闭。
+
+规范命名的 `Data/`、`Downloads/` 必须存在、为普通空目录，只写两个空目录项且从不遍历其内容，并在 ZIP 验证后从绑定根再次复查。Windows 临时 ZIP 从原生 `CREATE_NEW` 起拒绝共享写，完成 `fsync` 后用 `DuplicateHandle` 把写描述符降权为只读且继续拒绝共享写；POSIX 在每次流式摘要前后核对 `st_ctime_ns`。成员/CRC 验证和发布前 SHA-256 复核都绑定该文件对象，输出目录必须支持同目录硬链接；发布只接受 no-clobber 硬链接，随后绑定正式输出描述符并从它复核身份、变更令牌与摘要，返回前再次确认输出名称仍指向该描述符，不再降级为 `rename`。输出目录必须由构建用户独占写入。为避免按路径清理误删并发替换文件，构建器有意保留 `.<输出名>.*.tmp`：成功时它只是正式 ZIP 的第二个硬链接，失败时可能占用额外空间，只能在确认没有构建运行时人工清理。相同发行树的重复构建必须逐字节一致。最终 ZIP 还需另算 SHA-256，并按发布策略签名。把 ZIP 解压到含空格和非 ASCII 字符的一次性目录，再次运行清单检查和发布门禁，并人工检查启动、搜索、浏览、下载和取消。烟测产生的用户数据不能回灌正式发行目录。

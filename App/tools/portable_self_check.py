@@ -184,6 +184,8 @@ def _check_required_files(
                 root / "VEX.openvex.json",
                 root / "THIRD_PARTY_LICENSES" / "SOURCES.json",
                 root / "App" / "tools" / "collect_third_party_licenses.py",
+                root / "App" / "tools" / "build_deterministic_zip.py",
+                root / "App" / "tools" / "bound_archive_tree.py",
                 root / "App" / "tools" / "runtime_compliance.py",
                 root / "App" / "tools" / "probe_webengine_codecs.py",
                 root / "App" / "runtime_artifacts.lock.json",

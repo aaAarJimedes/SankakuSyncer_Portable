@@ -4,12 +4,35 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 from pathlib import Path
+import secrets
 import stat
+import sys
 import tempfile
 from typing import Iterable
 import zipfile
+
+if __package__:
+    from .bound_archive_tree import (
+        BoundTreeError,
+        BoundTreeSession,
+        TreeSnapshot,
+        descriptor_change_token,
+        open_bound_tree,
+    )
+else:
+    script_directory = str(Path(__file__).resolve().parent)
+    if script_directory not in sys.path:
+        sys.path.insert(0, script_directory)
+    from bound_archive_tree import (  # type: ignore[no-redef]
+        BoundTreeError,
+        BoundTreeSession,
+        TreeSnapshot,
+        descriptor_change_token,
+        open_bound_tree,
+    )
 
 
 CHUNK_SIZE = 1024 * 1024
@@ -17,13 +40,176 @@ FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 FILE_MODE = stat.S_IFREG | 0o644
 DIRECTORY_MODE = stat.S_IFDIR | 0o755
 PRIVATE_DIRECTORIES = ("Data", "Downloads")
-_PRIVATE_DIRECTORY_NAMES = {
-    name.casefold(): name for name in PRIVATE_DIRECTORIES
-}
+
+if os.name == "nt":
+    import ctypes
+    from ctypes import wintypes
+    import msvcrt
+
+    _GENERIC_READ = 0x80000000
+    _GENERIC_WRITE = 0x40000000
+    _FILE_SHARE_READ = 0x00000001
+    _CREATE_NEW = 1
+    _FILE_ATTRIBUTE_NORMAL = 0x00000080
+    _FILE_GENERIC_READ = 0x00120089
+    _ERROR_FILE_EXISTS = 80
+    _ERROR_ALREADY_EXISTS = 183
+    _INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+
+    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    _CreateFileW = _kernel32.CreateFileW
+    _CreateFileW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+    _CreateFileW.restype = wintypes.HANDLE
+    _DuplicateHandle = _kernel32.DuplicateHandle
+    _DuplicateHandle.argtypes = [
+        wintypes.HANDLE,
+        wintypes.HANDLE,
+        wintypes.HANDLE,
+        ctypes.POINTER(wintypes.HANDLE),
+        wintypes.DWORD,
+        wintypes.BOOL,
+        wintypes.DWORD,
+    ]
+    _DuplicateHandle.restype = wintypes.BOOL
+    _GetCurrentProcess = _kernel32.GetCurrentProcess
+    _GetCurrentProcess.argtypes = []
+    _GetCurrentProcess.restype = wintypes.HANDLE
+    _CloseHandle = _kernel32.CloseHandle
+    _CloseHandle.argtypes = [wintypes.HANDLE]
+    _CloseHandle.restype = wintypes.BOOL
 
 
 class DeterministicZipError(RuntimeError):
     """The source tree cannot be archived without ambiguity."""
+
+
+def _windows_path(path: Path) -> str:
+    value = str(path)
+    if value.startswith("\\\\?\\"):
+        return value
+    if value.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + value[2:]
+    return "\\\\?\\" + value
+
+
+def _handle_value(handle: object) -> int | None:
+    if isinstance(handle, int):
+        return handle
+    return ctypes.cast(handle, ctypes.c_void_p).value
+
+
+def _close_windows_handle(handle: int | None) -> None:
+    if os.name == "nt" and handle not in {None, _INVALID_HANDLE_VALUE}:
+        try:
+            _CloseHandle(wintypes.HANDLE(handle))
+        except Exception:
+            pass
+
+
+def _create_temporary(output: Path) -> tuple[int, Path]:
+    if os.name != "nt":
+        descriptor, temporary = tempfile.mkstemp(
+            prefix=f".{output.name}.", suffix=".tmp", dir=output.parent
+        )
+        return descriptor, Path(temporary)
+
+    for _attempt in range(128):
+        temporary = output.parent / (
+            f".{output.name}.{secrets.token_hex(16)}.tmp"
+        )
+        handle = _CreateFileW(
+            _windows_path(temporary),
+            _GENERIC_READ | _GENERIC_WRITE,
+            _FILE_SHARE_READ,
+            None,
+            _CREATE_NEW,
+            _FILE_ATTRIBUTE_NORMAL,
+            None,
+        )
+        handle_value = _handle_value(handle)
+        if handle_value == _INVALID_HANDLE_VALUE:
+            error = int(ctypes.get_last_error())
+            if error in {_ERROR_FILE_EXISTS, _ERROR_ALREADY_EXISTS}:
+                continue
+            raise DeterministicZipError(
+                "cannot create protected temporary archive"
+            )
+        try:
+            flags = os.O_RDWR | int(getattr(os, "O_BINARY", 0))
+            flags |= int(getattr(os, "O_NOINHERIT", 0))
+            descriptor = msvcrt.open_osfhandle(handle_value, flags)
+            handle_value = None
+            return descriptor, temporary
+        except OSError as exc:
+            raise DeterministicZipError(
+                "cannot create protected temporary archive"
+            ) from exc
+        finally:
+            _close_windows_handle(handle_value)
+    raise DeterministicZipError("cannot create unique temporary archive")
+
+
+def _protect_temporary_descriptor(
+    path: Path,
+    descriptor: int,
+    baseline: os.stat_result,
+) -> int:
+    if os.name != "nt":
+        return descriptor
+    duplicate_handle = wintypes.HANDLE()
+    protected_descriptor: int | None = None
+    try:
+        source_handle = int(msvcrt.get_osfhandle(descriptor))
+        process = _GetCurrentProcess()
+        if not _DuplicateHandle(
+            process,
+            wintypes.HANDLE(source_handle),
+            process,
+            ctypes.byref(duplicate_handle),
+            _FILE_GENERIC_READ,
+            False,
+            0,
+        ):
+            raise DeterministicZipError(
+                "cannot protect temporary archive descriptor"
+            )
+        duplicate_value = _handle_value(duplicate_handle)
+        flags = os.O_RDONLY | int(getattr(os, "O_BINARY", 0))
+        flags |= int(getattr(os, "O_NOINHERIT", 0))
+        protected_descriptor = msvcrt.open_osfhandle(duplicate_value, flags)
+        duplicate_handle = wintypes.HANDLE()
+        current = os.fstat(protected_descriptor)
+        _require_same_temporary(path, baseline, require_unchanged=True)
+        if (
+            not os.path.samestat(current, baseline)
+            or _regular_file_state(current) != _regular_file_state(baseline)
+        ):
+            raise DeterministicZipError("temporary archive identity changed")
+        os.close(descriptor)
+        result = protected_descriptor
+        protected_descriptor = None
+        return result
+    except DeterministicZipError:
+        raise
+    except (OSError, ValueError) as exc:
+        raise DeterministicZipError(
+            "cannot protect temporary archive descriptor"
+        ) from exc
+    finally:
+        if protected_descriptor is not None:
+            try:
+                os.close(protected_descriptor)
+            except OSError:
+                pass
+        _close_windows_handle(_handle_value(duplicate_handle))
 
 
 def _within(path: Path, root: Path) -> bool:
@@ -44,113 +230,172 @@ def _is_link_or_reparse(path: Path) -> bool:
     return stat.S_ISLNK(info.st_mode) or bool(attributes & reparse)
 
 
-def _private_directory_state(root: Path) -> dict[str, tuple[int, int, int, int]]:
-    """Require canonical, plain, empty private roots without reading them."""
-    states: dict[str, tuple[int, int, int, int]] = {}
+def _regular_file_state(value: os.stat_result) -> tuple[int, int]:
+    attributes = int(getattr(value, "st_file_attributes", 0))
+    reparse = int(getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+    if not stat.S_ISREG(value.st_mode) or bool(attributes & reparse):
+        raise DeterministicZipError("temporary archive is not a plain file")
+    return (
+        int(value.st_size),
+        int(getattr(value, "st_mtime_ns", 0)),
+    )
+
+
+def _require_same_temporary(
+    path: Path,
+    baseline: os.stat_result,
+    *,
+    require_unchanged: bool,
+) -> os.stat_result:
     try:
-        with os.scandir(root) as entries:
-            for entry in entries:
-                expected = _PRIVATE_DIRECTORY_NAMES.get(entry.name.casefold())
-                if expected is None:
-                    continue
-                if entry.name != expected or expected in states:
+        current = path.lstat()
+        current_state = _regular_file_state(current)
+        baseline_state = _regular_file_state(baseline)
+        same = os.path.samestat(current, baseline)
+    except (OSError, ValueError) as exc:
+        raise DeterministicZipError("temporary archive identity changed") from exc
+    if not same or (
+        require_unchanged and current_state != baseline_state
+    ):
+        raise DeterministicZipError("temporary archive identity changed")
+    return current
+
+
+def _read_descriptor_chunk(source, size: int) -> bytes:
+    return source.read(size)
+
+
+def _descriptor_digest(
+    descriptor: int,
+    baseline: os.stat_result,
+) -> tuple[str, int]:
+    verification_descriptor: int | None = None
+    try:
+        before = os.fstat(descriptor)
+        if (
+            not os.path.samestat(before, baseline)
+            or _regular_file_state(before) != _regular_file_state(baseline)
+        ):
+            raise DeterministicZipError("temporary archive identity changed")
+        before_change = descriptor_change_token(descriptor)
+        expected_size = int(before.st_size)
+        verification_descriptor = os.dup(descriptor)
+        digest = hashlib.sha256()
+        total = 0
+        with os.fdopen(verification_descriptor, "rb") as raw:
+            verification_descriptor = None
+            raw.seek(0)
+            while chunk := _read_descriptor_chunk(raw, CHUNK_SIZE):
+                total += len(chunk)
+                if total > expected_size:
                     raise DeterministicZipError(
-                        f"private directory must use canonical name: {expected}"
-                    )
-                path = root / entry.name
-                info = path.lstat()
-                attributes = int(getattr(info, "st_file_attributes", 0))
-                reparse = int(getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
-                if stat.S_ISLNK(info.st_mode) or bool(attributes & reparse) or not stat.S_ISDIR(
-                    info.st_mode
-                ):
-                    raise DeterministicZipError(
-                        f"private archive path must be a plain directory: {expected}"
-                    )
-                with os.scandir(path) as children:
-                    if next(children, None) is not None:
-                        raise DeterministicZipError(
-                            f"private archive directory must be empty: {expected}"
-                        )
-                states[expected] = (
-                    int(getattr(info, "st_dev", 0)),
-                    int(getattr(info, "st_ino", 0)),
-                    int(getattr(info, "st_ctime_ns", 0)),
-                    int(getattr(info, "st_mtime_ns", 0)),
+                        "temporary archive changed while hashing"
                 )
+                digest.update(chunk)
+        after = os.fstat(descriptor)
+        after_change = descriptor_change_token(descriptor)
+        if (
+            total != expected_size
+            or not os.path.samestat(after, baseline)
+            or _regular_file_state(after) != _regular_file_state(baseline)
+            or after_change != before_change
+        ):
+            raise DeterministicZipError("temporary archive changed while hashing")
+        return digest.hexdigest(), after_change
+    except DeterministicZipError:
+        raise
+    except BoundTreeError as exc:
+        raise DeterministicZipError("cannot hash temporary archive") from exc
+    except OSError as exc:
+        raise DeterministicZipError("cannot hash temporary archive") from exc
+    finally:
+        if verification_descriptor is not None:
+            try:
+                os.close(verification_descriptor)
+            except OSError:
+                pass
+
+
+def _descriptor_sha256(
+    descriptor: int,
+    baseline: os.stat_result,
+) -> str:
+    digest, _change_token = _descriptor_digest(descriptor, baseline)
+    return digest
+
+
+def _require_descriptor_digest(
+    descriptor: int,
+    baseline: os.stat_result,
+    expected_sha256: str,
+) -> int:
+    digest, change_token = _descriptor_digest(descriptor, baseline)
+    if digest != expected_sha256:
+        raise DeterministicZipError("temporary archive content changed")
+    return change_token
+
+
+def _require_same_published(
+    path: Path,
+    descriptor: int,
+    baseline: os.stat_result,
+    *,
+    expected_change_token: int | None = None,
+) -> None:
+    try:
+        current = os.fstat(descriptor)
+        named = path.lstat()
+        same_descriptor = os.path.samestat(current, baseline)
+        same_name = os.path.samestat(named, current)
+        current_state = _regular_file_state(current)
+        baseline_state = _regular_file_state(baseline)
+        named_state = _regular_file_state(named)
+        current_change_token = descriptor_change_token(descriptor)
+    except (BoundTreeError, OSError, ValueError) as exc:
+        raise DeterministicZipError(
+            "published archive identity does not match verification"
+        ) from exc
+    if (
+        not same_descriptor
+        or not same_name
+        or current_state != baseline_state
+        or named_state != baseline_state
+        or (
+            expected_change_token is not None
+            and current_change_token != expected_change_token
+        )
+    ):
+        raise DeterministicZipError(
+            "published archive identity does not match verification"
+        )
+
+
+def _open_published(path: Path, baseline: os.stat_result) -> int:
+    flags = os.O_RDONLY
+    flags |= int(getattr(os, "O_BINARY", 0))
+    flags |= int(getattr(os, "O_CLOEXEC", 0))
+    flags |= int(getattr(os, "O_NOFOLLOW", 0))
+    if os.name != "nt":
+        flags |= int(getattr(os, "O_NONBLOCK", 0))
+    descriptor: int | None = None
+    try:
+        descriptor = os.open(path, flags)
+        _require_same_published(path, descriptor, baseline)
+        result = descriptor
+        descriptor = None
+        return result
     except DeterministicZipError:
         raise
     except OSError as exc:
-        raise DeterministicZipError("cannot inspect private archive directories") from exc
-    missing = [name for name in PRIVATE_DIRECTORIES if name not in states]
-    if missing:
         raise DeterministicZipError(
-            f"required private archive directory is missing: {missing[0]}"
-        )
-    return states
-
-
-def _require_unchanged_private_directories(
-    root: Path, expected: dict[str, tuple[int, int, int, int]]
-) -> None:
-    if _private_directory_state(root) != expected:
-        raise DeterministicZipError("private archive directories changed while archiving")
-
-
-def _entries(root: Path) -> tuple[list[Path], list[Path]]:
-    directories: list[Path] = []
-    files: list[Path] = []
-    for directory_text, directory_names, file_names in os.walk(
-        root, topdown=True, followlinks=False
-    ):
-        directory = Path(directory_text)
-        relative_directory = directory.relative_to(root)
-        kept: list[str] = []
-        for name in directory_names:
-            path = directory / name
-            if _is_link_or_reparse(path) or not path.is_dir():
-                raise DeterministicZipError(
-                    f"link or non-directory in archive tree: {path.relative_to(root).as_posix()}"
-                )
-            relative = path.relative_to(root)
-            if "\r" in relative.as_posix() or "\n" in relative.as_posix():
-                raise DeterministicZipError("archive path contains a line break")
-            directories.append(relative)
-            private_name = (
-                _PRIVATE_DIRECTORY_NAMES.get(name.casefold())
-                if not relative_directory.parts
-                else None
-            )
-            if private_name is not None:
-                if name != private_name:
-                    raise DeterministicZipError(
-                        f"private directory must use canonical name: {private_name}"
-                    )
-                # These two entries are represented in the ZIP, but their
-                # contents are never traversed or serialized.
-                continue
-            kept.append(name)
-        directory_names[:] = kept
-        for name in file_names:
-            path = directory / name
-            if _is_link_or_reparse(path) or not path.is_file():
-                raise DeterministicZipError(
-                    f"link or non-file in archive tree: {path.relative_to(root).as_posix()}"
-                )
-            relative = path.relative_to(root)
-            if "\r" in relative.as_posix() or "\n" in relative.as_posix():
-                raise DeterministicZipError("archive path contains a line break")
-            if (
-                not relative_directory.parts
-                and name.casefold() in _PRIVATE_DIRECTORY_NAMES
-            ):
-                raise DeterministicZipError(
-                    f"private archive path must be a plain directory: "
-                    f"{_PRIVATE_DIRECTORY_NAMES[name.casefold()]}"
-                )
-            files.append(relative)
-    key = lambda value: (value.as_posix().casefold(), value.as_posix())
-    return sorted(directories, key=key), sorted(files, key=key)
+            "cannot verify published archive identity"
+        ) from exc
+    finally:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
 
 
 def _zip_info(name: str, *, directory: bool) -> zipfile.ZipInfo:
@@ -168,143 +413,219 @@ def _zip_info(name: str, *, directory: bool) -> zipfile.ZipInfo:
     return info
 
 
+def _archive_name(snapshot: TreeSnapshot, node_index: int) -> str:
+    return "/".join(snapshot.relative_parts(node_index))
+
+
 def _write_file(
-    archive: zipfile.ZipFile, root: Path, relative: Path
+    archive: zipfile.ZipFile,
+    tree: BoundTreeSession,
+    snapshot: TreeSnapshot,
+    node_index: int,
 ) -> None:
-    path = root / relative
+    relative = _archive_name(snapshot, node_index)
     try:
-        before = path.stat()
-        with path.open("rb") as source, archive.open(
-            _zip_info(relative.as_posix(), directory=False),
+        with archive.open(
+            _zip_info(relative, directory=False),
             "w",
             force_zip64=True,
         ) as target:
-            while chunk := source.read(CHUNK_SIZE):
-                target.write(chunk)
-        after = path.stat()
+            tree.copy_verified_file(
+                snapshot,
+                node_index,
+                target,
+                chunk_size=CHUNK_SIZE,
+            )
+    except BoundTreeError as exc:
+        raise DeterministicZipError(str(exc)) from exc
     except OSError as exc:
-        raise DeterministicZipError(
-            f"cannot archive file: {relative.as_posix()}"
-        ) from exc
-    if (
-        before.st_size,
-        before.st_mtime_ns,
-        getattr(before, "st_dev", None),
-        getattr(before, "st_ino", None),
-    ) != (
-        after.st_size,
-        after.st_mtime_ns,
-        getattr(after, "st_dev", None),
-        getattr(after, "st_ino", None),
-    ):
-        raise DeterministicZipError(
-            f"file changed while archiving: {relative.as_posix()}"
-        )
+        raise DeterministicZipError(f"cannot archive file: {relative}") from exc
 
 
-def _verify_archive(path: Path, expected: list[str]) -> None:
+def _verify_archive(
+    descriptor: int,
+    expected: list[str],
+    baseline: os.stat_result,
+    expected_sha256: str,
+) -> None:
+    verification_descriptor: int | None = None
     try:
-        with zipfile.ZipFile(path, "r") as archive:
-            if archive.namelist() != expected or archive.testzip() is not None:
-                raise DeterministicZipError("temporary archive failed verification")
+        verification_descriptor = os.dup(descriptor)
+        with os.fdopen(verification_descriptor, "rb") as raw:
+            verification_descriptor = None
+            raw.seek(0)
+            with zipfile.ZipFile(raw, "r") as archive:
+                if archive.namelist() != expected or archive.testzip() is not None:
+                    raise DeterministicZipError(
+                        "temporary archive failed verification"
+                    )
+        current = os.fstat(descriptor)
+        if (
+            not os.path.samestat(current, baseline)
+            or _regular_file_state(current) != _regular_file_state(baseline)
+        ):
+            raise DeterministicZipError("temporary archive changed during verification")
+        _require_descriptor_digest(descriptor, baseline, expected_sha256)
     except DeterministicZipError:
         raise
     except (OSError, zipfile.BadZipFile) as exc:
         raise DeterministicZipError("temporary archive failed verification") from exc
+    finally:
+        if verification_descriptor is not None:
+            try:
+                os.close(verification_descriptor)
+            except OSError:
+                pass
 
 
 def build_deterministic_zip(source: Path, output: Path) -> int:
     source_input = Path(source)
-    if _is_link_or_reparse(source_input) or not source_input.is_dir():
-        raise DeterministicZipError("archive source must be a plain directory")
     try:
-        source = source_input.resolve(strict=True)
+        source_for_relation = source_input.resolve(strict=True)
     except OSError as exc:
         raise DeterministicZipError("archive source must be a plain directory") from exc
     output = output.resolve(strict=False)
     if output.suffix.casefold() != ".zip":
         raise DeterministicZipError("archive output must use a .zip suffix")
-    if _within(output, source):
+    if _within(output, source_for_relation):
         raise DeterministicZipError("archive output cannot be inside its source tree")
     if output.exists() or _is_link_or_reparse(output.parent) or not output.parent.is_dir():
         raise DeterministicZipError("archive output must be a new file in a plain directory")
 
-    private_state = _private_directory_state(source)
-    directories, files = _entries(source)
-    _require_unchanged_private_directories(source, private_state)
-    expected = [f"{path.as_posix()}/" for path in directories]
-    expected.extend(path.as_posix() for path in files)
+    try:
+        tree = open_bound_tree(source_input)
+    except BoundTreeError as exc:
+        raise DeterministicZipError("archive source must be a plain directory") from exc
+
     descriptor: int | None = None
     temporary: Path | None = None
-    try:
-        descriptor, temporary_text = tempfile.mkstemp(
-            prefix=f".{output.name}.", suffix=".tmp", dir=output.parent
-        )
-        temporary = Path(temporary_text)
-        with os.fdopen(descriptor, "w+b") as raw:
-            descriptor = None
-            with zipfile.ZipFile(
-                raw,
-                mode="w",
-                compression=zipfile.ZIP_DEFLATED,
-                compresslevel=9,
-                allowZip64=True,
-                strict_timestamps=True,
-            ) as archive:
-                archive.comment = b""
-                for relative in directories:
-                    archive.writestr(
-                        _zip_info(relative.as_posix(), directory=True), b""
-                    )
-                for relative in files:
-                    _write_file(archive, source, relative)
-                _require_unchanged_private_directories(source, private_state)
-            raw.flush()
-            os.fsync(raw.fileno())
-
-        _require_unchanged_private_directories(source, private_state)
-        _verify_archive(temporary, expected)
-        # Verification can be expensive for a full portable runtime.  Recheck
-        # the private roots immediately before the no-clobber publish step so
-        # a change during verification cannot satisfy the release contract.
-        _require_unchanged_private_directories(source, private_state)
+    temporary_identity: os.stat_result | None = None
+    archive_baseline: os.stat_result | None = None
+    archive_sha256: str | None = None
+    published_descriptor: int | None = None
+    with tree:
         try:
-            os.link(temporary, output)
-        except FileExistsError as exc:
-            raise DeterministicZipError("archive output appeared concurrently") from exc
-        except OSError as exc:
-            if os.name != "nt":
-                raise DeterministicZipError("cannot publish archive without overwrite") from exc
             try:
-                os.rename(temporary, output)
-            except OSError as rename_exc:
+                snapshot = tree.snapshot(
+                    private_directories=PRIVATE_DIRECTORIES,
+                    hash_files=True,
+                )
+            except BoundTreeError as exc:
+                raise DeterministicZipError(str(exc)) from exc
+            key = lambda index: (
+                _archive_name(snapshot, index).casefold(),
+                _archive_name(snapshot, index),
+            )
+            directories = sorted(snapshot.directory_indexes, key=key)
+            files = sorted(snapshot.file_indexes, key=key)
+            expected = [f"{_archive_name(snapshot, index)}/" for index in directories]
+            expected.extend(_archive_name(snapshot, index) for index in files)
+
+            descriptor, temporary = _create_temporary(output)
+            temporary_identity = os.fstat(descriptor)
+            _regular_file_state(temporary_identity)
+            with os.fdopen(descriptor, "w+b", closefd=False) as raw:
+                with zipfile.ZipFile(
+                    raw,
+                    mode="w",
+                    compression=zipfile.ZIP_DEFLATED,
+                    compresslevel=9,
+                    allowZip64=True,
+                    strict_timestamps=True,
+                ) as archive:
+                    archive.comment = b""
+                    for node_index in directories:
+                        archive.writestr(
+                            _zip_info(
+                                _archive_name(snapshot, node_index),
+                                directory=True,
+                            ),
+                            b"",
+                        )
+                    for node_index in files:
+                        _write_file(archive, tree, snapshot, node_index)
+                    try:
+                        tree.verify_snapshot(snapshot, verify_content=False)
+                    except BoundTreeError as exc:
+                        raise DeterministicZipError(str(exc)) from exc
+                raw.flush()
+                os.fsync(raw.fileno())
+            archive_baseline = os.fstat(descriptor)
+            _regular_file_state(archive_baseline)
+            if not os.path.samestat(temporary_identity, archive_baseline):
+                raise DeterministicZipError("temporary archive identity changed")
+            descriptor = _protect_temporary_descriptor(
+                temporary,
+                descriptor,
+                archive_baseline,
+            )
+            archive_sha256 = _descriptor_sha256(descriptor, archive_baseline)
+
+            try:
+                tree.verify_private_directories(snapshot)
+            except BoundTreeError as exc:
+                raise DeterministicZipError(str(exc)) from exc
+            _require_same_temporary(
+                temporary,
+                archive_baseline,
+                require_unchanged=True,
+            )
+            _verify_archive(
+                descriptor,
+                expected,
+                archive_baseline,
+                archive_sha256,
+            )
+            # Verification can be expensive for a full portable runtime.  Recheck
+            # the bound private roots immediately before the no-clobber publish
+            # step so a change during verification cannot satisfy the release
+            # contract.
+            try:
+                tree.verify_private_directories(snapshot)
+            except BoundTreeError as exc:
+                raise DeterministicZipError(str(exc)) from exc
+            _require_same_temporary(
+                temporary,
+                archive_baseline,
+                require_unchanged=True,
+            )
+            _require_descriptor_digest(
+                descriptor,
+                archive_baseline,
+                archive_sha256,
+            )
+            try:
+                os.link(temporary, output, follow_symlinks=False)
+            except FileExistsError as exc:
+                raise DeterministicZipError("archive output appeared concurrently") from exc
+            except OSError as exc:
                 raise DeterministicZipError(
-                    "cannot publish archive without overwrite"
-                ) from rename_exc
-            temporary = None
-        if temporary is not None:
-            try:
-                temporary.unlink()
-            except OSError:
-                # The verified inode has already been published by a
-                # no-clobber hard link.  A leftover hidden temporary is a
-                # cleanup warning, not a reason to misreport the valid output
-                # as failed; the finally block makes one more best effort.
-                pass
-            else:
-                temporary = None
-        return len(directories) + len(files)
-    finally:
-        if descriptor is not None:
-            try:
-                os.close(descriptor)
-            except OSError:
-                pass
-        if temporary is not None:
-            try:
-                temporary.unlink()
-            except OSError:
-                pass
+                    "cannot publish archive without a verified hard link"
+                ) from exc
+            published_descriptor = _open_published(output, archive_baseline)
+            published_change_token = _require_descriptor_digest(
+                published_descriptor,
+                archive_baseline,
+                archive_sha256,
+            )
+            _require_same_published(
+                output,
+                published_descriptor,
+                archive_baseline,
+                expected_change_token=published_change_token,
+            )
+            return len(directories) + len(files)
+        finally:
+            if published_descriptor is not None:
+                try:
+                    os.close(published_descriptor)
+                except OSError:
+                    pass
+            if descriptor is not None:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
 
 
 def main(argv: Iterable[str] | None = None) -> int:
