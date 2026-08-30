@@ -3,19 +3,28 @@
 
 from __future__ import annotations
 
+import ctypes
+from ctypes import wintypes
 from dataclasses import asdict, dataclass
 from email.utils import parsedate_to_datetime
+import errno
 import hashlib
 import json
 import os
 import random
 import re
+import secrets
 import stat
 import tempfile
 import threading
 from typing import Callable
 from urllib.parse import urljoin, urlsplit
 
+from bound_process_lock import (
+    BoundProcessLock,
+    BoundProcessLockBusy,
+    BoundProcessLockError,
+)
 from bound_file_reader import (
     BoundFileCancelled,
     BoundFileError,
@@ -47,6 +56,9 @@ from sankaku_api import (
 from sankaku_url_policy import normalize_media_url, normalize_post_id
 from version import HTTP_USER_AGENT
 
+if os.name == "nt":
+    import msvcrt
+
 
 MAX_MEDIA_BYTES = 50 * 1024**3
 MAX_REDIRECTS = 4
@@ -59,6 +71,11 @@ _MAX_PREFIX_BYTES = 1024 * 1024
 _MAX_COLLISION_SLOTS = 10_000
 _MEDIA_GATE_INTERVAL = 0.25
 _LONG_RATE_LIMIT_SECONDS = 600.0
+_DOWNLOAD_LOCK_NAME = ".sankakusyncer-download.lock"
+_DOWNLOAD_LOCK_POLL_SECONDS = 0.1
+_DOWNLOAD_SNAPSHOT_RE = re.compile(
+    r"^\.sankakusyncer-download-snapshot-[0-9a-f]{32}\.tmp$"
+)
 _WINDOWS_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 _MD5_RE = re.compile(r"^[0-9a-f]{32}$")
 _CONTENT_RANGE_RE = re.compile(r"^bytes ([0-9]+)-([0-9]+)/([0-9]+)$")
@@ -212,7 +229,164 @@ class _FileInspection:
     device: int
     inode: int
     mtime_ns: int = 0
+    ctime_ns: int = 0
     suffix: bytes = b""
+
+
+if os.name == "nt":
+    _LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800
+    _INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
+
+    _FILE_READ_DATA = 0x0001
+    _FILE_LIST_DIRECTORY = 0x0001
+    _FILE_ADD_FILE = 0x0002
+    _FILE_READ_ATTRIBUTES = 0x0080
+    _DELETE = 0x00010000
+    _SYNCHRONIZE = 0x00100000
+    _FILE_SHARE_READ = 0x00000001
+    _FILE_SHARE_WRITE = 0x00000002
+    _FILE_SHARE_DELETE = 0x00000004
+    _FILE_OPEN = 0x00000001
+    _FILE_ATTRIBUTE_NORMAL = 0x00000080
+    _FILE_SYNCHRONOUS_IO_NONALERT = 0x00000020
+    _FILE_NON_DIRECTORY_FILE = 0x00000040
+    _FILE_OPEN_REPARSE_POINT = 0x00200000
+    _OBJ_CASE_INSENSITIVE = 0x00000040
+    _OPEN_EXISTING = 3
+    _FILE_FLAG_BACKUP_SEMANTICS = 0x02000000
+    _FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000
+    _FILE_TYPE_DISK = 0x0001
+
+    _FILE_STANDARD_INFO_CLASS = 1
+    _FILE_RENAME_INFORMATION_CLASS = 10
+    _FILE_ATTRIBUTE_TAG_INFO_CLASS = 9
+    _FILE_ID_INFO_CLASS = 18
+
+    _STATUS_OBJECT_NAME_NOT_FOUND = 0xC0000034
+    _STATUS_OBJECT_NAME_COLLISION = 0xC0000035
+    _STATUS_OBJECT_PATH_NOT_FOUND = 0xC000003A
+    _STATUS_SHARING_VIOLATION = 0xC0000043
+    _STATUS_ACCESS_DENIED = 0xC0000022
+
+    class _FILE_ID_128(ctypes.Structure):
+        _fields_ = [("Identifier", ctypes.c_ubyte * 16)]
+
+
+    class _FILE_ID_INFO(ctypes.Structure):
+        _fields_ = [
+            ("VolumeSerialNumber", ctypes.c_ulonglong),
+            ("FileId", _FILE_ID_128),
+        ]
+
+
+    class _FILE_ATTRIBUTE_TAG_INFO(ctypes.Structure):
+        _fields_ = [
+            ("FileAttributes", wintypes.DWORD),
+            ("ReparseTag", wintypes.DWORD),
+        ]
+
+
+    class _FILE_STANDARD_INFO(ctypes.Structure):
+        _fields_ = [
+            ("AllocationSize", ctypes.c_longlong),
+            ("EndOfFile", ctypes.c_longlong),
+            ("NumberOfLinks", wintypes.DWORD),
+            ("DeletePending", ctypes.c_ubyte),
+            ("Directory", ctypes.c_ubyte),
+        ]
+
+
+    class _UNICODE_STRING(ctypes.Structure):
+        _fields_ = [
+            ("Length", wintypes.USHORT),
+            ("MaximumLength", wintypes.USHORT),
+            ("Buffer", wintypes.LPWSTR),
+        ]
+
+
+    class _OBJECT_ATTRIBUTES(ctypes.Structure):
+        _fields_ = [
+            ("Length", wintypes.ULONG),
+            ("RootDirectory", wintypes.HANDLE),
+            ("ObjectName", ctypes.POINTER(_UNICODE_STRING)),
+            ("Attributes", wintypes.ULONG),
+            ("SecurityDescriptor", ctypes.c_void_p),
+            ("SecurityQualityOfService", ctypes.c_void_p),
+        ]
+
+
+    class _IO_STATUS_VALUE(ctypes.Union):
+        _fields_ = [("Status", ctypes.c_long), ("Pointer", ctypes.c_void_p)]
+
+
+    class _IO_STATUS_BLOCK(ctypes.Structure):
+        _anonymous_ = ("value",)
+        _fields_ = [("value", _IO_STATUS_VALUE), ("Information", ctypes.c_size_t)]
+
+
+    _download_kernel32 = ctypes.WinDLL(
+        "kernel32.dll", use_last_error=True, winmode=_LOAD_LIBRARY_SEARCH_SYSTEM32
+    )
+    _download_ntdll = ctypes.WinDLL(
+        "ntdll.dll", use_last_error=True, winmode=_LOAD_LIBRARY_SEARCH_SYSTEM32
+    )
+
+    _DownloadCreateFileW = _download_kernel32.CreateFileW
+    _DownloadCreateFileW.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+    _DownloadCreateFileW.restype = wintypes.HANDLE
+
+    _DownloadCloseHandle = _download_kernel32.CloseHandle
+    _DownloadCloseHandle.argtypes = [wintypes.HANDLE]
+    _DownloadCloseHandle.restype = wintypes.BOOL
+
+    _DownloadGetFileInformationByHandleEx = (
+        _download_kernel32.GetFileInformationByHandleEx
+    )
+    _DownloadGetFileInformationByHandleEx.argtypes = [
+        wintypes.HANDLE,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+    ]
+    _DownloadGetFileInformationByHandleEx.restype = wintypes.BOOL
+
+    _DownloadGetFileType = _download_kernel32.GetFileType
+    _DownloadGetFileType.argtypes = [wintypes.HANDLE]
+    _DownloadGetFileType.restype = wintypes.DWORD
+
+    _DownloadNtCreateFile = _download_ntdll.NtCreateFile
+    _DownloadNtCreateFile.argtypes = [
+        ctypes.POINTER(wintypes.HANDLE),
+        wintypes.ULONG,
+        ctypes.POINTER(_OBJECT_ATTRIBUTES),
+        ctypes.POINTER(_IO_STATUS_BLOCK),
+        ctypes.c_void_p,
+        wintypes.ULONG,
+        wintypes.ULONG,
+        wintypes.ULONG,
+        wintypes.ULONG,
+        ctypes.c_void_p,
+        wintypes.ULONG,
+    ]
+    _DownloadNtCreateFile.restype = ctypes.c_long
+
+    _DownloadNtSetInformationFile = _download_ntdll.NtSetInformationFile
+    _DownloadNtSetInformationFile.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(_IO_STATUS_BLOCK),
+        ctypes.c_void_p,
+        wintypes.ULONG,
+        ctypes.c_int,
+    ]
+    _DownloadNtSetInformationFile.restype = ctypes.c_long
 
 
 class _RetryableMediaResponse(RuntimeError):
@@ -220,6 +394,50 @@ class _RetryableMediaResponse(RuntimeError):
         super().__init__(status_code)
         self.status_code = status_code
         self.wait_seconds = wait_seconds
+
+
+class _DownloadDirectoryLease:
+    """Cancellable adapter for one persistent output-directory lock."""
+
+    def __init__(self, output_dir: str, stop_event: threading.Event) -> None:
+        self._lock = BoundProcessLock(output_dir, _DOWNLOAD_LOCK_NAME)
+        self._stop_event = stop_event
+
+    def __enter__(self) -> "_DownloadDirectoryLease":
+        while True:
+            if self._stop_event.is_set():
+                raise CancelledError("下载已取消")
+            try:
+                self._lock.__enter__()
+                return self
+            except BoundProcessLockBusy:
+                if self._stop_event.wait(_DOWNLOAD_LOCK_POLL_SECONDS):
+                    raise CancelledError("下载已取消") from None
+            except BoundProcessLockError:
+                raise DownloadError(
+                    "下载目录无法安全锁定；请使用当前用户独占的普通本地目录"
+                ) from None
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        try:
+            self._lock.__exit__(exc_type, exc, traceback)
+        except BoundProcessLockError:
+            if exc_type is None:
+                raise DownloadError("下载目录租约在操作期间失效") from None
+
+    @property
+    def root_token(self) -> int:
+        try:
+            return self._lock.root_token
+        except BoundProcessLockError:
+            raise DownloadError("下载目录租约不可用") from None
+
+    @property
+    def bound_root_paths(self) -> tuple[str, str]:
+        try:
+            return self._lock.bound_root_paths
+        except BoundProcessLockError:
+            raise DownloadError("下载目录无法绑定到稳定路径") from None
 
 
 class MediaDownloader:
@@ -273,6 +491,34 @@ class MediaDownloader:
         if normalized is None:
             raise DownloadError("作品编号无效")
         self._check_cancelled()
+        os.makedirs(self.output_dir, exist_ok=True)
+        if not os.path.isdir(self.output_dir):
+            raise DownloadError("下载目录不可用")
+        with _DownloadDirectoryLease(self.output_dir, self.stop_event) as lease:
+            original_output_dir = self.output_dir
+            io_root, result_root = lease.bound_root_paths
+            self.output_dir = io_root
+            self._bound_result_root = result_root
+            try:
+                if os.name != "nt":
+                    _remove_stale_posix_download_snapshots(lease.root_token)
+                return self._download_with_lease(
+                    normalized,
+                    progress=progress,
+                    root_token=lease.root_token,
+                )
+            finally:
+                self.output_dir = original_output_dir
+                self.__dict__.pop("_bound_result_root", None)
+
+    def _download_with_lease(
+        self,
+        normalized: str,
+        *,
+        progress: Callable[[int, int], None] | None,
+        root_token: int,
+    ) -> DownloadResult:
+        self._check_cancelled()
         post = self.api.get_post(normalized)
         if normalize_post_id(post.post_id) != normalized:
             raise DownloadError("站点返回了不匹配的作品编号")
@@ -289,9 +535,6 @@ class MediaDownloader:
         ):
             raise DownloadError("媒体地址已过期或被站点限制")
 
-        os.makedirs(self.output_dir, exist_ok=True)
-        if not os.path.isdir(self.output_dir):
-            raise DownloadError("下载目录不可用")
         is_original = variant == "original"
         expected_size = (
             post.file_size
@@ -373,34 +616,40 @@ class MediaDownloader:
         )
         _assert_inspection_identity(part_path, inspection, "未完成文件")
         self._check_cancelled()
-        final_path = self._commit_media_no_replace(
+        with self._commit_media_no_replace(
             part_path,
             post_id=normalized,
             variant=variant,
             extension=extension,
-        )
-        _remove_compatible_part_state(
-            state_path,
-            expected=completed_state,
-        )
+            inspection=inspection,
+            root_token=root_token,
+        ) as published:
+            final_path = published.final_path
+            inspection = published.inspection
+            if published.part_name_consumed:
+                _remove_compatible_part_state(
+                    state_path,
+                    expected=completed_state,
+                )
 
-        warning = self._metadata_warning(
-            post,
-            final_path,
-            inspection,
-            variant=variant,
-            content_type=content_type,
-        )
-        return self._result(
-            normalized,
-            final_path,
-            inspection,
-            resumed=resumed,
-            already_present=False,
-            metadata_warning=warning,
-            variant=variant,
-            content_type=content_type,
-        )
+            warning = self._metadata_warning(
+                post,
+                final_path,
+                inspection,
+                variant=variant,
+                content_type=content_type,
+            )
+            result = self._result(
+                normalized,
+                final_path,
+                inspection,
+                resumed=resumed,
+                already_present=False,
+                metadata_warning=warning,
+                variant=variant,
+                content_type=content_type,
+            )
+            return result
 
     def _result(
         self,
@@ -415,9 +664,13 @@ class MediaDownloader:
         content_type: str,
     ) -> DownloadResult:
         relative = os.path.relpath(final_path, self.output_dir).replace("\\", "/")
+        result_root = getattr(self, "_bound_result_root", self.output_dir)
+        result_path = os.path.abspath(
+            os.path.join(result_root, relative.replace("/", os.sep))
+        )
         return DownloadResult(
             post_id=post_id,
-            file_path=final_path,
+            file_path=result_path,
             relative_path=relative,
             size=inspection.size,
             sha256=inspection.sha256,
@@ -974,29 +1227,107 @@ class MediaDownloader:
         post_id: str,
         variant: str,
         extension: str,
-    ) -> str:
+        inspection: _FileInspection,
+        root_token: int,
+    ) -> _PublishedMediaLease:
+        part_name = os.path.basename(part_path)
+        if self._safe_target(part_name) != part_path:
+            raise DownloadError("未完成文件路径不安全")
         suffix = "" if variant == "original" else f".{variant}"
-        for slot in range(_MAX_COLLISION_SLOTS):
-            collision = "" if slot == 0 else f" ({slot})"
-            final_path = self._safe_target(
-                f"{post_id}{suffix}{collision}.{extension}"
+        if os.name != "nt":
+            return _publish_posix_verified_part(
+                root_token,
+                self.output_dir,
+                part_name,
+                post_id=post_id,
+                suffix=suffix,
+                extension=extension,
+                expected=inspection,
+                stop_event=self.stop_event,
             )
-            sidecar_path = final_path + ".json"
-            if _plain_file_stat(final_path, "目标文件") is not None:
-                continue
-            if _plain_file_stat(sidecar_path, "元数据文件") is not None:
-                continue
-            self._check_cancelled()
-            try:
-                _commit_file_no_replace(part_path, final_path)
-            except FileExistsError:
-                continue
-            except OSError as exc:
-                raise DownloadError(
-                    f"无法提交完成文件（{type(exc).__name__}）"
-                ) from exc
-            return final_path
-        raise DownloadError("目标文件碰撞槽位已用尽")
+
+        descriptor, identity = _win_open_protected_part(root_token, part_name)
+        try:
+            protected_inspection = _inspect_media_descriptor(
+                descriptor,
+                self.stop_event,
+            )
+            if not _same_inspection(inspection, protected_inspection):
+                raise DownloadError("未完成文件在发布前被其他进程改变")
+            for slot in range(_MAX_COLLISION_SLOTS):
+                collision = "" if slot == 0 else f" ({slot})"
+                final_name = f"{post_id}{suffix}{collision}.{extension}"
+                final_path = self._safe_target(final_name)
+                sidecar_path = final_path + ".json"
+                if _plain_file_stat(final_path, "目标文件") is not None:
+                    continue
+                if _plain_file_stat(sidecar_path, "元数据文件") is not None:
+                    continue
+                self._check_cancelled()
+                if _win_named_download_identity(root_token, part_name) != identity:
+                    raise DownloadError("未完成文件名称在发布前被替换")
+                try:
+                    _publish_bound_media_name_no_replace(
+                        root_token,
+                        descriptor,
+                        part_name,
+                        final_name,
+                    )
+                except FileExistsError:
+                    continue
+                try:
+                    if _win_named_download_identity(root_token, final_name) != identity:
+                        raise DownloadError("完成文件名称未绑定到已验证对象")
+                    leased_descriptor = descriptor
+
+                    def validate(descriptor: int = leased_descriptor) -> None:
+                        if _win_named_download_identity(root_token, final_name) != identity:
+                            raise DownloadError("完成文件在返回前被替换")
+                        current = os.fstat(descriptor)
+                        if (
+                            not _stat_is_plain_file(current)
+                            or current.st_size != protected_inspection.size
+                            or current.st_dev != protected_inspection.device
+                            or current.st_ino != protected_inspection.inode
+                            or getattr(current, "st_mtime_ns", 0)
+                            != protected_inspection.mtime_ns
+                            or _win_named_download_identity(root_token, final_name)
+                            != identity
+                        ):
+                            raise DownloadError("完成文件在返回前发生变化")
+
+                    def close(descriptor: int = leased_descriptor) -> None:
+                        try:
+                            os.close(descriptor)
+                        except OSError as exc:
+                            raise DownloadError("完成文件租约关闭失败") from exc
+
+                    lease = _PublishedMediaLease(
+                        final_path,
+                        protected_inspection,
+                        part_name_consumed=True,
+                        validate=validate,
+                        close=close,
+                    )
+                    descriptor = None
+                    return lease
+                except BaseException:
+                    try:
+                        _win_rename_protected_part_no_replace(
+                            root_token,
+                            descriptor,
+                            part_name,
+                        )
+                    except BaseException:
+                        pass
+                    raise
+            raise DownloadError("目标文件碰撞槽位已用尽")
+        finally:
+            if descriptor is not None:
+                try:
+                    os.close(descriptor)
+                except OSError:
+                    pass
 
     def _safe_target(self, filename: str) -> str:
         target = os.path.abspath(os.path.join(self.output_dir, filename))
@@ -1242,6 +1573,7 @@ def _stat_is_plain_file(file_stat: os.stat_result) -> bool:
         stat.S_ISREG(file_stat.st_mode)
         and not stat.S_ISLNK(file_stat.st_mode)
         and not attributes & _WINDOWS_REPARSE_POINT
+        and int(getattr(file_stat, "st_nlink", 0)) == 1
     )
 
 
@@ -1253,7 +1585,7 @@ def _plain_file_stat(path: str, label: str) -> os.stat_result | None:
     except OSError as exc:
         raise DownloadError(f"{label}状态读取失败（{type(exc).__name__}）") from exc
     if not _stat_is_plain_file(file_stat):
-        raise DownloadError(f"{label}路径不安全（拒绝链接或重解析点）")
+        raise DownloadError(f"{label}路径不安全（拒绝链接或重解析点，以及多链接文件）")
     return file_stat
 
 
@@ -1279,6 +1611,691 @@ def _open_plain_for_read(path: str, label: str):
     except Exception:
         os.close(descriptor)
         raise
+
+
+def _managed_basename(path: str) -> str:
+    name = os.path.basename(path)
+    if (
+        not name
+        or name in {".", ".."}
+        or name != path
+        or "/" in name
+        or "\\" in name
+        or ":" in name
+        or "\x00" in name
+    ):
+        raise DownloadError("下载文件名不安全")
+    return name
+
+
+def _win_download_handle_value(handle: object) -> int | None:
+    if handle is None:
+        return None
+    if isinstance(handle, int):
+        return handle
+    return ctypes.cast(handle, ctypes.c_void_p).value
+
+
+def _win_download_close_handle(handle: int | None) -> None:
+    if os.name != "nt" or handle is None or handle == _INVALID_HANDLE_VALUE:
+        return
+    try:
+        _DownloadCloseHandle(wintypes.HANDLE(handle))
+    except Exception:
+        pass
+
+
+def _win_download_validate_abi() -> None:
+    if os.name != "nt":
+        return
+    if (
+        ctypes.sizeof(ctypes.c_void_p) != 8
+        or ctypes.sizeof(_FILE_STANDARD_INFO) != 24
+        or ctypes.sizeof(_UNICODE_STRING) != 16
+        or ctypes.sizeof(_OBJECT_ATTRIBUTES) != 48
+        or ctypes.sizeof(_IO_STATUS_BLOCK) != 16
+        or _FILE_STANDARD_INFO.NumberOfLinks.offset != 16
+        or _UNICODE_STRING.Buffer.offset != 8
+        or _OBJECT_ATTRIBUTES.RootDirectory.offset != 8
+        or _OBJECT_ATTRIBUTES.ObjectName.offset != 16
+        or _IO_STATUS_BLOCK.Information.offset != 8
+    ):
+        raise DownloadError("Windows 下载文件租约 ABI 不可用")
+
+
+def _win_download_query(
+    handle: int,
+    information_class: int,
+    value: ctypes.Structure,
+) -> None:
+    if not _DownloadGetFileInformationByHandleEx(
+        wintypes.HANDLE(handle),
+        information_class,
+        ctypes.byref(value),
+        ctypes.sizeof(value),
+    ):
+        raise DownloadError("下载文件身份查询失败")
+
+
+def _win_download_identity(
+    handle: int,
+    *,
+    directory: bool,
+) -> tuple[int, bytes]:
+    attributes = _FILE_ATTRIBUTE_TAG_INFO()
+    standard = _FILE_STANDARD_INFO()
+    identity = _FILE_ID_INFO()
+    _win_download_query(handle, _FILE_ATTRIBUTE_TAG_INFO_CLASS, attributes)
+    _win_download_query(handle, _FILE_STANDARD_INFO_CLASS, standard)
+    _win_download_query(handle, _FILE_ID_INFO_CLASS, identity)
+    is_directory = bool(standard.Directory)
+    if (
+        int(attributes.FileAttributes) & _WINDOWS_REPARSE_POINT
+        or is_directory != directory
+        or bool(standard.DeletePending)
+        or int(_DownloadGetFileType(wintypes.HANDLE(handle))) != _FILE_TYPE_DISK
+        or (not directory and int(standard.NumberOfLinks) != 1)
+    ):
+        raise DownloadError("下载文件对象不安全")
+    return int(identity.VolumeSerialNumber), bytes(identity.FileId.Identifier)
+
+
+def _win_open_relative_download_handle(
+    root_token: int,
+    name: str,
+    *,
+    protected: bool,
+    missing_ok: bool = False,
+) -> int | None:
+    _win_download_validate_abi()
+    name = _managed_basename(name)
+    name_buffer = ctypes.create_unicode_buffer(name)
+    encoded_length = len(name.encode("utf-16-le"))
+    unicode_name = _UNICODE_STRING(
+        Length=encoded_length,
+        MaximumLength=encoded_length + 2,
+        Buffer=ctypes.cast(name_buffer, wintypes.LPWSTR),
+    )
+    attributes = _OBJECT_ATTRIBUTES(
+        Length=ctypes.sizeof(_OBJECT_ATTRIBUTES),
+        RootDirectory=wintypes.HANDLE(root_token),
+        ObjectName=ctypes.pointer(unicode_name),
+        Attributes=_OBJ_CASE_INSENSITIVE,
+        SecurityDescriptor=None,
+        SecurityQualityOfService=None,
+    )
+    status_block = _IO_STATUS_BLOCK()
+    child = wintypes.HANDLE()
+    desired_access = _FILE_READ_ATTRIBUTES | _SYNCHRONIZE
+    share_access = _FILE_SHARE_READ | _FILE_SHARE_WRITE | _FILE_SHARE_DELETE
+    if protected:
+        desired_access |= _FILE_READ_DATA | _DELETE
+        share_access = _FILE_SHARE_READ
+    status = int(
+        _DownloadNtCreateFile(
+            ctypes.byref(child),
+            desired_access,
+            ctypes.byref(attributes),
+            ctypes.byref(status_block),
+            None,
+            _FILE_ATTRIBUTE_NORMAL,
+            share_access,
+            _FILE_OPEN,
+            _FILE_SYNCHRONOUS_IO_NONALERT
+            | _FILE_NON_DIRECTORY_FILE
+            | _FILE_OPEN_REPARSE_POINT,
+            None,
+            0,
+        )
+    )
+    value = _win_download_handle_value(child)
+    if status < 0 or value is None or value == _INVALID_HANDLE_VALUE:
+        _win_download_close_handle(value)
+        folded = status & 0xFFFFFFFF
+        if missing_ok and folded in {
+            _STATUS_OBJECT_NAME_NOT_FOUND,
+            _STATUS_OBJECT_PATH_NOT_FOUND,
+        }:
+            return None
+        if folded == _STATUS_SHARING_VIOLATION:
+            raise DownloadError("未完成文件仍被其他进程写入")
+        raise DownloadError("未完成文件无法安全绑定")
+    return value
+
+
+def _win_named_download_identity(
+    root_token: int,
+    name: str,
+) -> tuple[int, bytes] | None:
+    handle = _win_open_relative_download_handle(
+        root_token,
+        name,
+        protected=False,
+        missing_ok=True,
+    )
+    if handle is None:
+        return None
+    try:
+        return _win_download_identity(handle, directory=False)
+    finally:
+        _win_download_close_handle(handle)
+
+
+def _win_open_protected_part(
+    root_token: int,
+    name: str,
+) -> tuple[int, tuple[int, bytes]]:
+    root_identity = _win_download_identity(root_token, directory=True)
+    handle = _win_open_relative_download_handle(
+        root_token,
+        name,
+        protected=True,
+    )
+    assert handle is not None
+    descriptor = None
+    try:
+        identity = _win_download_identity(handle, directory=False)
+        if identity[0] != root_identity[0]:
+            raise DownloadError("未完成文件与下载目录不在同一卷")
+        descriptor = msvcrt.open_osfhandle(
+            handle,
+            os.O_RDONLY
+            | getattr(os, "O_BINARY", 0)
+            | getattr(os, "O_NOINHERIT", 0),
+        )
+        handle = None
+        return descriptor, identity
+    except (OSError, OverflowError, ValueError) as exc:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        _win_download_close_handle(handle)
+        raise DownloadError("未完成文件无法转换为受保护描述符") from exc
+    except BaseException:
+        if descriptor is not None:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        _win_download_close_handle(handle)
+        raise
+
+
+def _win_rename_protected_part_no_replace(
+    root_token: int,
+    descriptor: int,
+    destination_name: str,
+) -> None:
+    destination_name = _managed_basename(destination_name)
+    encoded = destination_name.encode("utf-16-le")
+    filename_offset = 20
+    if ctypes.sizeof(ctypes.c_void_p) != 8 or not encoded:
+        raise DownloadError("Windows 下载文件重命名 ABI 不可用")
+    buffer = ctypes.create_string_buffer(filename_offset + len(encoded))
+    ctypes.c_ubyte.from_buffer(buffer, 0).value = 0
+    ctypes.c_void_p.from_buffer(buffer, 8).value = int(root_token)
+    ctypes.c_uint32.from_buffer(buffer, 16).value = len(encoded)
+    ctypes.memmove(ctypes.addressof(buffer) + filename_offset, encoded, len(encoded))
+    native_handle = int(msvcrt.get_osfhandle(descriptor))
+    status_block = _IO_STATUS_BLOCK()
+    status = int(
+        _DownloadNtSetInformationFile(
+            wintypes.HANDLE(native_handle),
+            ctypes.byref(status_block),
+            buffer,
+            ctypes.sizeof(buffer),
+            _FILE_RENAME_INFORMATION_CLASS,
+        )
+    )
+    if status >= 0:
+        return
+    folded = status & 0xFFFFFFFF
+    if folded == _STATUS_OBJECT_NAME_COLLISION:
+        raise FileExistsError(destination_name)
+    if folded == _STATUS_ACCESS_DENIED and _win_named_download_identity(
+        root_token, destination_name
+    ) is not None:
+        raise FileExistsError(destination_name)
+    raise DownloadError(
+        f"无法提交完成文件（NTSTATUS 0x{folded:08x}）"
+    )
+
+
+def _posix_renameat2_no_replace(
+    source_dir_fd: int,
+    source: str,
+    destination_dir_fd: int,
+    destination: str,
+) -> None:
+    try:
+        renameat2 = ctypes.CDLL(None, use_errno=True).renameat2
+    except (AttributeError, OSError):
+        raise OSError(errno.ENOSYS, "atomic no-replace rename is unavailable") from None
+    renameat2.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
+    renameat2.restype = ctypes.c_int
+    result = int(
+        renameat2(
+            int(source_dir_fd),
+            os.fsencode(source),
+            int(destination_dir_fd),
+            os.fsencode(destination),
+            1,  # RENAME_NOREPLACE
+        )
+    )
+    if result == 0:
+        return
+    error_code = ctypes.get_errno()
+    if error_code in {errno.EEXIST, errno.ENOTEMPTY}:
+        raise FileExistsError(destination)
+    raise OSError(error_code, "atomic no-replace rename failed")
+
+
+def _publish_bound_media_name_no_replace(
+    root_token: int,
+    descriptor: int,
+    source_name: str,
+    destination_name: str,
+) -> None:
+    if os.name == "nt":
+        _win_rename_protected_part_no_replace(
+            root_token,
+            descriptor,
+            destination_name,
+        )
+        return
+    source_name = _managed_basename(source_name)
+    destination_name = _managed_basename(destination_name)
+    try:
+        _posix_renameat2_no_replace(
+            root_token,
+            source_name,
+            root_token,
+            destination_name,
+        )
+    except FileExistsError:
+        raise
+    except OSError as exc:
+        if exc.errno in {
+            errno.EINVAL,
+            getattr(errno, "ENOSYS", -1),
+            getattr(errno, "EOPNOTSUPP", -1),
+        }:
+            raise DownloadError("当前文件系统不支持原子禁止覆盖发布") from exc
+        raise DownloadError(f"无法提交完成文件（errno {exc.errno}）") from exc
+
+
+class _PublishedMediaLease:
+    def __init__(
+        self,
+        final_path: str,
+        inspection: _FileInspection,
+        *,
+        part_name_consumed: bool,
+        validate: Callable[[], None],
+        close: Callable[[], None],
+    ) -> None:
+        self.final_path = final_path
+        self.inspection = inspection
+        self.part_name_consumed = part_name_consumed
+        self._validate = validate
+        self._close = close
+        self._closed = False
+
+    def __enter__(self) -> "_PublishedMediaLease":
+        if self._closed:
+            raise DownloadError("完成文件租约不可用")
+        return self
+
+    def validate(self) -> None:
+        if self._closed:
+            raise DownloadError("完成文件租约不可用")
+        self._validate()
+
+    def __exit__(self, exc_type, _exc, _traceback) -> None:
+        validation_error: BaseException | None = None
+        if exc_type is None:
+            try:
+                self._validate()
+            except BaseException as caught:
+                validation_error = caught
+        self._closed = True
+        try:
+            self._close()
+        except BaseException as caught:
+            if exc_type is None and validation_error is None:
+                validation_error = caught
+        if exc_type is None and validation_error is not None:
+            raise validation_error
+
+
+def _same_media_content(
+    expected: _FileInspection,
+    actual: _FileInspection,
+) -> bool:
+    return (
+        expected.size == actual.size
+        and expected.sha256 == actual.sha256
+        and expected.md5 == actual.md5
+        and expected.prefix == actual.prefix
+        and expected.suffix == actual.suffix
+    )
+
+
+def _descriptor_matches_inspection(
+    descriptor: int,
+    inspection: _FileInspection,
+    *,
+    include_ctime: bool,
+) -> bool:
+    try:
+        current = os.fstat(descriptor)
+    except OSError:
+        return False
+    return bool(
+        _stat_is_plain_file(current)
+        and current.st_size == inspection.size
+        and current.st_dev == inspection.device
+        and current.st_ino == inspection.inode
+        and (
+            not inspection.mtime_ns
+            or getattr(current, "st_mtime_ns", 0) == inspection.mtime_ns
+        )
+        and (
+            not include_ctime
+            or not inspection.ctime_ns
+            or getattr(current, "st_ctime_ns", 0) == inspection.ctime_ns
+        )
+    )
+
+
+def _posix_named_stat(root_token: int, name: str, label: str) -> os.stat_result | None:
+    name = _managed_basename(name)
+    try:
+        value = os.stat(name, dir_fd=root_token, follow_symlinks=False)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise DownloadError(f"{label}状态读取失败（{type(exc).__name__}）") from exc
+    root_state = os.fstat(root_token)
+    if not _stat_is_plain_file(value) or value.st_dev != root_state.st_dev:
+        raise DownloadError(f"{label}对象不安全")
+    return value
+
+
+def _posix_unlink_owned_name(
+    root_token: int,
+    name: str,
+    expected: os.stat_result,
+    *,
+    allowed_links: set[int],
+) -> bool:
+    try:
+        named = os.stat(name, dir_fd=root_token, follow_symlinks=False)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return False
+    attributes = int(getattr(named, "st_file_attributes", 0))
+    if (
+        not stat.S_ISREG(named.st_mode)
+        or stat.S_ISLNK(named.st_mode)
+        or attributes & _WINDOWS_REPARSE_POINT
+        or int(named.st_nlink) not in allowed_links
+        or not os.path.samestat(named, expected)
+    ):
+        return False
+    try:
+        os.unlink(name, dir_fd=root_token)
+    except OSError:
+        return False
+    return True
+
+
+def _remove_stale_posix_download_snapshots(root_token: int) -> None:
+    try:
+        names = os.listdir(root_token)
+    except OSError as exc:
+        raise DownloadError(
+            f"下载快照恢复扫描失败（{type(exc).__name__}）"
+        ) from exc
+    for name in sorted(names, key=str.casefold):
+        if not _DOWNLOAD_SNAPSHOT_RE.fullmatch(name):
+            continue
+        state = _posix_named_stat(root_token, name, "遗留下载快照")
+        if state is None:
+            continue
+        if not _posix_unlink_owned_name(
+            root_token,
+            name,
+            state,
+            allowed_links={1},
+        ):
+            raise DownloadError("遗留下载快照无法安全清理")
+
+
+def _write_all(descriptor: int, data: bytes) -> None:
+    view = memoryview(data)
+    while view:
+        written = os.write(descriptor, view)
+        if written <= 0:
+            raise OSError("short file write")
+        view = view[written:]
+
+
+def _publish_posix_verified_part(
+    root_token: int,
+    output_dir: str,
+    part_name: str,
+    *,
+    post_id: str,
+    suffix: str,
+    extension: str,
+    expected: _FileInspection,
+    stop_event: threading.Event,
+) -> _PublishedMediaLease:
+    required_dir_fd = {os.open, os.stat, os.unlink}
+    if (
+        not required_dir_fd.issubset(os.supports_dir_fd)
+        or os.stat not in os.supports_follow_symlinks
+    ):
+        raise DownloadError("当前文件系统不支持安全下载发布")
+    nofollow = getattr(os, "O_NOFOLLOW", None)
+    if nofollow is None:
+        raise DownloadError("当前文件系统不支持安全下载发布")
+    part_name = _managed_basename(part_name)
+    part_descriptor = None
+    snapshot_descriptor = None
+    snapshot_name: str | None = None
+    final_name: str | None = None
+    try:
+        part_descriptor = os.open(
+            part_name,
+            os.O_RDONLY | nofollow | getattr(os, "O_CLOEXEC", 0),
+            dir_fd=root_token,
+        )
+        source_inspection = _inspect_media_descriptor(part_descriptor, stop_event)
+        if not _same_inspection(expected, source_inspection):
+            raise DownloadError("未完成文件在发布前被其他进程改变")
+
+        for _attempt in range(128):
+            candidate = (
+                ".sankakusyncer-download-snapshot-"
+                f"{secrets.token_hex(16)}.tmp"
+            )
+            try:
+                snapshot_descriptor = os.open(
+                    candidate,
+                    os.O_RDWR
+                    | os.O_CREAT
+                    | os.O_EXCL
+                    | nofollow
+                    | getattr(os, "O_CLOEXEC", 0),
+                    0o600,
+                    dir_fd=root_token,
+                )
+                snapshot_name = candidate
+                break
+            except FileExistsError:
+                continue
+        if snapshot_descriptor is None or snapshot_name is None:
+            raise DownloadError("无法创建唯一下载快照")
+
+        os.lseek(part_descriptor, 0, os.SEEK_SET)
+        while True:
+            if stop_event.is_set():
+                raise CancelledError("下载已取消")
+            chunk = os.read(part_descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            _write_all(snapshot_descriptor, chunk)
+        os.fsync(snapshot_descriptor)
+        if not _descriptor_matches_inspection(
+            part_descriptor,
+            source_inspection,
+            include_ctime=True,
+        ):
+            raise DownloadError("未完成文件在快照期间被其他进程改变")
+        snapshot_inspection = _inspect_media_descriptor(
+            snapshot_descriptor,
+            stop_event,
+        )
+        if not _same_media_content(source_inspection, snapshot_inspection):
+            raise DownloadError("下载快照与已验证文件不一致")
+        snapshot_state = os.fstat(snapshot_descriptor)
+
+        for slot in range(_MAX_COLLISION_SLOTS):
+            collision = "" if slot == 0 else f" ({slot})"
+            candidate_final_name = f"{post_id}{suffix}{collision}.{extension}"
+            sidecar_name = candidate_final_name + ".json"
+            if _posix_named_stat(root_token, candidate_final_name, "目标文件"):
+                continue
+            if _posix_named_stat(root_token, sidecar_name, "元数据文件"):
+                continue
+            if stop_event.is_set():
+                raise CancelledError("下载已取消")
+            named_snapshot = _posix_named_stat(
+                root_token,
+                snapshot_name,
+                "下载快照",
+            )
+            if named_snapshot is None or not os.path.samestat(
+                snapshot_state, named_snapshot
+            ):
+                raise DownloadError("下载快照名称被替换")
+            if not _descriptor_matches_inspection(
+                part_descriptor,
+                source_inspection,
+                include_ctime=True,
+            ):
+                raise DownloadError("未完成文件在发布前被其他进程改变")
+            try:
+                _publish_bound_media_name_no_replace(
+                    root_token,
+                    snapshot_descriptor,
+                    snapshot_name,
+                    candidate_final_name,
+                )
+            except FileExistsError:
+                continue
+            except OSError as exc:
+                raise DownloadError(
+                    f"无法提交完成文件（{type(exc).__name__}）"
+                ) from exc
+            snapshot_name = None
+            final_name = candidate_final_name
+            final_state = _posix_named_stat(root_token, final_name, "完成文件")
+            if (
+                final_state is None
+                or not os.path.samestat(snapshot_state, final_state)
+                or int(final_state.st_nlink) != 1
+            ):
+                raise DownloadError("完成文件名称未绑定到下载快照")
+            break
+        if final_name is None:
+            raise DownloadError("目标文件碰撞槽位已用尽")
+
+        part_name_consumed = False
+        if _descriptor_matches_inspection(
+            part_descriptor,
+            source_inspection,
+            include_ctime=True,
+        ):
+            source_state = os.fstat(part_descriptor)
+            part_name_consumed = _posix_unlink_owned_name(
+                root_token,
+                part_name,
+                source_state,
+                allowed_links={1},
+            )
+        os.close(part_descriptor)
+        part_descriptor = None
+        final_path = os.path.abspath(os.path.join(output_dir, final_name))
+        leased_descriptor = snapshot_descriptor
+
+        def validate(descriptor: int = leased_descriptor) -> None:
+            named = _posix_named_stat(root_token, final_name, "完成文件")
+            current = os.fstat(descriptor)
+            if named is None or not os.path.samestat(current, named):
+                raise DownloadError("完成文件在返回前被替换")
+            actual = _inspect_media_descriptor(descriptor, threading.Event())
+            rebound = _posix_named_stat(root_token, final_name, "完成文件")
+            current = os.fstat(descriptor)
+            if (
+                rebound is None
+                or not os.path.samestat(current, rebound)
+                or not _same_media_content(snapshot_inspection, actual)
+            ):
+                raise DownloadError("完成文件在返回前发生变化")
+
+        def close(descriptor: int = leased_descriptor) -> None:
+            try:
+                os.close(descriptor)
+            except OSError as exc:
+                raise DownloadError("完成文件租约关闭失败") from exc
+
+        lease = _PublishedMediaLease(
+            final_path,
+            snapshot_inspection,
+            part_name_consumed=part_name_consumed,
+            validate=validate,
+            close=close,
+        )
+        snapshot_descriptor = None
+        return lease
+    except (OSError, OverflowError) as exc:
+        raise DownloadError(
+            f"安全下载发布失败（{type(exc).__name__}）"
+        ) from exc
+    finally:
+        if part_descriptor is not None:
+            try:
+                os.close(part_descriptor)
+            except OSError:
+                pass
+        if snapshot_descriptor is not None:
+            try:
+                state = os.fstat(snapshot_descriptor)
+            except OSError:
+                state = None
+            if snapshot_name is not None and state is not None:
+                _posix_unlink_owned_name(
+                    root_token,
+                    snapshot_name,
+                    state,
+                    allowed_links={1},
+                )
+            try:
+                os.close(snapshot_descriptor)
+            except OSError:
+                pass
 
 
 def _open_part_for_write(path: str, *, append: bool, expected_size: int):
@@ -1463,37 +2480,54 @@ def _load_part_state(path: str) -> _PartState | None:
         return None
 
 
-def _inspect_media_file(path: str, stop_event: threading.Event) -> _FileInspection:
+def _inspect_media_descriptor(
+    descriptor: int,
+    stop_event: threading.Event,
+) -> _FileInspection:
     sha256 = hashlib.sha256()
     md5 = hashlib.md5(usedforsecurity=False)
     prefix = bytearray()
     suffix = bytearray()
     size = 0
     try:
-        opened, opened_stat = _open_plain_for_read(path, "媒体文件")
-        with opened as file_obj:
-            while True:
-                if stop_event.is_set():
-                    raise CancelledError("下载已取消")
-                chunk = file_obj.read(1024 * 1024)
-                if not chunk:
-                    break
-                if len(prefix) < _MAX_PREFIX_BYTES:
-                    prefix.extend(chunk[: _MAX_PREFIX_BYTES - len(prefix)])
-                if len(chunk) >= BOUNDARY_SUFFIX_BYTES:
-                    suffix[:] = chunk[-BOUNDARY_SUFFIX_BYTES:]
-                else:
-                    suffix.extend(chunk)
-                    overflow = len(suffix) - BOUNDARY_SUFFIX_BYTES
-                    if overflow > 0:
-                        del suffix[:overflow]
-                size += len(chunk)
-                if size > MAX_MEDIA_BYTES:
-                    raise DownloadError("媒体文件超过 50 GiB 安全上限")
-                sha256.update(chunk)
-                md5.update(chunk)
+        opened_stat = os.fstat(descriptor)
+        if not _stat_is_plain_file(opened_stat):
+            raise DownloadError("媒体文件对象不安全")
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        while True:
+            if stop_event.is_set():
+                raise CancelledError("下载已取消")
+            chunk = os.read(descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            if len(prefix) < _MAX_PREFIX_BYTES:
+                prefix.extend(chunk[: _MAX_PREFIX_BYTES - len(prefix)])
+            if len(chunk) >= BOUNDARY_SUFFIX_BYTES:
+                suffix[:] = chunk[-BOUNDARY_SUFFIX_BYTES:]
+            else:
+                suffix.extend(chunk)
+                overflow = len(suffix) - BOUNDARY_SUFFIX_BYTES
+                if overflow > 0:
+                    del suffix[:overflow]
+            size += len(chunk)
+            if size > MAX_MEDIA_BYTES:
+                raise DownloadError("媒体文件超过 50 GiB 安全上限")
+            sha256.update(chunk)
+            md5.update(chunk)
+        current = os.fstat(descriptor)
     except OSError as exc:
         raise DownloadError(f"文件校验失败（{type(exc).__name__}）") from exc
+    if (
+        not _stat_is_plain_file(current)
+        or not _same_file_identity(opened_stat, current)
+        or current.st_size != opened_stat.st_size
+        or size != opened_stat.st_size
+        or getattr(current, "st_mtime_ns", 0)
+        != getattr(opened_stat, "st_mtime_ns", 0)
+        or getattr(current, "st_ctime_ns", 0)
+        != getattr(opened_stat, "st_ctime_ns", 0)
+    ):
+        raise DownloadError("媒体文件在校验期间被替换或改变")
     return _FileInspection(
         size=size,
         sha256=sha256.hexdigest(),
@@ -1502,7 +2536,37 @@ def _inspect_media_file(path: str, stop_event: threading.Event) -> _FileInspecti
         device=opened_stat.st_dev,
         inode=opened_stat.st_ino,
         mtime_ns=getattr(opened_stat, "st_mtime_ns", 0),
+        ctime_ns=getattr(opened_stat, "st_ctime_ns", 0),
         suffix=bytes(suffix),
+    )
+
+
+def _inspect_media_file(path: str, stop_event: threading.Event) -> _FileInspection:
+    opened, _opened_stat = _open_plain_for_read(path, "媒体文件")
+    with opened:
+        return _inspect_media_descriptor(opened.fileno(), stop_event)
+
+
+def _same_inspection(
+    expected: _FileInspection,
+    actual: _FileInspection,
+) -> bool:
+    return (
+        expected.size == actual.size
+        and expected.sha256 == actual.sha256
+        and expected.md5 == actual.md5
+        and expected.prefix == actual.prefix
+        and expected.suffix == actual.suffix
+        and expected.device == actual.device
+        and expected.inode == actual.inode
+        and (
+            not expected.mtime_ns
+            or expected.mtime_ns == actual.mtime_ns
+        )
+        and (
+            not expected.ctime_ns
+            or expected.ctime_ns == actual.ctime_ns
+        )
     )
 
 
@@ -2299,10 +3363,7 @@ def _commit_file_no_replace(source: str, destination: str) -> None:
         # never carries MOVEFILE_REPLACE_EXISTING.
         os.rename(source, destination)
         return
-    # Tests and source runs on POSIX still retain no-clobber semantics.  Both
-    # paths are in the same directory/volume, so link creation is atomic.
-    os.link(source, destination)
-    os.unlink(source)
+    _posix_renameat2_no_replace(-100, source, -100, destination)
 
 
 def _remove_compatible_part_state(path: str, *, expected: _PartState) -> None:

@@ -94,6 +94,24 @@ class ImmediateGate:
         return None
 
 
+class ObservedStopEvent:
+    """Event proxy that exposes when cancellable lock polling has begun."""
+
+    def __init__(self) -> None:
+        self._event = threading.Event()
+        self.wait_entered = threading.Event()
+
+    def is_set(self) -> bool:
+        return self._event.is_set()
+
+    def set(self) -> None:
+        self._event.set()
+
+    def wait(self, timeout: float | None = None) -> bool:
+        self.wait_entered.set()
+        return self._event.wait(timeout)
+
+
 class FakeMediaResponse:
     """Streaming response with optional per-chunk hooks."""
 
@@ -292,6 +310,21 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
             json.dump(sidecar, file_obj)
         return sidecar_path
 
+    def _make_directory_symlink(self, target: str, link: str) -> None:
+        try:
+            os.symlink(target, link, target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            self.skipTest(
+                f"directory symlinks are unavailable: {type(exc).__name__}"
+            )
+
+    def _retarget_directory_symlink(self, link: str, target: str) -> None:
+        try:
+            os.unlink(link)
+        except IsADirectoryError:
+            os.rmdir(link)
+        self._make_directory_symlink(target, link)
+
     def test_direct_media_url_must_be_allowlisted(self):
         downloader, api, session = self._downloader(
             _post(file_url="https://evil.example/file.jpg")
@@ -307,7 +340,10 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
             "https://github.com/aaAarJimedes/SankakuSyncer_Portable",
             session.headers["User-Agent"],
         )
-        self.assertEqual(os.listdir(self.temp_dir.name), [])
+        self.assertEqual(
+            os.listdir(self.temp_dir.name),
+            [download_engine._DOWNLOAD_LOCK_NAME],
+        )
 
     def test_redirect_target_must_also_be_allowlisted(self):
         redirect = FakeMediaResponse(
@@ -321,7 +357,10 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         self.assertTrue(redirect.closed)
         self.assertEqual(len(session.gets), 1)
         self.assertFalse(session.gets[0]["kwargs"]["allow_redirects"])
-        self.assertEqual(os.listdir(self.temp_dir.name), [])
+        self.assertEqual(
+            os.listdir(self.temp_dir.name),
+            [download_engine._DOWNLOAD_LOCK_NAME],
+        )
 
     def test_pathological_content_length_is_a_domain_error_before_writing(self):
         cases = (
@@ -347,7 +386,10 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
                     downloader.download("Post_1")
 
                 self.assertTrue(response.closed)
-                self.assertEqual(os.listdir(self.temp_dir.name), [])
+                self.assertEqual(
+                    os.listdir(self.temp_dir.name),
+                    [download_engine._DOWNLOAD_LOCK_NAME],
+                )
 
     def test_explicit_zero_content_length_cannot_accept_a_nonempty_body(self):
         response = FakeMediaResponse(
@@ -481,31 +523,532 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         )
         final_path = os.path.join(self.temp_dir.name, "Post_1.jpg")
         observed_commits: list[tuple[str, str]] = []
-        real_commit = download_engine._commit_file_no_replace
+        real_commit = download_engine._publish_bound_media_name_no_replace
 
-        def atomic_no_replace(source: str, destination: str) -> None:
+        def atomic_no_replace(
+            root_token: int,
+            descriptor: int,
+            source: str,
+            destination: str,
+        ) -> None:
             observed_commits.append((source, destination))
-            if destination == final_path:
-                self.assertTrue(source.endswith(".part"))
-                self.assertFalse(os.path.exists(destination))
-                with open(source, "rb") as file_obj:
-                    self.assertEqual(file_obj.read(), JPEG)
-            real_commit(source, destination)
+            if destination == "Post_1.jpg":
+                self.assertEqual(os.path.basename(source), source)
+                self.assertEqual(os.path.basename(destination), destination)
+                if os.name == "nt":
+                    self.assertTrue(source.endswith(".part"))
+                else:
+                    self.assertTrue(source.endswith(".tmp"))
+                self.assertFalse(os.path.exists(final_path))
+                position = os.lseek(descriptor, 0, os.SEEK_CUR)
+                os.lseek(descriptor, 0, os.SEEK_SET)
+                self.assertEqual(os.read(descriptor, len(JPEG)), JPEG)
+                os.lseek(descriptor, position, os.SEEK_SET)
+            real_commit(root_token, descriptor, source, destination)
 
         def progress(_current: int, _total: int) -> None:
             self.assertFalse(os.path.exists(final_path))
 
         with mock.patch(
-            "download_engine._commit_file_no_replace",
+            "download_engine._publish_bound_media_name_no_replace",
             side_effect=atomic_no_replace,
         ):
             result = downloader.download("Post_1", progress=progress)
 
-        final_commits = [pair for pair in observed_commits if pair[1] == final_path]
+        final_commits = [pair for pair in observed_commits if pair[1] == "Post_1.jpg"]
         self.assertEqual(len(final_commits), 1)
         self.assertEqual(result.file_path, final_path)
         self.assertTrue(os.path.isfile(final_path))
         self.assertFalse(os.path.exists(self._paths()[1]))
+
+    def test_append_after_inspection_is_rejected_before_publish(self):
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+        real_commit = downloader._commit_media_no_replace
+
+        def append_then_commit(part_path: str, **kwargs):
+            with open(part_path, "ab") as file_obj:
+                file_obj.write(b"RACE_APPEND")
+            return real_commit(part_path, **kwargs)
+
+        with mock.patch.object(
+            downloader,
+            "_commit_media_no_replace",
+            side_effect=append_then_commit,
+        ):
+            with self.assertRaisesRegex(DownloadError, "发布前被其他进程改变"):
+                downloader.download("Post_1")
+
+        final_path, part_path, state_path = self._paths()
+        self.assertFalse(os.path.exists(final_path))
+        self.assertFalse(os.path.exists(final_path + ".json"))
+        with open(part_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), JPEG + b"RACE_APPEND")
+        self.assertTrue(os.path.isfile(state_path))
+
+    def test_same_metadata_part_replacement_is_rejected_before_publish(self):
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+        real_commit = downloader._commit_media_no_replace
+
+        def replace_then_commit(part_path: str, **kwargs):
+            before = os.stat(part_path)
+            replacement = part_path + ".replacement"
+            with open(replacement, "xb") as file_obj:
+                file_obj.write(JPEG)
+            os.utime(
+                replacement,
+                ns=(
+                    getattr(before, "st_atime_ns", 0),
+                    getattr(before, "st_mtime_ns", 0),
+                ),
+            )
+            os.replace(replacement, part_path)
+            return real_commit(part_path, **kwargs)
+
+        with mock.patch.object(
+            downloader,
+            "_commit_media_no_replace",
+            side_effect=replace_then_commit,
+        ):
+            with self.assertRaisesRegex(DownloadError, "发布前被其他进程改变"):
+                downloader.download("Post_1")
+
+        final_path, part_path, state_path = self._paths()
+        self.assertFalse(os.path.exists(final_path))
+        with open(part_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), JPEG)
+        self.assertTrue(os.path.isfile(state_path))
+
+    @unittest.skipUnless(os.name == "nt", "Windows share-mode regression")
+    def test_protected_part_blocks_late_writer_during_publish(self):
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+        part_path = self._paths()[1]
+        real_publish = download_engine._publish_bound_media_name_no_replace
+        denied: list[OSError] = []
+
+        def try_late_write(
+            root_token: int,
+            descriptor: int,
+            source: str,
+            destination: str,
+        ) -> None:
+            try:
+                with open(part_path, "ab") as file_obj:
+                    file_obj.write(b"RACE_APPEND")
+            except OSError as exc:
+                denied.append(exc)
+            real_publish(root_token, descriptor, source, destination)
+
+        with mock.patch(
+            "download_engine._publish_bound_media_name_no_replace",
+            side_effect=try_late_write,
+        ):
+            result = downloader.download("Post_1")
+
+        self.assertEqual(len(denied), 1)
+        with open(result.file_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), JPEG)
+
+    @unittest.skipUnless(os.name == "nt", "Windows handle-bound rollback")
+    def test_windows_post_rename_query_failure_restores_partial(self):
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+        real_named_identity = download_engine._win_named_download_identity
+        injected = False
+
+        def fail_final_query(root_token: int, name: str):
+            nonlocal injected
+            if name == "Post_1.jpg" and not injected:
+                injected = True
+                raise DownloadError("simulated final identity query failure")
+            return real_named_identity(root_token, name)
+
+        with mock.patch(
+            "download_engine._win_named_download_identity",
+            side_effect=fail_final_query,
+        ):
+            with self.assertRaisesRegex(DownloadError, "simulated final"):
+                downloader.download("Post_1")
+
+        final_path, part_path, state_path = self._paths()
+        self.assertFalse(os.path.exists(final_path))
+        with open(part_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), JPEG)
+        self.assertTrue(os.path.isfile(state_path))
+
+    @unittest.skipUnless(os.name == "nt", "Windows descriptor conversion")
+    def test_windows_protected_descriptor_failure_preserves_partial(self):
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+        real_commit = downloader._commit_media_no_replace
+
+        def fail_descriptor_conversion(part_path: str, **kwargs):
+            with mock.patch.object(
+                download_engine.msvcrt,
+                "open_osfhandle",
+                side_effect=OSError("simulated descriptor failure"),
+            ):
+                return real_commit(part_path, **kwargs)
+
+        with mock.patch.object(
+            downloader,
+            "_commit_media_no_replace",
+            side_effect=fail_descriptor_conversion,
+        ):
+            with self.assertRaisesRegex(DownloadError, "受保护描述符"):
+                downloader.download("Post_1")
+
+        final_path, part_path, state_path = self._paths()
+        self.assertFalse(os.path.exists(final_path))
+        with open(part_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), JPEG)
+        self.assertTrue(os.path.isfile(state_path))
+
+    @unittest.skipIf(os.name == "nt", "POSIX snapshot failure contract")
+    def test_posix_snapshot_write_failure_preserves_partial(self):
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+
+        with mock.patch(
+            "download_engine._write_all",
+            side_effect=OSError("simulated snapshot write failure"),
+        ):
+            with self.assertRaisesRegex(DownloadError, "安全下载发布失败"):
+                downloader.download("Post_1")
+
+        final_path, part_path, state_path = self._paths()
+        self.assertFalse(os.path.exists(final_path))
+        self.assertTrue(os.path.isfile(part_path))
+        self.assertTrue(os.path.isfile(state_path))
+        self.assertFalse(
+            any(
+                name.startswith(".sankakusyncer-download-snapshot-")
+                for name in os.listdir(self.temp_dir.name)
+            )
+        )
+
+    @unittest.skipIf(os.name == "nt", "POSIX atomic rename contract")
+    def test_posix_publish_never_depends_on_snapshot_unlink(self):
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+        real_unlink_owned = download_engine._posix_unlink_owned_name
+
+        def reject_snapshot_unlink(root_token, name, expected, *, allowed_links):
+            if name.startswith(".sankakusyncer-download-snapshot-"):
+                raise AssertionError("published snapshots must be renamed atomically")
+            return real_unlink_owned(
+                root_token,
+                name,
+                expected,
+                allowed_links=allowed_links,
+            )
+
+        with mock.patch(
+            "download_engine._posix_unlink_owned_name",
+            side_effect=reject_snapshot_unlink,
+        ):
+            result = downloader.download("Post_1")
+
+        with open(result.file_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), JPEG)
+        self.assertEqual(os.stat(result.file_path).st_nlink, 1)
+        self.assertFalse(
+            any(
+                name.startswith(".sankakusyncer-download-snapshot-")
+                for name in os.listdir(self.temp_dir.name)
+            )
+        )
+
+    @unittest.skipIf(os.name == "nt", "POSIX generic no-clobber commit")
+    def test_posix_generic_commit_uses_one_atomic_rename(self):
+        source = os.path.join(self.temp_dir.name, ".metadata.unique.tmp")
+        destination = os.path.join(self.temp_dir.name, "Post_1.jpg.json")
+        with open(source, "xb") as file_obj:
+            file_obj.write(b"metadata")
+
+        with mock.patch.object(
+            download_engine.os,
+            "unlink",
+            side_effect=AssertionError("no post-rename unlink is allowed"),
+        ):
+            download_engine._commit_file_no_replace(source, destination)
+
+        self.assertFalse(os.path.exists(source))
+        with open(destination, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), b"metadata")
+        self.assertEqual(os.stat(destination).st_nlink, 1)
+
+    @unittest.skipIf(os.name == "nt", "POSIX crash-recovery snapshot cleanup")
+    def test_posix_stale_owned_snapshot_is_removed_under_directory_lease(self):
+        stale_name = (
+            ".sankakusyncer-download-snapshot-"
+            "0123456789abcdef0123456789abcdef.tmp"
+        )
+        stale_path = os.path.join(self.temp_dir.name, stale_name)
+        near_match = os.path.join(
+            self.temp_dir.name,
+            ".sankakusyncer-download-snapshot-not-owned.tmp",
+        )
+        with open(stale_path, "xb") as file_obj:
+            file_obj.write(b"interrupted-snapshot")
+        with open(near_match, "xb") as file_obj:
+            file_obj.write(b"unrelated")
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+
+        result = downloader.download("Post_1")
+
+        self.assertTrue(os.path.isfile(result.file_path))
+        self.assertFalse(os.path.exists(stale_path))
+        with open(near_match, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), b"unrelated")
+
+    def test_part_with_extra_hardlink_is_rejected(self):
+        final_path, part_path, state_path = self._paths()
+        with open(part_path, "wb") as file_obj:
+            file_obj.write(JPEG[:3])
+        self._write_state()
+        alias_path = os.path.join(self.temp_dir.name, "part-owner-alias.bin")
+        os.link(part_path, alias_path)
+        response = FakeMediaResponse(
+            206,
+            headers={
+                "Content-Type": "image/jpeg",
+                "Content-Length": "3",
+                "Content-Range": "bytes 3-5/6",
+                "ETag": '"v1"',
+            },
+            chunks=[JPEG[3:]],
+        )
+        downloader, _api, session = self._downloader(_post(), response)
+
+        with self.assertRaisesRegex(DownloadError, "多链接文件"):
+            downloader.download("Post_1")
+
+        self.assertEqual(session.gets, [])
+        self.assertFalse(os.path.exists(final_path))
+        with open(alias_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), JPEG[:3])
+        self.assertTrue(os.path.isfile(part_path))
+        self.assertTrue(os.path.isfile(state_path))
+
+    def test_final_name_replacement_before_return_is_detected(self):
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+        final_path = self._paths()[0]
+        displaced_path = final_path + ".displaced"
+        real_result = downloader._result
+        denied: list[OSError] = []
+
+        def replace_final(*args, **kwargs):
+            try:
+                os.rename(final_path, displaced_path)
+            except OSError as exc:
+                denied.append(exc)
+                return real_result(*args, **kwargs)
+            with open(final_path, "xb") as file_obj:
+                file_obj.write(b"replacement-owner")
+            return real_result(*args, **kwargs)
+
+        with mock.patch.object(downloader, "_result", side_effect=replace_final):
+            if os.name == "nt":
+                result = downloader.download("Post_1")
+            else:
+                with self.assertRaisesRegex(DownloadError, "返回前被替换"):
+                    downloader.download("Post_1")
+
+        if os.name == "nt":
+            self.assertEqual(len(denied), 1)
+            self.assertFalse(os.path.exists(displaced_path))
+            with open(result.file_path, "rb") as file_obj:
+                self.assertEqual(file_obj.read(), JPEG)
+        else:
+            with open(final_path, "rb") as file_obj:
+                self.assertEqual(file_obj.read(), b"replacement-owner")
+            with open(displaced_path, "rb") as file_obj:
+                self.assertEqual(file_obj.read(), JPEG)
+
+    @unittest.skipUnless(os.name == "nt", "Windows final-name share contract")
+    def test_windows_final_cannot_be_replaced_between_lease_checks(self):
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+        final_path = self._paths()[0]
+        displaced_path = final_path + ".displaced"
+        real_named_identity = download_engine._win_named_download_identity
+        final_queries = 0
+        denied: list[OSError] = []
+
+        def identity_then_replace(root_token: int, name: str):
+            nonlocal final_queries
+            identity = real_named_identity(root_token, name)
+            if name == "Post_1.jpg":
+                final_queries += 1
+                if final_queries == 2:
+                    try:
+                        os.rename(final_path, displaced_path)
+                        with open(final_path, "xb") as file_obj:
+                            file_obj.write(JPEG_ALT)
+                    except OSError as exc:
+                        denied.append(exc)
+            return identity
+
+        with mock.patch(
+            "download_engine._win_named_download_identity",
+            side_effect=identity_then_replace,
+        ):
+            result = downloader.download("Post_1")
+
+        self.assertEqual(len(denied), 1)
+        self.assertGreaterEqual(final_queries, 3)
+        self.assertFalse(os.path.exists(displaced_path))
+        with open(result.file_path, "rb") as file_obj:
+            published = file_obj.read()
+        self.assertEqual(published, JPEG)
+        self.assertEqual(result.sha256, hashlib.sha256(published).hexdigest())
+
+    def test_ancestor_symlink_retarget_does_not_redirect_download_writes(self):
+        root_a = os.path.join(self.temp_dir.name, "root-a")
+        root_b = os.path.join(self.temp_dir.name, "root-b")
+        output_a = os.path.join(root_a, "Downloads")
+        output_b = os.path.join(root_b, "Downloads")
+        os.makedirs(output_a)
+        os.makedirs(output_b)
+        alias = os.path.join(self.temp_dir.name, "alias")
+        self._make_directory_symlink(root_a, alias)
+        configured_output = os.path.join(alias, "Downloads")
+
+        class RetargetingAPI(FakeAPI):
+            def get_post(inner_self, post_id: str) -> SankakuPost:
+                self._retarget_directory_symlink(alias, root_b)
+                return super().get_post(post_id)
+
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        api = RetargetingAPI(_post())
+        session = FakeMediaSession([response])
+        downloader = MediaDownloader(
+            api,
+            configured_output,
+            timeout=10,
+            max_retries=0,
+            save_metadata=False,
+            session_factory=lambda: session,
+        )
+        self.addCleanup(downloader.close)
+
+        with self.assertRaisesRegex(DownloadError, "租约在操作期间失效"):
+            downloader.download("Post_1")
+
+        self.assertEqual(sorted(os.listdir(output_b)), [])
+        self.assertTrue(os.path.isfile(os.path.join(output_a, "Post_1.jpg")))
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(output_a, download_engine._DOWNLOAD_LOCK_NAME)
+            )
+        )
+
+    def test_retarget_after_publish_cannot_delete_or_describe_new_root(self):
+        root_a = os.path.join(self.temp_dir.name, "late-root-a")
+        root_b = os.path.join(self.temp_dir.name, "late-root-b")
+        output_a = os.path.join(root_a, "Downloads")
+        output_b = os.path.join(root_b, "Downloads")
+        os.makedirs(output_a)
+        os.makedirs(output_b)
+        alias = os.path.join(self.temp_dir.name, "late-alias")
+        self._make_directory_symlink(root_a, alias)
+        configured_output = os.path.join(alias, "Downloads")
+        decoy_state = os.path.join(
+            output_b, "Post_1.download.part.state.json"
+        )
+        decoy_payload: list[bytes] = []
+
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        api = FakeAPI(_post())
+        session = FakeMediaSession([response])
+        downloader = MediaDownloader(
+            api,
+            configured_output,
+            timeout=10,
+            max_retries=0,
+            save_metadata=True,
+            session_factory=lambda: session,
+        )
+        self.addCleanup(downloader.close)
+        real_commit = downloader._commit_media_no_replace
+
+        def publish_then_retarget(part_path: str, **kwargs):
+            lease = real_commit(part_path, **kwargs)
+            source_state = part_path + ".state.json"
+            with open(source_state, "rb") as file_obj:
+                compatible_state = file_obj.read()
+            with open(decoy_state, "xb") as file_obj:
+                file_obj.write(compatible_state)
+            decoy_payload.append(compatible_state)
+            self._retarget_directory_symlink(alias, root_b)
+            return lease
+
+        with mock.patch.object(
+            downloader,
+            "_commit_media_no_replace",
+            side_effect=publish_then_retarget,
+        ):
+            with self.assertRaisesRegex(DownloadError, "租约在操作期间失效"):
+                downloader.download("Post_1")
+
+        with open(decoy_state, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), decoy_payload[0])
+        self.assertFalse(os.path.exists(os.path.join(output_b, "Post_1.jpg.json")))
+        self.assertTrue(os.path.isfile(os.path.join(output_a, "Post_1.jpg")))
+        self.assertTrue(os.path.isfile(os.path.join(output_a, "Post_1.jpg.json")))
 
     def test_metadata_contains_neither_urls_nor_credentials(self):
         secret_url = (
@@ -529,6 +1072,12 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         payload = json.loads(raw_metadata)
         self.assertEqual(payload["post_id"], "Post_1")
         self.assertEqual(payload["sha256"], result.sha256)
+        with open(result.file_path, "rb") as file_obj:
+            published_bytes = file_obj.read()
+        self.assertEqual(result.size, len(published_bytes))
+        self.assertEqual(result.sha256, hashlib.sha256(published_bytes).hexdigest())
+        self.assertEqual(payload["size"], len(published_bytes))
+        self.assertEqual(payload["sha256"], hashlib.sha256(published_bytes).hexdigest())
         lowered_keys: list[str] = []
 
         def collect_keys(value) -> None:
@@ -623,6 +1172,7 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
             st_size=0,
             st_dev=1,
             st_ino=1,
+            st_nlink=1,
         )
 
         for unsafe_path in (final_path, part_path, state_path):
@@ -657,6 +1207,7 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
             st_size=10,
             st_dev=1,
             st_ino=1,
+            st_nlink=1,
         )
 
         def selective_lstat(path: str):
@@ -1076,6 +1627,199 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         self.assertTrue(os.path.isfile(result.file_path))
         self.assertEqual(result.size, len(JPEG))
 
+    def test_directory_lease_wait_is_cancellable_before_metadata_fetch(self):
+        stop_event = ObservedStopEvent()
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, api, session = self._downloader(
+            _post(), response, stop_event=stop_event
+        )
+        started = threading.Event()
+        outcome: dict[str, object] = {}
+
+        def run_download() -> None:
+            started.set()
+            try:
+                outcome["result"] = downloader.download("Post_1")
+            except BaseException as exc:
+                outcome["error"] = exc
+
+        holder = download_engine.BoundProcessLock(
+            self.temp_dir.name,
+            download_engine._DOWNLOAD_LOCK_NAME,
+        )
+        with holder:
+            thread = threading.Thread(target=run_download)
+            thread.start()
+            self.assertTrue(started.wait(1.0))
+            self.assertTrue(stop_event.wait_entered.wait(1.0))
+            self.assertTrue(thread.is_alive())
+            self.assertEqual(api.post_ids, [])
+            self.assertEqual(session.gets, [])
+            stop_event.set()
+            thread.join(2.0)
+            self.assertFalse(thread.is_alive())
+
+        self.assertIsInstance(outcome.get("error"), CancelledError)
+        self.assertNotIn("result", outcome)
+        self.assertEqual(
+            os.listdir(self.temp_dir.name),
+            [download_engine._DOWNLOAD_LOCK_NAME],
+        )
+
+    def test_metadata_is_fetched_only_after_directory_lease_acquisition(self):
+        stop_event = ObservedStopEvent()
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, api, session = self._downloader(
+            _post(), response, stop_event=stop_event
+        )
+        started = threading.Event()
+        outcome: dict[str, object] = {}
+
+        def run_download() -> None:
+            started.set()
+            try:
+                outcome["result"] = downloader.download("Post_1")
+            except BaseException as exc:
+                outcome["error"] = exc
+
+        holder = download_engine.BoundProcessLock(
+            self.temp_dir.name,
+            download_engine._DOWNLOAD_LOCK_NAME,
+        )
+        with holder:
+            thread = threading.Thread(target=run_download)
+            thread.start()
+            self.assertTrue(started.wait(1.0))
+            self.assertTrue(stop_event.wait_entered.wait(1.0))
+            self.assertTrue(thread.is_alive())
+            self.assertEqual(api.post_ids, [])
+            self.assertEqual(session.gets, [])
+
+        thread.join(3.0)
+        self.assertFalse(thread.is_alive())
+        self.assertNotIn("error", outcome)
+        self.assertIsInstance(outcome.get("result"), DownloadResult)
+        self.assertEqual(api.post_ids, ["Post_1"])
+        self.assertEqual(len(session.gets), 1)
+
+    def test_existing_download_lock_bytes_are_preserved(self):
+        lock_path = os.path.join(
+            self.temp_dir.name,
+            download_engine._DOWNLOAD_LOCK_NAME,
+        )
+        sentinel = b"existing-owner-metadata"
+        with open(lock_path, "wb") as file_obj:
+            file_obj.write(sentinel)
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+
+        result = downloader.download("Post_1")
+
+        self.assertTrue(os.path.isfile(result.file_path))
+        with open(lock_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), sentinel)
+
+    def test_unsafe_download_lock_object_fails_without_waiting_or_network(self):
+        lock_path = os.path.join(
+            self.temp_dir.name,
+            download_engine._DOWNLOAD_LOCK_NAME,
+        )
+        os.mkdir(lock_path)
+        downloader, api, session = self._downloader(_post())
+
+        with self.assertRaisesRegex(DownloadError, "无法安全锁定"):
+            downloader.download("Post_1")
+
+        self.assertEqual(api.post_ids, [])
+        self.assertEqual(session.gets, [])
+
+    def test_directory_lease_covers_metadata_and_result_creation(self):
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(
+            _post(), response, save_metadata=True
+        )
+        real_save = downloader._save_metadata
+        real_result = downloader._result
+        observed: list[str] = []
+
+        def assert_busy(phase: str) -> None:
+            contender = download_engine.BoundProcessLock(
+                self.temp_dir.name,
+                download_engine._DOWNLOAD_LOCK_NAME,
+            )
+            with self.assertRaises(download_engine.BoundProcessLockBusy):
+                contender.__enter__()
+            observed.append(phase)
+
+        def save_with_probe(*args, **kwargs):
+            assert_busy("metadata")
+            return real_save(*args, **kwargs)
+
+        def result_with_probe(*args, **kwargs):
+            assert_busy("result")
+            return real_result(*args, **kwargs)
+
+        with mock.patch.object(
+            downloader, "_save_metadata", side_effect=save_with_probe
+        ), mock.patch.object(
+            downloader, "_result", side_effect=result_with_probe
+        ):
+            result = downloader.download("Post_1")
+
+        self.assertEqual(observed, ["metadata", "result"])
+        self.assertTrue(os.path.isfile(result.file_path))
+        with download_engine.BoundProcessLock(
+            self.temp_dir.name,
+            download_engine._DOWNLOAD_LOCK_NAME,
+        ):
+            pass
+
+    def test_successful_body_translates_directory_lease_exit_failure(self):
+        response = FakeMediaResponse(
+            200,
+            headers={"Content-Type": "image/jpeg", "Content-Length": "6"},
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+        real_exit = download_engine.BoundProcessLock.__exit__
+
+        def release_then_fail(lock, exc_type, exc, traceback):
+            real_exit(lock, exc_type, exc, traceback)
+            raise download_engine.BoundProcessLockError(
+                "process lock is unavailable"
+            )
+
+        with mock.patch.object(
+            download_engine.BoundProcessLock,
+            "__exit__",
+            new=release_then_fail,
+        ):
+            with self.assertRaisesRegex(DownloadError, "租约在操作期间失效"):
+                downloader.download("Post_1")
+
+        self.assertTrue(os.path.isfile(self._paths()[0]))
+        with download_engine.BoundProcessLock(
+            self.temp_dir.name,
+            download_engine._DOWNLOAD_LOCK_NAME,
+        ):
+            pass
+
     def test_cancellation_is_checked_immediately_before_commit(self):
         stop_event = threading.Event()
         response = FakeMediaResponse(
@@ -1435,20 +2179,26 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         )
         downloader, _api, _session = self._downloader(_post(), response)
         canonical = os.path.join(self.temp_dir.name, "Post_1.jpg")
-        real_commit = download_engine._commit_file_no_replace
+        real_commit = download_engine._publish_bound_media_name_no_replace
         raced = False
 
-        def race_once(source: str, destination: str) -> None:
+        def race_once(
+            root_token: int,
+            descriptor: int,
+            source: str,
+            destination: str,
+        ) -> None:
             nonlocal raced
-            if destination == canonical and not raced:
+            if destination == "Post_1.jpg" and not raced:
                 raced = True
-                with open(destination, "xb") as file_obj:
+                with open(canonical, "xb") as file_obj:
                     file_obj.write(b"race-winner")
                 raise FileExistsError(destination)
-            real_commit(source, destination)
+            real_commit(root_token, descriptor, source, destination)
 
         with mock.patch(
-            "download_engine._commit_file_no_replace", side_effect=race_once
+            "download_engine._publish_bound_media_name_no_replace",
+            side_effect=race_once,
         ):
             result = downloader.download("Post_1")
 

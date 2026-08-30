@@ -5,16 +5,22 @@ from __future__ import annotations
 
 import ctypes
 from ctypes import wintypes
+import errno
 import ntpath
 import os
 import stat
 
 
 _ERR_UNAVAILABLE = "process lock is unavailable"
+_ERR_BUSY = _ERR_UNAVAILABLE
 
 
 class BoundProcessLockError(RuntimeError):
     """The requested lock could not be acquired through a safe file object."""
+
+
+class BoundProcessLockBusy(BoundProcessLockError):
+    """Another process currently owns the validated lock object."""
 
 
 def _validated_root(value: object) -> str:
@@ -162,7 +168,12 @@ def _posix_acquire(
         os.lseek(lock_descriptor, 0, os.SEEK_SET)
         import fcntl
 
-        fcntl.flock(lock_descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        try:
+            fcntl.flock(lock_descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            if exc.errno in {errno.EACCES, errno.EAGAIN}:
+                raise BoundProcessLockBusy(_ERR_BUSY) from None
+            raise
         lock_state = _posix_validate_lock(
             root_descriptor,
             root_state,
@@ -226,6 +237,12 @@ if os.name == "nt":
     _FILE_FLAG_BACKUP_SEMANTICS = 0x02000000
     _FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000
     _FILE_TYPE_DISK = 0x0001
+    _FILE_NAME_NORMALIZED = 0x00000000
+    _VOLUME_NAME_DOS = 0x00000000
+
+    _STATUS_SHARING_VIOLATION = 0xC0000043
+    _STATUS_FILE_LOCK_CONFLICT = 0xC0000054
+    _STATUS_LOCK_NOT_GRANTED = 0xC0000055
 
     _OBJ_CASE_INSENSITIVE = 0x00000040
     _FILE_OPEN_IF = 0x00000003
@@ -328,6 +345,15 @@ if os.name == "nt":
     _GetFileType = _kernel32.GetFileType
     _GetFileType.argtypes = [wintypes.HANDLE]
     _GetFileType.restype = wintypes.DWORD
+
+    _GetFinalPathNameByHandleW = _kernel32.GetFinalPathNameByHandleW
+    _GetFinalPathNameByHandleW.argtypes = [
+        wintypes.HANDLE,
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+    ]
+    _GetFinalPathNameByHandleW.restype = wintypes.DWORD
 
     _NtCreateFile = _ntdll.NtCreateFile
     _NtCreateFile.argtypes = [
@@ -481,6 +507,12 @@ def _win_open_lock(root_handle: int, name: str) -> int:
     value = _win_handle_value(child)
     if status < 0 or value is None or value == _INVALID_HANDLE_VALUE:
         _win_close_handle(value)
+        if status & 0xFFFFFFFF in {
+            _STATUS_SHARING_VIOLATION,
+            _STATUS_FILE_LOCK_CONFLICT,
+            _STATUS_LOCK_NOT_GRANTED,
+        }:
+            raise BoundProcessLockBusy(_ERR_BUSY)
         raise BoundProcessLockError(_ERR_UNAVAILABLE)
     return value
 
@@ -514,7 +546,12 @@ def _win_acquire(
         lock_descriptor = _win_handle_to_descriptor(lock_handle)
         lock_handle = None  # The CRT descriptor owns the native handle now.
         os.lseek(lock_descriptor, 0, os.SEEK_SET)
-        msvcrt.locking(lock_descriptor, msvcrt.LK_NBLCK, 1)
+        try:
+            msvcrt.locking(lock_descriptor, msvcrt.LK_NBLCK, 1)
+        except OSError as exc:
+            if exc.errno in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
+                raise BoundProcessLockBusy(_ERR_BUSY) from None
+            raise
         descriptor_handle = int(msvcrt.get_osfhandle(lock_descriptor))
         if _win_state(descriptor_handle, directory=False) != lock_identity:
             raise BoundProcessLockError(_ERR_UNAVAILABLE)
@@ -538,6 +575,7 @@ def _win_acquire(
 
 
 def _win_validate_held(
+    path: str,
     root_handle: int,
     lock_descriptor: int,
     root_identity: tuple[int, bytes],
@@ -545,9 +583,81 @@ def _win_validate_held(
 ) -> None:
     if _win_state(root_handle, directory=True) != root_identity:
         raise BoundProcessLockError(_ERR_UNAVAILABLE)
+    named_handle = None
+    try:
+        named_handle, named_identity = _win_open_root(path)
+        if named_identity != root_identity:
+            raise BoundProcessLockError(_ERR_UNAVAILABLE)
+    finally:
+        _win_close_handle(named_handle)
     descriptor_handle = int(msvcrt.get_osfhandle(lock_descriptor))
     if _win_state(descriptor_handle, directory=False) != lock_identity:
         raise BoundProcessLockError(_ERR_UNAVAILABLE)
+
+
+def _win_bound_root_path(root_handle: int) -> str:
+    capacity = 32_768
+    buffer = ctypes.create_unicode_buffer(capacity)
+    size = int(
+        _GetFinalPathNameByHandleW(
+            wintypes.HANDLE(root_handle),
+            buffer,
+            capacity,
+            _FILE_NAME_NORMALIZED | _VOLUME_NAME_DOS,
+        )
+    )
+    if size <= 0 or size >= capacity:
+        raise BoundProcessLockError(_ERR_UNAVAILABLE)
+    path = buffer.value
+    if path.startswith("\\\\?\\UNC\\"):
+        path = "\\\\" + path[8:]
+    elif path.startswith("\\\\?\\"):
+        path = path[4:]
+    try:
+        normalized = os.path.abspath(path)
+        named_handle, named_identity = _win_open_root(normalized)
+    except (OSError, ValueError):
+        raise BoundProcessLockError(_ERR_UNAVAILABLE) from None
+    try:
+        if named_identity != _win_state(root_handle, directory=True):
+            raise BoundProcessLockError(_ERR_UNAVAILABLE)
+    finally:
+        _win_close_handle(named_handle)
+    return normalized
+
+
+def _posix_bound_root_paths(
+    root_descriptor: int,
+    root_identity: os.stat_result,
+    _fallback_path: str,
+) -> tuple[str, str]:
+    current = os.fstat(root_descriptor)
+    if not stat.S_ISDIR(current.st_mode) or not os.path.samestat(
+        current, root_identity
+    ):
+        raise BoundProcessLockError(_ERR_UNAVAILABLE)
+    for descriptor_root in ("/proc/self/fd", "/dev/fd"):
+        io_path = os.path.join(descriptor_root, str(root_descriptor))
+        try:
+            named = os.stat(io_path)
+            physical = os.readlink(io_path)
+        except (OSError, ValueError):
+            continue
+        if (
+            os.path.isabs(physical)
+            and not physical.endswith(" (deleted)")
+            and os.path.samestat(named, current)
+        ):
+            display_path = os.path.abspath(physical)
+            try:
+                display_state = os.stat(display_path, follow_symlinks=False)
+            except (OSError, ValueError):
+                continue
+            if stat.S_ISDIR(display_state.st_mode) and os.path.samestat(
+                display_state, current
+            ):
+                return io_path, display_path
+    raise BoundProcessLockError(_ERR_UNAVAILABLE)
 
 
 class BoundProcessLock:
@@ -587,6 +697,33 @@ class BoundProcessLock:
         self._lock_identity = lock_identity
         return self
 
+    @property
+    def root_token(self) -> int:
+        """Borrow the bound platform root token until this lock exits."""
+
+        if self._root is None or self._descriptor is None:
+            raise BoundProcessLockError(_ERR_UNAVAILABLE)
+        return self._root
+
+    @property
+    def bound_root_paths(self) -> tuple[str, str]:
+        """Return stable I/O and user-facing paths for the held root."""
+
+        if (
+            self._root is None
+            or self._descriptor is None
+            or self._root_identity is None
+        ):
+            raise BoundProcessLockError(_ERR_UNAVAILABLE)
+        if os.name == "nt":
+            path = _win_bound_root_path(self._root)
+            return path, path
+        return _posix_bound_root_paths(
+            self._root,
+            self._root_identity,
+            self.data_dir,
+        )
+
     def __exit__(self, _exc_type, _exc, _traceback) -> None:
         root = self._root
         descriptor = self._descriptor
@@ -606,6 +743,7 @@ class BoundProcessLock:
             try:
                 if os.name == "nt":
                     _win_validate_held(
+                        self.data_dir,
                         root,
                         descriptor,
                         root_identity,
@@ -637,4 +775,8 @@ class BoundProcessLock:
             raise validation_error
 
 
-__all__ = ["BoundProcessLock", "BoundProcessLockError"]
+__all__ = [
+    "BoundProcessLock",
+    "BoundProcessLockBusy",
+    "BoundProcessLockError",
+]

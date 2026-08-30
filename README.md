@@ -10,12 +10,15 @@
 
 ![SankakuSyncer 下载任务搜索与状态筛选界面](docs/SankakuSyncer_UI.png)
 
-## 0.1.20 功能
+## 0.1.21 功能
 
 逐版变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 当前版本包含：
 
+- 同一下载目录由固定、持久且不含秘密的 `.sankakusyncer-download.lock` 串行保护。租约在重新获取作品元数据和签名 URL 前取得，并一直覆盖续传、发布、sidecar 与结果生成；等待可取消，进程崩溃后由系统释放锁，锁文件本身不被删除、清空或改写。
+- `.part` 在发布前会从绑定对象重新完整散列。Windows 以拒绝共享写的原生 HANDLE 执行 root-relative no-clobber rename，并持有到最终名称、大小、摘要、sidecar 和结果均确认；POSIX 发布独立快照并使用 `renameat2(RENAME_NOREPLACE)`，旧追加 fd 不能改变已发布 inode。校验后追加、同元数据替身、多链接、目标抢占或返回前名称替换都不会产生错误成功结果。
+- 下载期间所有普通路径 I/O 都锚定到租约句柄解析出的实际目录；祖先链接或 junction 被换向时不会向新目标创建 part/state/sidecar，也不会删除新目标的兼容 decoy。只有遵守该租约的当前版本实例会互相协调；下载目录仍须是当前用户独占写入的普通本地目录。
 - 精简 Runtime 只允许 Windows 10 1903 合同下逐项审核的 77 个精确外部 PE 导入；Windows N/KN 版本须先安装对应的 Media Feature Pack。任意未来 API-set 前缀和构建机 `%SystemRoot%`/`System32` 中偶然存在的 DLL 都不再自动视为系统组件。构建器遇到策略外导入会保留为未解析依赖并中止，离线合规层还会从最终 payload 独立重算普通与延迟导入，防止自洽但越权的 builder report 通过发布门禁。
 - 确定性 ZIP 全程保留源码根目录句柄，不再在递归枚举后按路径重开。Windows 直接枚举已打开目录 HANDLE，并用根相对的原生打开逐层核对卷与 128 位文件 ID；POSIX 使用目录 fd、`scandir(fd)` 与 `openat`/`O_NOFOLLOW`。每个普通文件在快照阶段先做 SHA-256，写入时从根逐段重开并再次核对祖先身份、元数据与摘要。
 - 归档拒绝符号链接、Windows 重解析点、多链接普通文件、跨卷节点、同目录大小写冲突及构建期间的结构变化，并限制为 100,000 个项目、128 层、单文件 50 GiB、总计 100 GiB。`Data/`、`Downloads/` 仍必须规范命名、普通且为空，只写两个目录项并在归档验证后从绑定根再次复查。

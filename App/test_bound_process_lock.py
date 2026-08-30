@@ -11,7 +11,11 @@ import unittest
 from unittest import mock
 
 import bound_process_lock as lock_module
-from bound_process_lock import BoundProcessLock, BoundProcessLockError
+from bound_process_lock import (
+    BoundProcessLock,
+    BoundProcessLockBusy,
+    BoundProcessLockError,
+)
 import credential_persistence as credential_module
 import settings_store as settings_module
 import task_store as task_module
@@ -44,7 +48,7 @@ class BoundProcessLockTests(unittest.TestCase):
         with first:
             self.assertTrue(os.path.isfile(first.path))
             with self.assertRaisesRegex(
-                BoundProcessLockError,
+                BoundProcessLockBusy,
                 "^process lock is unavailable$",
             ):
                 second.__enter__()
@@ -66,10 +70,11 @@ class BoundProcessLockTests(unittest.TestCase):
     def test_independent_process_is_blocked_then_can_acquire_after_release(self):
         child_code = (
             "import sys; from bound_process_lock import BoundProcessLock,"
-            " BoundProcessLockError; "
+            " BoundProcessLockBusy, BoundProcessLockError; "
             "lock=BoundProcessLock(sys.argv[1],sys.argv[2]); "
             "\ntry:\n lock.__enter__()\n"
-            "except BoundProcessLockError:\n raise SystemExit(23)\n"
+            "except BoundProcessLockBusy:\n raise SystemExit(23)\n"
+            "except BoundProcessLockError:\n raise SystemExit(24)\n"
             "else:\n lock.__exit__(None,None,None); raise SystemExit(0)\n"
         )
 
@@ -114,6 +119,29 @@ class BoundProcessLockTests(unittest.TestCase):
         with open(path, "rb") as file_obj:
             self.assertEqual(file_obj.read(), expected)
 
+    def test_bound_root_paths_and_token_are_valid_only_while_held(self):
+        lock = BoundProcessLock(self.data_dir, ".unit.lock")
+        with self.assertRaises(BoundProcessLockError):
+            _ = lock.root_token
+        with self.assertRaises(BoundProcessLockError):
+            _ = lock.bound_root_paths
+
+        with lock:
+            first_token = lock.root_token
+            second_token = lock.root_token
+            io_path, display_path = lock.bound_root_paths
+            self.assertEqual(first_token, second_token)
+            self.assertTrue(os.path.samestat(os.stat(io_path), os.stat(display_path)))
+            with open(os.path.join(io_path, "bound-write.bin"), "xb") as file_obj:
+                file_obj.write(b"bound")
+            with open(os.path.join(display_path, "bound-write.bin"), "rb") as file_obj:
+                self.assertEqual(file_obj.read(), b"bound")
+
+        with self.assertRaises(BoundProcessLockError):
+            _ = lock.root_token
+        with self.assertRaises(BoundProcessLockError):
+            _ = lock.bound_root_paths
+
     def test_hardlinked_lock_is_rejected_without_touching_target(self):
         os.makedirs(self.data_dir)
         victim = os.path.join(self.data_dir, "victim.bin")
@@ -123,8 +151,9 @@ class BoundProcessLockTests(unittest.TestCase):
             file_obj.write(expected)
         os.link(victim, lock_path)
 
-        with self.assertRaises(BoundProcessLockError):
+        with self.assertRaises(BoundProcessLockError) as caught:
             BoundProcessLock(self.data_dir, ".unit.lock").__enter__()
+        self.assertNotIsInstance(caught.exception, BoundProcessLockBusy)
 
         with open(victim, "rb") as file_obj:
             self.assertEqual(file_obj.read(), expected)
@@ -138,8 +167,9 @@ class BoundProcessLockTests(unittest.TestCase):
             file_obj.write(expected)
         self._make_symlink(victim, lock_path)
 
-        with self.assertRaises(BoundProcessLockError):
+        with self.assertRaises(BoundProcessLockError) as caught:
             BoundProcessLock(self.data_dir, ".unit.lock").__enter__()
+        self.assertNotIsInstance(caught.exception, BoundProcessLockBusy)
 
         with open(victim, "rb") as file_obj:
             self.assertEqual(file_obj.read(), expected)
@@ -147,8 +177,9 @@ class BoundProcessLockTests(unittest.TestCase):
     def test_directory_at_lock_name_is_rejected(self):
         os.makedirs(os.path.join(self.data_dir, ".unit.lock"))
 
-        with self.assertRaises(BoundProcessLockError):
+        with self.assertRaises(BoundProcessLockError) as caught:
             BoundProcessLock(self.data_dir, ".unit.lock").__enter__()
+        self.assertNotIsInstance(caught.exception, BoundProcessLockBusy)
 
     def test_symlinked_data_root_is_rejected(self):
         real_root = os.path.join(self._temporary.name, "real-data")

@@ -2,6 +2,12 @@
 
 本项目遵循语义化版本号。每个版本在通过离线回归、便携自检和私有数据扫描后再提交并同步到 GitHub。
 
+## 0.1.21 - 2026-08-31
+
+- 下载目录新增固定且持久的 `.sankakusyncer-download.lock` 租约。锁在重新取得作品元数据和签名媒体 URL 前获取，覆盖复用检查、续传、完整校验、禁止覆盖发布、state 清理、sidecar 与结果生成；争用等待可取消，锁文件永不因成功、取消或崩溃而删除，也不读取、截断或改写既有内容。不安全的链接、重解析点、目录、跨卷或多链接锁对象立即失败，不会被误当作短暂争用。
+- 发布不再信任校验后仍可变化的 `.part` 路径。Windows 从绑定下载根相对打开单链接普通文件，持有拒绝共享写的原生 HANDLE，重新完整散列后用 HANDLE 做 root-relative no-clobber rename，并保持句柄到 sidecar/结果及最终名称复核结束；发布后的早期复核失败会尽力把同一对象恢复为 `.part`。POSIX 复制到独立排他快照，复核来源身份、ctime 与摘要后以 `renameat2(RENAME_NOREPLACE)` 原子发布；通用 state/metadata 临时提交也不再使用 `link` 后 `unlink` 的双链接阶段。
+- 下载期普通路径 I/O 改用租约根句柄解析出的稳定实际目录，祖先 symlink/junction 在运行中换向不会把 `.part`、state、sidecar 或清理操作导向新目标。`.part`、state、final、sidecar 与临时文件统一拒绝多链接对象；新增校验后追加、同大小同时间替身、迟到写句柄、最终名替换、锁等待/取消、兼容 state 换向、Windows 回滚及 POSIX 原子发布回归，Ubuntu CI 直接运行完整下载引擎测试。
+
 ## 0.1.20 - 2026-08-30
 
 - 精简 Runtime 的外部 PE 依赖改为 Windows 10 1903 合同下逐项审核的 77 个精确名称，并明确 N/KN 版本必须先安装对应 Media Feature Pack。构建器不再把任意 `api-ms-win-*` / `ext-ms-win-*` 名称或恰好存在于当前构建机 `%SystemRoot%`/`System32` 的 DLL 当作可省略系统依赖；锁定 Runtime 新增任何外部导入时都会先作为未解析依赖阻止构建，必须经过最低系统与 SKU 审核后才能更新策略。
