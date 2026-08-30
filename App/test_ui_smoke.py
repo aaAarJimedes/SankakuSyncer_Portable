@@ -1729,6 +1729,102 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                     window._download_thread_finished(window.download_worker)
                 self._close(window)
 
+    def test_remove_protects_owned_batch_but_allows_external_tasks(self):
+        from types import SimpleNamespace
+
+        from PySide6.QtCore import QItemSelectionModel
+        from PySide6.QtWidgets import QMessageBox
+
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Owned_A", "External_B"])
+                window._refresh_tasks()
+
+                def row_for(post_id):
+                    return next(
+                        row
+                        for row in range(window.task_model.rowCount())
+                        if window.task_model.task_at(row).post_id == post_id
+                    )
+
+                selection = window.task_table.selectionModel()
+                selection.select(
+                    window.task_model.index(row_for("Owned_A"), 0),
+                    QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows,
+                )
+                window._start_download(selected_only=True)
+                worker = _FakeDownloadWorker.instances[-1]
+                self.assertEqual([task.post_id for task in worker.tasks], ["Owned_A"])
+
+                selection.select(
+                    window.task_model.index(row_for("External_B"), 0),
+                    QItemSelectionModel.Select | QItemSelectionModel.Rows,
+                )
+                self.assertEqual(
+                    window._selected_task_ids(), ["Owned_A", "External_B"]
+                )
+                self.assertFalse(window.remove_tasks_button.isEnabled())
+                with mock.patch(
+                    "ui_main_window.QMessageBox.question"
+                ) as question:
+                    window._remove_selected_tasks()
+                question.assert_not_called()
+                self.assertIsNotNone(window.task_store.get("Owned_A"))
+                self.assertIsNotNone(window.task_store.get("External_B"))
+                self.assertIn("当前下载批次", window.status_label.text())
+
+                selection.select(
+                    window.task_model.index(row_for("External_B"), 0),
+                    QItemSelectionModel.ClearAndSelect | QItemSelectionModel.Rows,
+                )
+                self.assertTrue(window.remove_tasks_button.isEnabled())
+                with mock.patch(
+                    "ui_main_window.QMessageBox.question",
+                    return_value=QMessageBox.Yes,
+                ) as question:
+                    window._remove_selected_tasks()
+                question.assert_called_once()
+                self.assertIsNone(window.task_store.get("External_B"))
+                self.assertEqual(window.task_store.get("Owned_A").status, "queued")
+
+                worker.item_succeeded.emit(
+                    worker,
+                    "Owned_A",
+                    SimpleNamespace(relative_path="Owned_A.jpg"),
+                )
+                self.assertEqual(window.task_store.get("Owned_A").status, "completed")
+                window.task_table.selectRow(row_for("Owned_A"))
+                self.assertFalse(window.remove_tasks_button.isEnabled())
+                worker.batch_finished.emit(worker, 1, 0, False)
+                worker.running = False
+                self.assertFalse(window.remove_tasks_button.isEnabled())
+                with mock.patch(
+                    "ui_main_window.QMessageBox.question"
+                ) as question:
+                    window._remove_selected_tasks()
+                question.assert_not_called()
+                self.assertIsNotNone(window.task_store.get("Owned_A"))
+
+                worker.complete()
+                self.assertIsNone(window.download_worker)
+                self.assertTrue(window.remove_tasks_button.isEnabled())
+                with mock.patch(
+                    "ui_main_window.QMessageBox.question",
+                    return_value=QMessageBox.Yes,
+                ):
+                    window._remove_selected_tasks()
+                self.assertIsNone(window.task_store.get("Owned_A"))
+            finally:
+                if window.download_worker is not None:
+                    owner = window.download_worker
+                    owner.batch_finished.emit(owner, 0, 0, True)
+                    owner.complete()
+                self._close(window)
+
     def test_user_stop_cancels_only_unfinished_owned_tasks(self):
         from types import SimpleNamespace
 

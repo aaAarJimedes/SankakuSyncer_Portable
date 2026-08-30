@@ -81,7 +81,13 @@ from settings_store import (
     normalize_download_directory,
 )
 from task_query import TaskQueryError, query_tasks
-from task_store import DownloadTask, TaskStore, TaskStoreCorruptError, TaskStoreError
+from task_store import (
+    ACTIVE_TASK_STATES,
+    DownloadTask,
+    TaskStore,
+    TaskStoreCorruptError,
+    TaskStoreError,
+)
 from version import APP_DISPLAY_NAME
 from workers import (
     DownloadWorker,
@@ -554,9 +560,10 @@ class MainWindow(QMainWindow):
         retry = QPushButton("重新排队所选")
         retry.clicked.connect(self._retry_selected_tasks)
         actions.addWidget(retry)
-        remove = QPushButton("移除所选任务")
-        remove.clicked.connect(self._remove_selected_tasks)
-        actions.addWidget(remove)
+        self.remove_tasks_button = QPushButton("移除所选任务")
+        self.remove_tasks_button.clicked.connect(self._remove_selected_tasks)
+        self.remove_tasks_button.setEnabled(False)
+        actions.addWidget(self.remove_tasks_button)
         actions.addStretch(1)
         self.task_summary = QLabel()
         actions.addWidget(self.task_summary)
@@ -598,6 +605,9 @@ class MainWindow(QMainWindow):
         self.task_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.task_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.task_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.task_table.selectionModel().selectionChanged.connect(
+            lambda _selected, _deselected: self._update_remove_tasks_action()
+        )
         header = self.task_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
@@ -1221,6 +1231,7 @@ class MainWindow(QMainWindow):
         except TaskQueryError as exc:
             self.task_model.set_tasks(())
             self.task_summary.setText(str(exc))
+            self._update_remove_tasks_action()
             return
         view_state = (
             self._capture_task_view_state()
@@ -1238,6 +1249,7 @@ class MainWindow(QMainWindow):
             f"待处理 {sum(counts.get(x, 0) for x in ('pending','failed','cancelled'))} "
             f"· 完成 {counts.get('completed', 0)}"
         )
+        self._update_remove_tasks_action()
 
     def _capture_task_view_state(self) -> _TaskViewState:
         current = self.task_table.currentIndex()
@@ -1350,9 +1362,35 @@ class MainWindow(QMainWindow):
         self._refresh_tasks()
         self.status_label.setText(f"已重新排队 {count} 项")
 
+    def _task_removal_block_reason(self, post_ids: Iterable[str]) -> str:
+        normalized = tuple(post_ids)
+        if any(post_id in self._download_task_ids for post_id in normalized):
+            return (
+                "当前下载批次仍拥有所选任务；请先停止并等待批次完全结束后再移除"
+            )
+        for post_id in normalized:
+            task = self.task_store.get(post_id)
+            if task is not None and task.status in ACTIVE_TASK_STATES:
+                return (
+                    "所选任务仍在排队或下载中；请等待批次结束，必要时重启恢复后再移除"
+                )
+        return ""
+
+    def _update_remove_tasks_action(self) -> None:
+        ids = self._selected_task_ids()
+        reason = self._task_removal_block_reason(ids)
+        self.remove_tasks_button.setEnabled(bool(ids) and not reason)
+        self.remove_tasks_button.setToolTip(
+            reason or "仅移除任务记录，不删除已经下载的媒体文件"
+        )
+
     def _remove_selected_tasks(self) -> None:
         ids = self._selected_task_ids()
         if not ids:
+            return
+        block_reason = self._task_removal_block_reason(ids)
+        if block_reason:
+            self.status_label.setText(block_reason)
             return
         if QMessageBox.question(
             self,
@@ -2169,6 +2207,7 @@ class MainWindow(QMainWindow):
             return
         self.download_worker = worker
         self._download_task_ids = frozenset(task.post_id for task in queued)
+        self._update_remove_tasks_action()
         worker.item_started.connect(self._download_item_started)
         worker.item_progress.connect(self._download_item_progress)
         worker.item_succeeded.connect(self._download_item_succeeded)
@@ -2393,6 +2432,7 @@ class MainWindow(QMainWindow):
             delete_later()
         self.download_worker = None
         self._download_task_ids = frozenset()
+        self._update_remove_tasks_action()
 
     def _stop_download(self) -> None:
         if self.download_worker and self.download_worker.isRunning():

@@ -205,6 +205,85 @@ class TaskStoreTests(unittest.TestCase):
         self.assertIsNone(self.store.get("pending_id"))
         self.assertEqual(self.store.remove(["missing"]), 0)
 
+    def test_remove_rejects_active_tasks_atomically_until_batch_stops(self):
+        self.assertEqual(
+            task_module.ACTIVE_TASK_STATES,
+            frozenset({"queued", "running"}),
+        )
+        self.store.add_many(
+            ["queued_id", "running_id", "pending_id", "kept_id"]
+        )
+        self.store.update_many(["queued_id", "running_id"], status="queued")
+        self.store.update("running_id", status="running")
+
+        before_tasks = self.store.list()
+        before_revision = self.store.revision
+        with open(self.store.path, "rb") as file_obj:
+            before_bytes = file_obj.read()
+        with mock.patch.object(
+            self.store, "_commit", wraps=self.store._commit
+        ) as commit:
+            for active_id in ("queued_id", "running_id"):
+                with self.subTest(active_id=active_id):
+                    with self.assertRaisesRegex(
+                        TaskStoreError, "活动下载任务不能移除"
+                    ):
+                        self.store.remove(
+                            ["pending_id", active_id, "missing", "pending_id"]
+                        )
+                    self.assertEqual(self.store.list(), before_tasks)
+                    self.assertEqual(self.store.revision, before_revision)
+                    with open(self.store.path, "rb") as file_obj:
+                        self.assertEqual(file_obj.read(), before_bytes)
+            commit.assert_not_called()
+
+        self.store.update_many(
+            ["queued_id", "running_id"],
+            status="cancelled",
+            error="用户停止了批次",
+        )
+        before_remove_revision = self.store.revision
+        with mock.patch.object(
+            self.store, "_commit", wraps=self.store._commit
+        ) as commit:
+            self.assertEqual(
+                self.store.remove(
+                    [
+                        "pending_id",
+                        "queued_id",
+                        "running_id",
+                        "missing",
+                        "pending_id",
+                    ]
+                ),
+                3,
+            )
+        commit.assert_called_once()
+        self.assertEqual(self.store.revision, before_remove_revision + 1)
+        self.assertEqual(
+            [task.post_id for task in self.store.list()],
+            ["kept_id"],
+        )
+
+        reloaded = TaskStore(self.data_dir)
+        self.assertEqual(reloaded.list(), self.store.list())
+        self.assertEqual(reloaded.revision, self.store.revision)
+
+        before_noop_revision = self.store.revision
+        with open(self.store.path, "rb") as file_obj:
+            before_noop_bytes = file_obj.read()
+        with mock.patch.object(
+            self.store, "_commit", wraps=self.store._commit
+        ) as commit:
+            self.assertEqual(
+                self.store.remove(["missing", "bad id", "missing"]),
+                0,
+            )
+        commit.assert_not_called()
+        self.assertEqual(self.store.revision, before_noop_revision)
+        with open(self.store.path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), before_noop_bytes)
+
     def test_update_many_commits_one_atomic_transition(self):
         self.store.add_many(["bulk_one", "bulk_two"])
         with mock.patch.object(

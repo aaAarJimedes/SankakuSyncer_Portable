@@ -21,6 +21,7 @@ MAX_REVISION = 2**63 - 1
 TASK_STATES = frozenset(
     {"pending", "queued", "running", "completed", "failed", "cancelled"}
 )
+ACTIVE_TASK_STATES = frozenset({"queued", "running"})
 RETRYABLE_STATES = frozenset({"pending", "failed", "cancelled"})
 _WINDOWS_RESERVED_BASENAMES = frozenset(
     {"CON", "PRN", "AUX", "NUL"}
@@ -91,7 +92,7 @@ class DownloadTask:
         status = self.status
         if status not in TASK_STATES:
             raise TaskStoreError("invalid task status")
-        if recover_interrupted and status in {"queued", "running"}:
+        if recover_interrupted and status in ACTIVE_TASK_STATES:
             status = "pending"
         added = _validate_timestamp(self.added_at) or _utc_now()
         updated = _validate_timestamp(self.updated_at) or added
@@ -279,15 +280,23 @@ class TaskStore:
     def remove(self, post_ids: Iterable[str]) -> int:
         with self._lock:
             candidate = dict(self._tasks)
-            removed = 0
+            targets: list[str] = []
+            seen: set[str] = set()
             for value in post_ids:
                 post_id = normalize_post_id(value)
-                if post_id and post_id in candidate:
-                    del candidate[post_id]
-                    removed += 1
-            if removed:
+                if post_id and post_id in candidate and post_id not in seen:
+                    seen.add(post_id)
+                    targets.append(post_id)
+            if any(
+                candidate[post_id].status in ACTIVE_TASK_STATES
+                for post_id in targets
+            ):
+                raise TaskStoreError("活动下载任务不能移除，请先停止当前批次")
+            for post_id in targets:
+                del candidate[post_id]
+            if targets:
                 self._commit(candidate)
-            return removed
+            return len(targets)
 
     def pending(self) -> list[DownloadTask]:
         with self._lock:
@@ -361,7 +370,7 @@ class TaskStore:
             revision = payload["revision"]
             signature = self._file_signature()
             interrupted = any(
-                item.get("status") in {"queued", "running"}
+                item.get("status") in ACTIVE_TASK_STATES
                 for item in payload["tasks"]
             )
             if interrupted:
@@ -452,6 +461,7 @@ class TaskStore:
 
 
 __all__ = [
+    "ACTIVE_TASK_STATES",
     "DownloadTask",
     "MAX_REVISION",
     "MAX_TASKS",
