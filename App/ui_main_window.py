@@ -76,7 +76,9 @@ from sankaku_url_policy import (
     tag_search_url,
 )
 from settings_store import (
+    SettingsCorruptError,
     SettingsError,
+    SettingsReadError,
     SettingsStore,
     normalize_download_directory,
 )
@@ -142,6 +144,25 @@ class _TaskViewState:
     top_offset: int
     vertical_scroll: int
     horizontal_scroll: int
+
+
+@dataclass(frozen=True)
+class _LibraryViewState:
+    selected_paths: frozenset[str]
+    current_path: str
+    current_entry: LibraryEntry | None
+    current_column: int
+    top_path: str
+    top_offset: int
+    vertical_scroll: int
+    horizontal_scroll: int
+
+
+@dataclass(frozen=True)
+class _LibraryPreviewBinding:
+    report_root: str
+    report_root_identity: BoundRootIdentity | None
+    entry: LibraryEntry
 
 
 def _format_file_size(value: object) -> str:
@@ -259,11 +280,44 @@ class _LibraryTableModel(QAbstractTableModel):
         super().__init__(parent)
         self._entries: tuple[LibraryEntry, ...] = ()
 
-    def set_entries(self, entries: Iterable[LibraryEntry]) -> None:
+    def requires_reset(self, entries: Iterable[LibraryEntry]) -> bool:
         prepared = tuple(entries)
+        return len(prepared) != len(self._entries) or any(
+            before.relative_path != after.relative_path
+            for before, after in zip(self._entries, prepared)
+        )
+
+    def set_entries(self, entries: Iterable[LibraryEntry]) -> bool:
+        prepared = tuple(entries)
+        if not self.requires_reset(prepared):
+            changed_rows = [
+                row
+                for row, (before, after) in enumerate(zip(self._entries, prepared))
+                if before != after
+            ]
+            self._entries = prepared
+            if changed_rows:
+                last_column = self.columnCount() - 1
+                start = previous = changed_rows[0]
+                for row in changed_rows[1:]:
+                    if row != previous + 1:
+                        self.dataChanged.emit(
+                            self.index(start, 0),
+                            self.index(previous, last_column),
+                            [Qt.DisplayRole, Qt.ToolTipRole],
+                        )
+                        start = row
+                    previous = row
+                self.dataChanged.emit(
+                    self.index(start, 0),
+                    self.index(previous, last_column),
+                    [Qt.DisplayRole, Qt.ToolTipRole],
+                )
+            return False
         self.beginResetModel()
         self._entries = prepared
         self.endResetModel()
+        return True
 
     def rowCount(self, parent=QModelIndex()) -> int:  # noqa: N802 - Qt API
         return 0 if parent.isValid() else len(self._entries)
@@ -320,7 +374,14 @@ class MainWindow(QMainWindow):
         self._startup_messages: list[str] = []
         self._settings_save_allowed = True
         self.settings = SettingsStore(self.data_dir)
-        if self.settings.last_error and os.path.isfile(self.settings.path):
+        self._settings_state_available = self.settings.last_load_error is None
+        if isinstance(self.settings.last_load_error, SettingsReadError):
+            self._settings_save_allowed = False
+            self._startup_messages.append(
+                "设置文件暂时无法读取，已原样保留；本次不会保存设置、载入或更改本机凭据。"
+                "请关闭占用该文件的程序后重新启动。"
+            )
+        elif isinstance(self.settings.last_load_error, SettingsCorruptError):
             stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
             recovery_path = os.path.join(
                 self.data_dir, f"settings.corrupt.{stamp}.json"
@@ -329,11 +390,13 @@ class MainWindow(QMainWindow):
                 os.replace(self.settings.path, recovery_path)
             except OSError as exc:
                 self._settings_save_allowed = False
+                self._settings_state_available = False
                 self._startup_messages.append(
                     "损坏的设置文件无法备份；本次关闭时不会覆盖它"
                     f"（{type(exc).__name__}）。"
                 )
             else:
+                self._settings_state_available = True
                 self._startup_messages.append(
                     f"损坏的设置已原样保留为 {os.path.basename(recovery_path)}。"
                 )
@@ -392,16 +455,29 @@ class MainWindow(QMainWindow):
         self._library_cancel_requested = False
         self._library_terminal_received = False
         self._library_preview_generation = 0
-        self._library_preview_pending: tuple[
-            int, str, LibraryEntry
-        ] | None = None
+        self._library_preview_entry: LibraryEntry | None = None
+        self._library_preview_binding: _LibraryPreviewBinding | None = None
+        self._library_refreshing = False
+        self._library_preview_pending: tuple[int, _LibraryPreviewBinding] | None = None
 
         self.setWindowTitle(APP_DISPLAY_NAME)
         self.resize(1320, 860)
         self.setMinimumSize(960, 680)
         self._build_ui()
         self._restore_geometry()
-        self._load_credentials()
+        if self._settings_state_available:
+            self._load_credentials()
+        else:
+            self.remember_check.setChecked(False)
+            self.remember_check.setEnabled(False)
+            self.login_button.setEnabled(False)
+            self.logout_button.setEnabled(False)
+            self.save_settings_button.setEnabled(False)
+            self.library_scan_button.setEnabled(False)
+            self.download_selected_button.setEnabled(False)
+            self.download_all_button.setEnabled(False)
+            self.login_status.setText("设置暂时不可用；本机会话未载入")
+            self.account_badge.setText("凭据保持原样")
         self._refresh_tasks()
         for message in self._startup_messages:
             self._log(message)
@@ -547,12 +623,16 @@ class MainWindow(QMainWindow):
         add_manual = QPushButton("粘贴链接 / ID")
         add_manual.clicked.connect(self._add_manual_tasks)
         actions.addWidget(add_manual)
-        download_selected = QPushButton("下载所选")
-        download_selected.clicked.connect(lambda: self._start_download(selected_only=True))
-        actions.addWidget(download_selected)
-        download_all = QPushButton("下载全部待处理")
-        download_all.clicked.connect(lambda: self._start_download(selected_only=False))
-        actions.addWidget(download_all)
+        self.download_selected_button = QPushButton("下载所选")
+        self.download_selected_button.clicked.connect(
+            lambda: self._start_download(selected_only=True)
+        )
+        actions.addWidget(self.download_selected_button)
+        self.download_all_button = QPushButton("下载全部待处理")
+        self.download_all_button.clicked.connect(
+            lambda: self._start_download(selected_only=False)
+        )
+        actions.addWidget(self.download_all_button)
         self.stop_download_button = QPushButton("停止当前批次")
         self.stop_download_button.clicked.connect(self._stop_download)
         self.stop_download_button.setEnabled(False)
@@ -841,9 +921,9 @@ class MainWindow(QMainWindow):
         notice.setWordWrap(True)
         notice.setObjectName("noticeLabel")
         layout.addWidget(notice)
-        save_button = QPushButton("保存设置")
-        save_button.clicked.connect(self._save_settings)
-        layout.addWidget(save_button, 0, Qt.AlignRight)
+        self.save_settings_button = QPushButton("保存设置")
+        self.save_settings_button.clicked.connect(self._save_settings)
+        layout.addWidget(self.save_settings_button, 0, Qt.AlignRight)
         layout.addStretch(1)
         return page
 
@@ -1409,6 +1489,9 @@ class MainWindow(QMainWindow):
     # ------------------------------ local library ------------------------------
 
     def _start_library_scan(self) -> None:
+        if not self._settings_state_available:
+            self.status_label.setText("设置文件暂时不可用；重启前不会扫描推测的下载目录")
+            return
         if self.library_worker is not None:
             self.status_label.setText("本地库校验正在进行，请稍候")
             return
@@ -1540,9 +1623,9 @@ class MainWindow(QMainWindow):
             self.status_label.setText("正在安全停止本地库校验…")
 
     def _refresh_library_table(self) -> None:
-        self._cancel_library_preview("选择一张已验证的静态图片")
         report = self._library_report
         if report is None:
+            self._cancel_library_preview("选择一张已验证的静态图片")
             self.library_model.set_entries(())
             return
         selected_status = str(self.library_filter_combo.currentData() or "")
@@ -1555,10 +1638,40 @@ class MainWindow(QMainWindow):
                 sort=selected_sort,
             )
         except LibraryQueryError as exc:
+            self._cancel_library_preview("选择一张已验证的静态图片")
             self.library_model.set_entries(())
             self.library_summary.setText(str(exc))
             return
-        self.library_model.set_entries(entries)
+        view_state = self._capture_library_view_state()
+        self._library_refreshing = True
+        try:
+            reset = self.library_model.set_entries(entries)
+            if reset:
+                self._restore_library_view_state(entries, view_state)
+        finally:
+            self._library_refreshing = False
+
+        current = self.library_table.currentIndex()
+        current_entry = (
+            self.library_model.entry_at(current.row()) if current.isValid() else None
+        )
+        preview_is_still_bound = bool(
+            current_entry is not None
+            and current_entry == view_state.current_entry
+            and self._library_preview_entry == current_entry
+            and self._library_preview_binding
+            == _LibraryPreviewBinding(
+                self._library_report_root,
+                self._library_report_root_identity,
+                current_entry,
+            )
+        )
+        if current_entry is None:
+            if self._library_preview_entry is not None:
+                self._cancel_library_preview("选择一张已验证的静态图片")
+        elif not preview_is_still_bound:
+            self._request_library_preview(current_entry)
+
         counts = report.status_counts
         self.library_summary.setText(
             f"显示 {len(entries)} / {len(report.entries)} · "
@@ -1568,6 +1681,84 @@ class MainWindow(QMainWindow):
             f"缺文件 {counts.get('missing_media', 0)} · "
             f"不可读 {counts.get('unreadable', 0) + counts.get('unsafe_path', 0)}"
         )
+
+    def _capture_library_view_state(self) -> _LibraryViewState:
+        current = self.library_table.currentIndex()
+        current_entry = (
+            self.library_model.entry_at(current.row()) if current.isValid() else None
+        )
+        top = self.library_table.indexAt(
+            self.library_table.viewport().rect().topLeft()
+        )
+        top_entry = self.library_model.entry_at(top.row()) if top.isValid() else None
+        top_offset = self.library_table.visualRect(top).top() if top.isValid() else 0
+        selected_paths = frozenset(
+            entry.relative_path
+            for index in self.library_table.selectionModel().selectedRows()
+            if (entry := self.library_model.entry_at(index.row())) is not None
+        )
+        return _LibraryViewState(
+            selected_paths=selected_paths,
+            current_path=(
+                current_entry.relative_path if current_entry is not None else ""
+            ),
+            current_entry=current_entry,
+            current_column=current.column() if current.isValid() else 0,
+            top_path=top_entry.relative_path if top_entry is not None else "",
+            top_offset=top_offset,
+            vertical_scroll=self.library_table.verticalScrollBar().value(),
+            horizontal_scroll=self.library_table.horizontalScrollBar().value(),
+        )
+
+    def _restore_library_view_state(
+        self, visible: Iterable[LibraryEntry], state: _LibraryViewState
+    ) -> None:
+        rows_by_path = {
+            entry.relative_path: row for row, entry in enumerate(visible)
+        }
+        selection_model = self.library_table.selectionModel()
+        selected_rows = sorted(
+            rows_by_path[path]
+            for path in state.selected_paths
+            if path in rows_by_path
+        )
+        if selected_rows:
+            selection = QItemSelection()
+            last_column = max(0, self.library_model.columnCount() - 1)
+            for row in selected_rows:
+                selection.select(
+                    self.library_model.index(row, 0),
+                    self.library_model.index(row, last_column),
+                )
+            selection_model.select(
+                selection, QItemSelectionModel.ClearAndSelect
+            )
+
+        current_row = rows_by_path.get(state.current_path)
+        if current_row is not None and self.library_model.columnCount() > 0:
+            current_column = min(
+                max(0, state.current_column), self.library_model.columnCount() - 1
+            )
+            selection_model.setCurrentIndex(
+                self.library_model.index(current_row, current_column),
+                QItemSelectionModel.NoUpdate,
+            )
+
+        top_row = rows_by_path.get(state.top_path)
+        if top_row is not None:
+            self.library_table.scrollTo(
+                self.library_model.index(top_row, 0),
+                QAbstractItemView.PositionAtTop,
+            )
+            if (
+                self.library_table.verticalScrollMode()
+                == QAbstractItemView.ScrollPerPixel
+            ):
+                bar = self.library_table.verticalScrollBar()
+                bar.setValue(bar.value() - state.top_offset)
+        else:
+            self.library_table.verticalScrollBar().setValue(state.vertical_scroll)
+        self.library_table.horizontalScrollBar().setValue(state.horizontal_scroll)
 
     def _restore_library_report_summary(self, fallback: str) -> None:
         if self._library_report is None:
@@ -1584,6 +1775,8 @@ class MainWindow(QMainWindow):
     def _library_row_selected(
         self, current: QModelIndex, _previous: QModelIndex
     ) -> None:
+        if self._library_refreshing:
+            return
         entry = self.library_model.entry_at(current.row()) if current.isValid() else None
         self._request_library_preview(entry)
 
@@ -1593,6 +1786,16 @@ class MainWindow(QMainWindow):
         self._library_preview_pending = None
         if self.library_preview_worker is not None:
             self.library_preview_worker.cancel()
+        self._library_preview_entry = entry
+        self._library_preview_binding = (
+            _LibraryPreviewBinding(
+                self._library_report_root,
+                self._library_report_root_identity,
+                entry,
+            )
+            if entry is not None
+            else None
+        )
 
         self.library_preview_image.setPixmap(QPixmap())
         if entry is None:
@@ -1646,16 +1849,22 @@ class MainWindow(QMainWindow):
             return
 
         self.library_preview_image.setText("正在读取离线预览…")
-        request = (generation, self._library_report_root, entry)
+        binding = self._library_preview_binding
+        if binding is None:
+            self.library_preview_image.setText("请重新扫描后再预览")
+            return
+        request = (generation, binding)
         if self.library_preview_worker is not None:
             self._library_preview_pending = request
             return
         self._start_library_preview(request)
 
     def _start_library_preview(
-        self, request: tuple[int, str, LibraryEntry]
+        self, request: tuple[int, _LibraryPreviewBinding]
     ) -> None:
-        generation, output_dir, entry = request
+        generation, binding = request
+        output_dir = binding.report_root
+        entry = binding.entry
         if generation != self._library_preview_generation:
             return
         try:
@@ -1666,7 +1875,7 @@ class MainWindow(QMainWindow):
                     size=entry.size,
                     sha256=entry.sha256,
                     content_type=entry.content_type,
-                    root_identity=self._library_report_root_identity,
+                    root_identity=binding.report_root_identity,
                 ),
                 self,
             )
@@ -1761,9 +1970,12 @@ class MainWindow(QMainWindow):
             self._start_library_preview(pending)
 
     def _cancel_library_preview(self, message: str) -> None:
+        preview_was_active = self._library_preview_entry is not None
         self._library_preview_generation += 1
+        self._library_preview_entry = None
+        self._library_preview_binding = None
         self._library_preview_pending = None
-        if self.library_preview_worker is not None:
+        if preview_was_active and self.library_preview_worker is not None:
             self.library_preview_worker.cancel()
         if hasattr(self, "library_preview_image"):
             self.library_preview_image.setPixmap(QPixmap())
@@ -1793,6 +2005,10 @@ class MainWindow(QMainWindow):
         )
 
     def _load_credentials(self) -> None:
+        if not self._settings_state_available:
+            self.remember_check.setChecked(False)
+            self.login_status.setText("设置文件暂时不可用；本机会话保持原样")
+            return
         try:
             recovery = self._credential_persistence().recover_and_load(
                 settings_write_allowed=self._settings_save_allowed
@@ -1826,6 +2042,9 @@ class MainWindow(QMainWindow):
             self.login_status.setText("未启用本机凭据记忆")
 
     def _start_login(self) -> None:
+        if not self._settings_state_available:
+            self.login_status.setText("设置文件暂时不可用；本次不会更改本机凭据")
+            return
         if self.login_worker and self.login_worker.isRunning():
             return
         try:
@@ -1850,6 +2069,11 @@ class MainWindow(QMainWindow):
         worker.start()
 
     def _login_succeeded(self, username: str, token: str) -> None:
+        if not self._settings_state_available:
+            self.password_edit.clear()
+            self.login_status.setText("设置文件暂时不可用；登录结果未载入")
+            self._log("设置文件暂时不可用；已忽略登录结果，且未更改本机凭据。")
+            return
         try:
             session = StoredSession(username, token).validated()
         except VaultError:
@@ -1906,12 +2130,15 @@ class MainWindow(QMainWindow):
 
     @Slot()
     def _login_finished(self) -> None:
-        self.login_button.setEnabled(True)
+        self.login_button.setEnabled(self._settings_state_available)
         if self.login_worker:
             self.login_worker.deleteLater()
         self.login_worker = None
 
     def _clear_credentials(self) -> None:
+        if not self._settings_state_available:
+            self.login_status.setText("设置文件暂时不可用；加密凭据保持原样")
+            return
         if self.login_worker and self.login_worker.isRunning():
             return
         if QMessageBox.question(
@@ -1964,6 +2191,10 @@ class MainWindow(QMainWindow):
         session: StoredSession | None = None,
     ) -> None:
         """Persist a login choice through the crash-consistent coordinator."""
+        if not self._settings_state_available:
+            raise CredentialPersistenceError(
+                "设置文件暂时不可用；本机凭据保持原样"
+            )
         previous_remember = bool(self.settings.get("remember_credentials"))
         if not remember:
             self._credential_persistence().disable(
@@ -1986,6 +2217,9 @@ class MainWindow(QMainWindow):
             self.download_dir_edit.setText(directory)
 
     def _save_settings(self) -> None:
+        if not self._settings_state_available:
+            self.status_label.setText("设置文件暂时不可用；原文件保持不变")
+            return
         previous_values = dict(self.settings.values)
         previous_remember = bool(previous_values.get("remember_credentials", False))
         remember = self.remember_check.isChecked()
@@ -2141,6 +2375,9 @@ class MainWindow(QMainWindow):
     # ------------------------------ downloads ------------------------------
 
     def _start_download(self, *, selected_only: bool) -> None:
+        if not self._settings_state_available:
+            self.status_label.setText("设置文件暂时不可用；重启前不会写入推测的下载目录")
+            return
         if self.library_worker is not None:
             self.status_label.setText("请等待本地库校验结束后再开始下载")
             return

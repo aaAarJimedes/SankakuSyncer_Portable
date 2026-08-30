@@ -16,6 +16,18 @@ class SettingsError(RuntimeError):
     """Raised when settings cannot be validated or stored."""
 
 
+class SettingsReadError(SettingsError):
+    """The settings file exists but could not be read reliably."""
+
+
+class SettingsCorruptError(SettingsError):
+    """The settings bytes were read but failed the strict schema."""
+
+
+class SettingsWriteError(SettingsError):
+    """A validated settings update could not be committed."""
+
+
 _WINDOWS_RESERVED_BASENAMES = frozenset(
     {"CON", "PRN", "AUX", "NUL"}
     | {f"COM{index}" for index in range(1, 10)}
@@ -25,6 +37,7 @@ _WINDOWS_RESERVED_BASENAMES = frozenset(
 )
 _WINDOWS_INVALID_COMPONENT_CHARS = frozenset('<>:"|?*')
 _WINDOWS_DEVICE_PREFIXES = ("\\\\?\\", "\\\\.\\", "\\??\\", "\\\\??\\")
+_MAX_SETTINGS_BYTES = 1024 * 1024
 
 
 def normalize_download_directory(value: object) -> str:
@@ -111,6 +124,7 @@ class SettingsStore:
         self.path = os.path.join(self.data_dir, "settings.json")
         self.values = copy.deepcopy(self.DEFAULTS)
         self.last_error = ""
+        self.last_load_error: SettingsError | None = None
         self.load()
 
     def get(self, key: str, default=None):
@@ -134,30 +148,62 @@ class SettingsStore:
     def load(self) -> bool:
         self.values = copy.deepcopy(self.DEFAULTS)
         self.last_error = ""
-        if not os.path.exists(self.path):
-            return True
+        self.last_load_error = None
         try:
-            if os.path.getsize(self.path) > 1024 * 1024:
-                raise SettingsError("settings file is too large")
-            with open(self.path, "r", encoding="utf-8") as file_obj:
-                saved = json.load(file_obj)
+            file_stat = os.stat(self.path)
+        except FileNotFoundError:
+            return True
+        except OSError as exc:
+            failure = SettingsReadError(
+                f"设置文件暂时无法读取（{type(exc).__name__}）"
+            )
+            self.last_load_error = failure
+            self.last_error = str(failure)
+            return False
+        try:
+            if file_stat.st_size > _MAX_SETTINGS_BYTES:
+                raise SettingsCorruptError("settings file is too large")
+            with open(self.path, "rb") as file_obj:
+                encoded = file_obj.read(_MAX_SETTINGS_BYTES + 1)
+            if len(encoded) > _MAX_SETTINGS_BYTES:
+                raise SettingsCorruptError("settings file is too large")
+            saved = json.loads(encoded.decode("utf-8"))
             if (
                 not isinstance(saved, dict)
                 or type(saved.get("schema_version")) is not int
                 or saved.get("schema_version") != self.SCHEMA_VERSION
             ):
-                raise SettingsError("unsupported settings schema")
+                raise SettingsCorruptError("unsupported settings schema")
             unknown = set(saved) - {"schema_version", *self.DEFAULTS}
             if unknown:
-                raise SettingsError("settings contain unknown fields")
+                raise SettingsCorruptError("settings contain unknown fields")
             normalized = copy.deepcopy(self.DEFAULTS)
             for key in self.DEFAULTS:
                 if key in saved:
                     normalized[key] = self._normalize(key, saved[key])
             self.values = normalized
             return True
-        except (OSError, json.JSONDecodeError, SettingsError, TypeError, ValueError) as exc:
-            self.last_error = f"设置读取失败，已使用默认值（{type(exc).__name__}）"
+        except OSError as exc:
+            failure = SettingsReadError(
+                f"设置文件暂时无法读取（{type(exc).__name__}）"
+            )
+            self.last_load_error = failure
+            self.last_error = str(failure)
+            return False
+        except (
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            SettingsError,
+            OverflowError,
+            TypeError,
+            ValueError,
+            RecursionError,
+        ) as exc:
+            failure = SettingsCorruptError(
+                f"设置内容损坏，已使用默认值（{type(exc).__name__}）"
+            )
+            self.last_load_error = failure
+            self.last_error = str(failure)
             return False
 
     def save(self) -> None:
@@ -233,7 +279,9 @@ class SettingsStore:
             os.replace(temp_path, self.path)
             temp_path = None
         except OSError as exc:
-            raise SettingsError(f"设置保存失败（{type(exc).__name__}）") from exc
+            raise SettingsWriteError(
+                f"设置保存失败（{type(exc).__name__}）"
+            ) from exc
         finally:
             if temp_path:
                 try:
@@ -242,4 +290,11 @@ class SettingsStore:
                     pass
 
 
-__all__ = ["SettingsError", "SettingsStore", "normalize_download_directory"]
+__all__ = [
+    "SettingsCorruptError",
+    "SettingsError",
+    "SettingsReadError",
+    "SettingsStore",
+    "SettingsWriteError",
+    "normalize_download_directory",
+]

@@ -1107,6 +1107,243 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
             finally:
                 self._close(window)
 
+    def test_library_refresh_preserves_context_and_preview_by_relative_path(self):
+        from PySide6.QtCore import QItemSelectionModel
+        from PySide6.QtWidgets import QAbstractItemView, QHeaderView
+
+        entries = tuple(
+            self._library_entry(f"Post_{index:03d}") for index in range(160)
+        )
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.LibraryThumbnailWorker",
+            _FakeLibraryThumbnailWorker,
+        ):
+            _FakeLibraryThumbnailWorker.instances.clear()
+            window = self.MainWindow(root)
+            window._library_report_root = os.path.join(root, "Downloads")
+            window._library_report_root_identity = get_bound_root_identity(
+                window._library_report_root
+            )
+            window._library_report = self._library_report(entries)
+            try:
+                window._refresh_library_table()
+                window.tabs.setCurrentIndex(3)
+                window.resize(760, 460)
+                header = window.library_table.horizontalHeader()
+                for column in range(window.library_model.columnCount()):
+                    header.setSectionResizeMode(column, QHeaderView.Fixed)
+                    header.resizeSection(column, 220)
+                window.library_table.setVerticalScrollMode(
+                    QAbstractItemView.ScrollPerPixel
+                )
+                window.show()
+                self.app.processEvents()
+
+                def row_for(relative_path):
+                    return next(
+                        row
+                        for row in range(window.library_model.rowCount())
+                        if window.library_model.entry_at(row).relative_path
+                        == relative_path
+                    )
+
+                selection = window.library_table.selectionModel()
+                selected_path = "Post_119.jpg"
+                selection.select(
+                    window.library_model.index(row_for(selected_path), 0),
+                    QItemSelectionModel.ClearAndSelect
+                    | QItemSelectionModel.Rows,
+                )
+                selection.setCurrentIndex(
+                    window.library_model.index(row_for(selected_path), 7),
+                    QItemSelectionModel.NoUpdate,
+                )
+                self.app.processEvents()
+                self.assertEqual(len(_FakeLibraryThumbnailWorker.instances), 1)
+                preview_worker = _FakeLibraryThumbnailWorker.instances[0]
+                self.assertIs(window.library_preview_worker, preview_worker)
+
+                top_path = "Post_081.jpg"
+                window.library_table.scrollTo(
+                    window.library_model.index(row_for(top_path), 0),
+                    QAbstractItemView.PositionAtTop,
+                )
+                vertical = window.library_table.verticalScrollBar()
+                vertical.setValue(min(vertical.value() + 7, vertical.maximum()))
+                horizontal = window.library_table.horizontalScrollBar()
+                self.assertGreater(horizontal.maximum(), 0)
+                horizontal.setValue(min(73, horizontal.maximum()))
+                expected_horizontal = horizontal.value()
+                self.app.processEvents()
+                top_before = window.library_table.indexAt(
+                    window.library_table.viewport().rect().topLeft()
+                )
+                self.assertTrue(top_before.isValid())
+                self.assertEqual(
+                    window.library_model.entry_at(top_before.row()).relative_path,
+                    top_path,
+                )
+                expected_top_offset = window.library_table.visualRect(top_before).top()
+                self.assertLess(expected_top_offset, 0)
+
+                resets = []
+                window.library_model.modelReset.connect(lambda: resets.append(True))
+                window.library_sort_combo.setCurrentIndex(
+                    window.library_sort_combo.findData("id_desc")
+                )
+                self.app.processEvents()
+
+                self.assertEqual(resets, [True])
+                current = window.library_table.currentIndex()
+                self.assertTrue(current.isValid())
+                self.assertEqual(
+                    window.library_model.entry_at(current.row()).relative_path,
+                    selected_path,
+                )
+                self.assertEqual(current.column(), 7)
+                self.assertEqual(
+                    [
+                        window.library_model.entry_at(index.row()).relative_path
+                        for index in window.library_table.selectionModel().selectedRows()
+                    ],
+                    [selected_path],
+                )
+                top_after = window.library_table.indexAt(
+                    window.library_table.viewport().rect().topLeft()
+                )
+                self.assertTrue(top_after.isValid())
+                self.assertEqual(
+                    window.library_model.entry_at(top_after.row()).relative_path,
+                    top_path,
+                )
+                self.assertEqual(
+                    window.library_table.visualRect(top_after).top(),
+                    expected_top_offset,
+                )
+                self.assertEqual(horizontal.value(), expected_horizontal)
+                self.assertIs(window.library_preview_worker, preview_worker)
+                self.assertEqual(preview_worker.cancel_count, 0)
+
+                window.library_search_edit.setText("119")
+                self.app.processEvents()
+                current = window.library_table.currentIndex()
+                self.assertTrue(current.isValid())
+                self.assertEqual(
+                    window.library_model.entry_at(current.row()).relative_path,
+                    selected_path,
+                )
+                self.assertIs(window.library_preview_worker, preview_worker)
+                self.assertEqual(preview_worker.cancel_count, 0)
+
+                window.library_search_edit.setText("does_not_match")
+                self.app.processEvents()
+                self.assertFalse(window.library_table.currentIndex().isValid())
+                self.assertEqual(
+                    window.library_table.selectionModel().selectedRows(), []
+                )
+                self.assertEqual(preview_worker.cancel_count, 1)
+                self.assertIsNone(window._library_preview_entry)
+
+                window.library_search_edit.clear()
+                self.app.processEvents()
+                self.assertFalse(window.library_table.currentIndex().isValid())
+                self.assertEqual(
+                    window.library_table.selectionModel().selectedRows(), []
+                )
+                self.assertEqual(preview_worker.cancel_count, 1)
+            finally:
+                if window.library_preview_worker is not None:
+                    window.library_preview_worker.complete()
+                self._close(window)
+
+    def test_library_refresh_restarts_preview_when_binding_changes(self):
+        from dataclasses import replace
+        from PySide6.QtCore import QItemSelectionModel
+
+        original = self._library_entry("Bound", relative_path="Bound.jpg")
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.LibraryThumbnailWorker",
+            _FakeLibraryThumbnailWorker,
+        ):
+            _FakeLibraryThumbnailWorker.instances.clear()
+            window = self.MainWindow(root)
+            window._library_report_root = os.path.join(root, "Downloads")
+            window._library_report_root_identity = get_bound_root_identity(
+                window._library_report_root
+            )
+            window._library_report = self._library_report((original,))
+            try:
+                window._refresh_library_table()
+                selection = window.library_table.selectionModel()
+                selection.select(
+                    window.library_model.index(0, 0),
+                    QItemSelectionModel.ClearAndSelect
+                    | QItemSelectionModel.Rows,
+                )
+                selection.setCurrentIndex(
+                    window.library_model.index(0, 3),
+                    QItemSelectionModel.NoUpdate,
+                )
+                self.app.processEvents()
+                first = _FakeLibraryThumbnailWorker.instances[-1]
+
+                changed = replace(original, size=original.size + 1, sha256="b" * 64)
+                window._library_report = self._library_report((changed,))
+                resets = []
+                changes = []
+                window.library_model.modelReset.connect(lambda: resets.append(True))
+                window.library_model.dataChanged.connect(
+                    lambda top_left, bottom_right, _roles: changes.append(
+                        (top_left.row(), bottom_right.row())
+                    )
+                )
+                window._refresh_library_table()
+
+                self.assertEqual(resets, [])
+                self.assertEqual(changes, [(0, 0)])
+                self.assertEqual(first.cancel_count, 1)
+                self.assertIs(window.library_preview_worker, first)
+                self.assertIsNotNone(window._library_preview_pending)
+                self.assertEqual(window._library_preview_pending[1].entry, changed)
+                current = window.library_table.currentIndex()
+                self.assertTrue(current.isValid())
+                self.assertEqual(current.column(), 3)
+                self.assertEqual(
+                    window.library_model.entry_at(current.row()), changed
+                )
+
+                first.complete()
+                self.assertEqual(len(_FakeLibraryThumbnailWorker.instances), 2)
+                replacement = _FakeLibraryThumbnailWorker.instances[-1]
+                self.assertIs(window.library_preview_worker, replacement)
+                self.assertEqual(replacement.source.size, changed.size)
+                self.assertEqual(replacement.source.sha256, changed.sha256)
+
+                other_root = os.path.join(root, "OtherDownloads")
+                os.makedirs(other_root)
+                other_identity = get_bound_root_identity(other_root)
+                window._library_report_root = other_root
+                window._library_report_root_identity = other_identity
+                window._refresh_library_table()
+                self.assertEqual(replacement.cancel_count, 1)
+                self.assertIsNotNone(window._library_preview_pending)
+                pending_binding = window._library_preview_pending[1]
+                self.assertEqual(pending_binding.report_root, other_root)
+                self.assertEqual(pending_binding.report_root_identity, other_identity)
+                self.assertEqual(pending_binding.entry, changed)
+
+                replacement.complete()
+                self.assertEqual(len(_FakeLibraryThumbnailWorker.instances), 3)
+                rebound = _FakeLibraryThumbnailWorker.instances[-1]
+                self.assertIs(window.library_preview_worker, rebound)
+                self.assertEqual(rebound.output_dir, os.path.abspath(other_root))
+                self.assertEqual(rebound.source.root_identity, other_identity)
+                rebound.complete()
+            finally:
+                if window.library_preview_worker is not None:
+                    window.library_preview_worker.complete()
+                self._close(window)
+
     def test_local_library_preview_starts_only_for_verified_supported_images(self):
         supported = (
             self._library_entry("Jpeg", relative_path="Jpeg.jpg"),
@@ -1217,7 +1454,7 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 self.assertIs(window.library_preview_worker, first)
                 self.assertIsNotNone(window._library_preview_pending)
                 self.assertEqual(
-                    window._library_preview_pending[2].relative_path, "B.png"
+                    window._library_preview_pending[1].entry.relative_path, "B.png"
                 )
                 loading_text = window.library_preview_image.text()
                 loading_meta = window.library_preview_meta.text()
@@ -2333,6 +2570,108 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 [name for name in os.listdir(data_dir) if name.startswith("tasks.corrupt.")],
                 [],
             )
+
+    def test_settings_read_failure_preserves_settings_vault_and_blocks_writes(self):
+        from credential_vault import StoredSession, VaultReceipt
+        from settings_store import SettingsStore
+
+        with tempfile.TemporaryDirectory() as root:
+            data_dir = os.path.join(root, "Data")
+            os.makedirs(data_dir)
+            receipt = "a" * 64
+            stored_session = StoredSession("saved-user", "saved-token")
+            settings = SettingsStore(data_dir)
+            settings.update(
+                {
+                    "download_dir": "Downloads/custom",
+                    "remember_credentials": True,
+                    "credential_vault_receipt": receipt,
+                }
+            )
+            settings.save()
+            with open(settings.path, "rb") as file_obj:
+                original = file_obj.read()
+
+            vault = _MemoryVault(stored_session)
+            vault.receipt = VaultReceipt(receipt)
+            real_open = open
+            injected = False
+
+            def fail_first_settings_read(path, *args, **kwargs):
+                nonlocal injected
+                mode = args[0] if args else kwargs.get("mode", "r")
+                if (
+                    not injected
+                    and os.path.abspath(os.fspath(path))
+                    == os.path.abspath(settings.path)
+                    and "r" in mode
+                ):
+                    injected = True
+                    raise PermissionError("simulated sharing conflict")
+                return real_open(path, *args, **kwargs)
+
+            with (
+                mock.patch("builtins.open", side_effect=fail_first_settings_read),
+                mock.patch("ui_main_window.CredentialVault", return_value=vault),
+            ):
+                window = self.MainWindow(root)
+            try:
+                self.assertTrue(injected)
+                self.assertFalse(window._settings_state_available)
+                self.assertFalse(window._settings_save_allowed)
+                self.assertEqual(window.access_token, "")
+                self.assertEqual(window.session_username, "")
+                self.assertEqual(vault.state, stored_session)
+                self.assertEqual(vault.clear_count, 0)
+                self.assertFalse(window.login_button.isEnabled())
+                self.assertFalse(window.logout_button.isEnabled())
+                self.assertFalse(window.save_settings_button.isEnabled())
+                self.assertFalse(window.download_all_button.isEnabled())
+                self.assertFalse(window.library_scan_button.isEnabled())
+                self.assertIn("暂时无法读取", window.log_view.toPlainText())
+                self.assertEqual(
+                    [
+                        name
+                        for name in os.listdir(data_dir)
+                        if name.startswith("settings.corrupt.")
+                    ],
+                    [],
+                )
+
+                window._save_settings()
+                window._start_download(selected_only=False)
+                window._start_library_scan()
+                window._load_credentials()
+                from credential_persistence import CredentialPersistenceError
+
+                with self.assertRaises(CredentialPersistenceError):
+                    window._persist_remember_choice(False)
+                window._login_succeeded("ignored-user", "ignored-token")
+                window._login_finished()
+                self.assertIsNone(window.download_worker)
+                self.assertIsNone(window.library_worker)
+                self.assertFalse(window.login_button.isEnabled())
+                self.assertEqual(window.access_token, "")
+                self.assertEqual(window.session_username, "")
+                self.assertEqual(vault.clear_count, 0)
+                self.assertEqual(vault.state, stored_session)
+                with open(settings.path, "rb") as file_obj:
+                    self.assertEqual(file_obj.read(), original)
+            finally:
+                self._close(window)
+
+            with mock.patch("ui_main_window.CredentialVault", return_value=vault):
+                recovered = self.MainWindow(root)
+            try:
+                self.assertTrue(recovered._settings_state_available)
+                self.assertEqual(recovered.access_token, stored_session.access_token)
+                self.assertEqual(recovered.session_username, stored_session.username)
+                self.assertEqual(vault.clear_count, 0)
+                self.assertEqual(
+                    recovered.settings.get("download_dir"), "Downloads/custom"
+                )
+            finally:
+                self._close(recovered)
 
     def test_corrupt_settings_are_backed_up_before_defaults_can_be_saved(self):
         with tempfile.TemporaryDirectory() as root:

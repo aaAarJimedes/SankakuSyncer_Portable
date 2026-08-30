@@ -12,7 +12,12 @@ import unittest
 from unittest import mock
 
 import settings_store as settings_module
-from settings_store import SettingsError, SettingsStore
+from settings_store import (
+    SettingsCorruptError,
+    SettingsError,
+    SettingsReadError,
+    SettingsStore,
+)
 
 
 class SettingsStoreTests(unittest.TestCase):
@@ -232,6 +237,9 @@ class SettingsStoreTests(unittest.TestCase):
             json.dumps({"schema_version": 2}).encode("utf-8"),
             json.dumps({"schema_version": 1, "unknown": True}).encode("utf-8"),
             json.dumps({"schema_version": 1, "page_size": 41}).encode("utf-8"),
+            json.dumps({"schema_version": 1, "request_delay": 10**309}).encode(
+                "utf-8"
+            ),
             json.dumps({"schema_version": 1, "proxy": "http://u:p@x:1"}).encode(
                 "utf-8"
             ),
@@ -244,17 +252,49 @@ class SettingsStoreTests(unittest.TestCase):
                 self.assertFalse(self.store.load())
                 self.assertEqual(self.store.values, SettingsStore.DEFAULTS)
                 self.assertTrue(self.store.last_error)
+                self.assertIsInstance(
+                    self.store.last_load_error, SettingsCorruptError
+                )
+
+    def test_temporary_read_failure_is_distinct_and_preserves_the_file(self):
+        self.store.set("download_dir", "Downloads/custom")
+        self.store.set("remember_credentials", True)
+        self.store.set("credential_vault_receipt", "a" * 64)
+        self.store.save()
+        with open(self.store.path, "rb") as file_obj:
+            before = file_obj.read()
+
+        with mock.patch(
+            "builtins.open", side_effect=PermissionError("simulated sharing conflict")
+        ):
+            self.assertFalse(self.store.load())
+
+        self.assertIsInstance(self.store.last_load_error, SettingsReadError)
+        self.assertIn("PermissionError", self.store.last_error)
+        self.assertEqual(self.store.values, SettingsStore.DEFAULTS)
+        with open(self.store.path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), before)
+
+        self.assertTrue(self.store.load())
+        self.assertIsNone(self.store.last_load_error)
+        self.assertEqual(self.store.get("download_dir"), "Downloads/custom")
+        self.assertTrue(self.store.get("remember_credentials"))
 
     def test_oversize_file_is_rejected_without_reading_it(self):
         with open(self.store.path, "wb") as file_obj:
             file_obj.write(b"{}")
-        with mock.patch.object(
-            settings_module.os.path,
-            "getsize",
-            return_value=1024 * 1024 + 1,
+        with (
+            mock.patch.object(
+                settings_module.os,
+                "stat",
+                return_value=mock.Mock(st_size=1024 * 1024 + 1),
+            ),
+            mock.patch("builtins.open") as opened,
         ):
             self.assertFalse(self.store.load())
+        opened.assert_not_called()
         self.assertEqual(self.store.values, SettingsStore.DEFAULTS)
+        self.assertIsInstance(self.store.last_load_error, SettingsCorruptError)
 
     def test_save_revalidates_directly_mutated_values(self):
         self.store.save()
