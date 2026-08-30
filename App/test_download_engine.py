@@ -1528,28 +1528,34 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
             "prefer_original": True,
             "save_metadata": True,
         }
-        warnings: list[tuple[str, str]] = []
-        successes: list[str] = []
-        failures: list[tuple[str, str]] = []
-        finished: list[tuple[int, int, bool]] = []
+        warnings: list[tuple[object, str, str]] = []
+        successes: list[tuple[object, str]] = []
+        failures: list[tuple[object, str, str]] = []
+        finished: list[tuple[object, int, int, bool]] = []
         with mock.patch("workers._api_from_settings", return_value=api), mock.patch(
             "workers.MediaDownloader", FakeDownloader
         ):
             worker = workers.DownloadWorker(settings, "token", [task])
-            worker.item_warning.connect(lambda post_id, text: warnings.append((post_id, text)))
-            worker.item_succeeded.connect(lambda post_id, _result: successes.append(post_id))
-            worker.item_failed.connect(lambda post_id, text: failures.append((post_id, text)))
+            worker.item_warning.connect(
+                lambda owner, post_id, text: warnings.append((owner, post_id, text))
+            )
+            worker.item_succeeded.connect(
+                lambda owner, post_id, _result: successes.append((owner, post_id))
+            )
+            worker.item_failed.connect(
+                lambda owner, post_id, text: failures.append((owner, post_id, text))
+            )
             worker.batch_finished.connect(
-                lambda succeeded, failed, cancelled: finished.append(
-                    (succeeded, failed, cancelled)
+                lambda owner, succeeded, failed, cancelled: finished.append(
+                    (owner, succeeded, failed, cancelled)
                 )
             )
             worker.run()
 
-        self.assertEqual(warnings, [("Post_1", "元数据写入失败")])
-        self.assertEqual(successes, ["Post_1"])
+        self.assertEqual(warnings, [(worker, "Post_1", "元数据写入失败")])
+        self.assertEqual(successes, [(worker, "Post_1")])
         self.assertEqual(failures, [])
-        self.assertEqual(finished, [(1, 0, False)])
+        self.assertEqual(finished, [(worker, 1, 0, False)])
         api.close.assert_called_once_with()
 
     def test_cancellation_keeps_secret_free_resumable_state(self):

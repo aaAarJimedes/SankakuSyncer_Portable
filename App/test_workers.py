@@ -15,7 +15,7 @@ from bound_file_reader import BoundRootIdentity
 from credential_vault import Credentials
 from library_thumbnail import VerifiedThumbnailSource
 from download_engine import MediaAccessDeniedError
-from sankaku_api import AccessDeniedError
+from sankaku_api import AccessDeniedError, AuthenticationError, RateLimitError
 from workers import (
     DownloadWorker,
     LibraryScanWorker,
@@ -546,16 +546,70 @@ class WorkerLifecycleTests(unittest.TestCase):
         self.assertEqual(thumbnail_errors, [(9, "789")])
         self.assertEqual(thumbnail.url, "")
 
-        download = DownloadWorker({}, "download-token", [])
-        blocked: list[str] = []
+        download = DownloadWorker(
+            {},
+            "download-token",
+            [workers.DownloadTask("Post_A", "").validated()],
+        )
+        blocked: list[tuple] = []
         finished: list[tuple] = []
-        download.batch_blocked.connect(blocked.append)
-        download.batch_finished.connect(lambda *args: finished.append(args))
+        terminal_events: list[str] = []
+        download.batch_blocked.connect(
+            lambda *args: (blocked.append(args), terminal_events.append("blocked"))
+        )
+        download.batch_finished.connect(
+            lambda *args: (finished.append(args), terminal_events.append("finished"))
+        )
         with mock.patch("workers._api_from_settings", side_effect=RuntimeError("boom")):
             download.run()
+        self.assertEqual(blocked[0][0], download)
         self.assertEqual(len(blocked), 1)
-        self.assertEqual(finished, [(0, 0, False)])
+        self.assertEqual(finished, [(download, 0, 0, True)])
+        self.assertEqual(terminal_events, ["blocked", "finished"])
         self.assertEqual(download.token, "")
+
+    def test_downloader_construction_failure_closes_api_and_finishes_stopped(self):
+        class FakeAPI:
+            def __init__(self) -> None:
+                self.tokens: list[str] = []
+                self.closed = False
+
+            def set_access_token(self, value: str) -> None:
+                self.tokens.append(value)
+
+            def close(self) -> None:
+                self.closed = True
+
+        api = FakeAPI()
+        worker = DownloadWorker(
+            {},
+            "download-token",
+            [workers.DownloadTask("Post_A", "").validated()],
+        )
+        events: list[tuple[str, object]] = []
+        worker.batch_blocked.connect(
+            lambda *args: events.append(("blocked", args))
+        )
+        worker.batch_finished.connect(
+            lambda *args: events.append(("finished", args))
+        )
+
+        with (
+            mock.patch("workers._api_from_settings", return_value=api),
+            mock.patch(
+                "workers.MediaDownloader",
+                side_effect=RuntimeError("sensitive constructor detail"),
+            ),
+        ):
+            worker.run()
+
+        self.assertEqual([name for name, _value in events], ["blocked", "finished"])
+        self.assertIs(events[0][1][0], worker)
+        self.assertNotIn("sensitive constructor detail", str(events[0][1][1]))
+        self.assertEqual(events[1][1], (worker, 0, 0, True))
+        self.assertEqual(api.tokens, [""])
+        self.assertTrue(api.closed)
+        self.assertEqual(worker.token, "")
 
     def test_per_item_access_denial_does_not_block_the_next_download(self):
         for denial in (
@@ -598,11 +652,11 @@ class WorkerLifecycleTests(unittest.TestCase):
                 worker = DownloadWorker({}, "download-token", tasks)
                 succeeded: list[tuple] = []
                 failed: list[tuple] = []
-                blocked: list[str] = []
+                blocked: list[tuple] = []
                 finished: list[tuple] = []
                 worker.item_succeeded.connect(lambda *args: succeeded.append(args))
                 worker.item_failed.connect(lambda *args: failed.append(args))
-                worker.batch_blocked.connect(blocked.append)
+                worker.batch_blocked.connect(lambda *args: blocked.append(args))
                 worker.batch_finished.connect(lambda *args: finished.append(args))
 
                 with (
@@ -612,10 +666,69 @@ class WorkerLifecycleTests(unittest.TestCase):
                     worker.run()
 
                 self.assertEqual(calls, ["Post_A", "Post_B"])
-                self.assertEqual([value[0] for value in failed], ["Post_A"])
-                self.assertEqual([value[0] for value in succeeded], ["Post_B"])
+                self.assertTrue(all(value[0] is worker for value in failed + succeeded))
+                self.assertEqual([value[1] for value in failed], ["Post_A"])
+                self.assertEqual([value[1] for value in succeeded], ["Post_B"])
                 self.assertEqual(blocked, [])
-                self.assertEqual(finished, [(1, 1, False)])
+                self.assertEqual(finished, [(worker, 1, 1, False)])
+                self.assertEqual(api.tokens, [""])
+                self.assertTrue(api.closed)
+                self.assertEqual(worker.token, "")
+
+    def test_authentication_and_rate_limit_failures_block_owned_batch(self):
+        for failure in (
+            AuthenticationError("登录已失效，请重新登录"),
+            RateLimitError("请求过于频繁，请稍后重试"),
+        ):
+            with self.subTest(error_type=type(failure).__name__):
+                class FakeAPI:
+                    def __init__(self) -> None:
+                        self.tokens: list[str] = []
+                        self.closed = False
+
+                    def set_access_token(self, value: str) -> None:
+                        self.tokens.append(value)
+
+                    def close(self) -> None:
+                        self.closed = True
+
+                calls: list[str] = []
+
+                class FakeDownloader:
+                    def __init__(self, *_args, **_kwargs) -> None:
+                        self.closed = False
+
+                    def download(self, post_id: str, *, progress=None):
+                        del progress
+                        calls.append(post_id)
+                        raise failure
+
+                    def close(self) -> None:
+                        self.closed = True
+
+                api = FakeAPI()
+                tasks = [
+                    workers.DownloadTask("Post_A", "").validated(),
+                    workers.DownloadTask("Post_B", "").validated(),
+                ]
+                worker = DownloadWorker({}, "download-token", tasks)
+                failed: list[tuple] = []
+                blocked: list[tuple] = []
+                finished: list[tuple] = []
+                worker.item_failed.connect(lambda *args: failed.append(args))
+                worker.batch_blocked.connect(lambda *args: blocked.append(args))
+                worker.batch_finished.connect(lambda *args: finished.append(args))
+
+                with (
+                    mock.patch("workers._api_from_settings", return_value=api),
+                    mock.patch("workers.MediaDownloader", FakeDownloader),
+                ):
+                    worker.run()
+
+                self.assertEqual(calls, ["Post_A"])
+                self.assertEqual(failed, [(worker, "Post_A", str(failure))])
+                self.assertEqual(blocked, [(worker, str(failure))])
+                self.assertEqual(finished, [(worker, 0, 1, True)])
                 self.assertEqual(api.tokens, [""])
                 self.assertTrue(api.closed)
                 self.assertEqual(worker.token, "")

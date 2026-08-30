@@ -1136,7 +1136,8 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 self.assertIs(window.download_worker, first)
                 self.assertIn("已有下载批次", window.status_label.text())
 
-                first.batch_finished.emit(0, 0, True)
+                first.batch_finished.emit(first, 0, 0, True)
+                self.assertEqual(window.task_store.get("Post_A").status, "cancelled")
                 first.complete()
                 self.assertIsNone(window.download_worker)
 
@@ -1145,8 +1146,318 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 self.assertIs(window.download_worker, _FakeDownloadWorker.instances[-1])
             finally:
                 if window.download_worker is not None:
-                    window.download_worker.batch_finished.emit(0, 0, True)
+                    owner = window.download_worker
+                    owner.batch_finished.emit(owner, 0, 0, True)
                     window.download_worker.complete()
+                self._close(window)
+
+    def test_blocked_download_batch_requeues_owned_tasks_for_immediate_retry(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Post_A", "Post_B"])
+                window._start_download(selected_only=False)
+                worker = _FakeDownloadWorker.instances[-1]
+                self.assertEqual(
+                    [window.task_store.get(value).status for value in ("Post_A", "Post_B")],
+                    ["queued", "queued"],
+                )
+                window.task_store.add_many(["Post_NotOwned"])
+                window.task_store.update("Post_NotOwned", status="queued")
+
+                reason = "下载初始化发生内部错误（RuntimeError）"
+                worker.batch_blocked.emit(worker, reason)
+                worker.batch_finished.emit(worker, 0, 0, True)
+
+                recovered = [
+                    window.task_store.get(value) for value in ("Post_A", "Post_B")
+                ]
+                self.assertEqual([task.status for task in recovered], ["pending", "pending"])
+                self.assertEqual([task.error for task in recovered], [reason, reason])
+                self.assertEqual(
+                    [task.post_id for task in window.task_store.pending()],
+                    ["Post_A", "Post_B"],
+                )
+                self.assertEqual(
+                    window.task_store.get("Post_NotOwned").status, "queued"
+                )
+                self.assertIn(reason, window.status_label.text())
+                self.assertIn("恢复为待处理", window.status_label.text())
+                worker.complete()
+                self.assertIsNone(window.download_worker)
+            finally:
+                if window.download_worker is not None:
+                    owner = window.download_worker
+                    owner.batch_finished.emit(owner, 0, 0, True)
+                    window.download_worker.complete()
+                self._close(window)
+
+    def test_unreported_download_end_defensively_recovers_active_tasks(self):
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Post_A"])
+                window._start_download(selected_only=False)
+                worker = _FakeDownloadWorker.instances[-1]
+
+                worker.batch_finished.emit(worker, 0, 0, False)
+
+                task = window.task_store.get("Post_A")
+                self.assertEqual(task.status, "pending")
+                self.assertIn("异常结束", task.error)
+                self.assertIn("异常任务已恢复", window.status_label.text())
+                worker.complete()
+            finally:
+                if window.download_worker is not None:
+                    owner = window.download_worker
+                    owner.batch_finished.emit(owner, 0, 0, True)
+                    window.download_worker.complete()
+                self._close(window)
+
+    def test_stopped_download_reports_task_recovery_failure(self):
+        from task_store import TaskStoreError
+
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Post_A"])
+                window._start_download(selected_only=False)
+                worker = _FakeDownloadWorker.instances[-1]
+
+                with mock.patch.object(
+                    window.task_store,
+                    "update_many",
+                    side_effect=TaskStoreError("simulated persistence failure"),
+                ):
+                    worker.batch_finished.emit(worker, 0, 0, True)
+
+                self.assertEqual(window.task_store.get("Post_A").status, "queued")
+                self.assertIn("任务状态恢复失败", window.status_label.text())
+                self.assertNotIn("已停止", window.status_label.text())
+                worker.complete()
+            finally:
+                if window.download_worker is not None:
+                    window._download_thread_finished(window.download_worker)
+                self._close(window)
+
+    def test_blocked_download_preserves_reason_when_recovery_fails(self):
+        from task_store import TaskStoreError
+
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Post_A"])
+                window._start_download(selected_only=False)
+                worker = _FakeDownloadWorker.instances[-1]
+                reason = "登录已失效，请重新登录"
+                worker.batch_blocked.emit(worker, reason)
+
+                with mock.patch.object(
+                    window.task_store,
+                    "update_many",
+                    side_effect=TaskStoreError("simulated persistence failure"),
+                ):
+                    worker.batch_finished.emit(worker, 0, 0, True)
+
+                self.assertEqual(window.task_store.get("Post_A").status, "queued")
+                self.assertIn(reason, window.status_label.text())
+                self.assertIn("任务状态恢复失败", window.status_label.text())
+                worker.complete()
+            finally:
+                if window.download_worker is not None:
+                    window._download_thread_finished(window.download_worker)
+                self._close(window)
+
+    def test_download_constructor_rollback_failure_is_visible(self):
+        from task_store import TaskStoreError
+
+        with tempfile.TemporaryDirectory() as root:
+            window = self.MainWindow(root)
+            original_update_many = window.task_store.update_many
+            calls = 0
+
+            def fail_second_update(*args, **kwargs):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise TaskStoreError("simulated rollback failure")
+                return original_update_many(*args, **kwargs)
+
+            try:
+                window.task_store.add_many(["Post_A"])
+                with (
+                    mock.patch.object(
+                        window.task_store,
+                        "update_many",
+                        side_effect=fail_second_update,
+                    ),
+                    mock.patch(
+                        "ui_main_window.DownloadWorker",
+                        side_effect=RuntimeError("sensitive constructor detail"),
+                    ),
+                    mock.patch("ui_main_window.QMessageBox.warning") as warning,
+                ):
+                    window._start_download(selected_only=False)
+
+                self.assertEqual(window.task_store.get("Post_A").status, "queued")
+                message = warning.call_args.args[-1]
+                self.assertIn("任务状态恢复失败", message)
+                self.assertNotIn("sensitive constructor detail", message)
+            finally:
+                self._close(window)
+
+    def test_download_start_failure_restores_tasks_and_releases_owner(self):
+        class FailingStartDownloadWorker(_FakeDownloadWorker):
+            def start(self) -> None:
+                raise RuntimeError("sensitive start detail")
+
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", FailingStartDownloadWorker
+        ), mock.patch("ui_main_window.QMessageBox.warning") as warning:
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Post_A"])
+                window._start_download(selected_only=False)
+
+                worker = _FakeDownloadWorker.instances[-1]
+                task = window.task_store.get("Post_A")
+                self.assertEqual(task.status, "pending")
+                self.assertIn("启动失败", task.error)
+                self.assertIsNone(window.download_worker)
+                self.assertEqual(window._download_task_ids, frozenset())
+                self.assertTrue(worker.deleted)
+                self.assertEqual(worker.token, "")
+                self.assertFalse(window.stop_download_button.isEnabled())
+                message = warning.call_args.args[-1]
+                self.assertIn("任务已恢复为待处理", message)
+                self.assertNotIn("sensitive start detail", message)
+            finally:
+                self._close(window)
+
+    def test_normal_download_terminals_are_not_overwritten_by_batch_fallback(self):
+        from types import SimpleNamespace
+
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Post_A", "Post_B"])
+                window._start_download(selected_only=False)
+                worker = _FakeDownloadWorker.instances[-1]
+
+                worker.item_started.emit(worker, "Post_A")
+                worker.item_succeeded.emit(
+                    worker,
+                    "Post_A",
+                    SimpleNamespace(relative_path="Post_A.jpg"),
+                )
+                worker.item_started.emit(worker, "Post_B")
+                worker.item_failed.emit(worker, "Post_B", "媒体不可用")
+                worker.batch_finished.emit(worker, 1, 1, False)
+
+                self.assertEqual(window.task_store.get("Post_A").status, "completed")
+                self.assertEqual(window.task_store.get("Post_B").status, "failed")
+                self.assertEqual(
+                    window.task_store.get("Post_A").output_files,
+                    ("Post_A.jpg",),
+                )
+                worker.complete()
+            finally:
+                if window.download_worker is not None:
+                    window._download_thread_finished(window.download_worker)
+                self._close(window)
+
+    def test_user_stop_cancels_only_unfinished_owned_tasks(self):
+        from types import SimpleNamespace
+
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Post_A", "Post_B"])
+                window._start_download(selected_only=False)
+                worker = _FakeDownloadWorker.instances[-1]
+                worker.item_succeeded.emit(
+                    worker,
+                    "Post_A",
+                    SimpleNamespace(relative_path="Post_A.jpg"),
+                )
+
+                window._stop_download()
+                worker.batch_finished.emit(worker, 1, 0, True)
+
+                self.assertEqual(worker.cancel_count, 1)
+                self.assertEqual(window.task_store.get("Post_A").status, "completed")
+                cancelled = window.task_store.get("Post_B")
+                self.assertEqual(cancelled.status, "cancelled")
+                self.assertIn("用户停止", cancelled.error)
+                self.assertIn("已停止", window.status_label.text())
+                worker.complete()
+            finally:
+                if window.download_worker is not None:
+                    window._download_thread_finished(window.download_worker)
+                self._close(window)
+
+    def test_stale_download_signals_cannot_modify_replacement_batch(self):
+        from types import SimpleNamespace
+
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Post_A"])
+                window._start_download(selected_only=False)
+                stale = _FakeDownloadWorker.instances[-1]
+
+                window.task_store.add_many(["Post_B"])
+                window.task_store.update("Post_B", status="queued")
+                replacement = _FakeDownloadWorker({}, "", [], window)
+                replacement.start()
+                window.download_worker = replacement
+                window._download_task_ids = frozenset({"Post_B"})
+                window._download_block_reason = ""
+                window.status_label.setText("replacement active")
+
+                stale.item_started.emit(stale, "Post_B")
+                stale.item_progress.emit(stale, "Post_B", 1, 2)
+                stale.item_succeeded.emit(
+                    stale,
+                    "Post_B",
+                    SimpleNamespace(relative_path="wrong.jpg"),
+                )
+                stale.item_warning.emit(stale, "Post_B", "stale warning")
+                stale.item_failed.emit(stale, "Post_B", "stale failure")
+                stale.batch_blocked.emit(stale, "stale block")
+                stale.batch_finished.emit(stale, 9, 9, True)
+
+                task = window.task_store.get("Post_B")
+                self.assertEqual(task.status, "queued")
+                self.assertEqual(task.error, "")
+                self.assertEqual(task.output_files, ())
+                self.assertEqual(window._download_block_reason, "")
+                self.assertEqual(window.status_label.text(), "replacement active")
+            finally:
+                if window.download_worker is not None:
+                    window._download_thread_finished(window.download_worker)
                 self._close(window)
 
     def test_stale_download_finished_signal_cannot_clear_new_owner(self):

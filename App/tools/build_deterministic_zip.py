@@ -16,6 +16,10 @@ CHUNK_SIZE = 1024 * 1024
 FIXED_ZIP_TIME = (1980, 1, 1, 0, 0, 0)
 FILE_MODE = stat.S_IFREG | 0o644
 DIRECTORY_MODE = stat.S_IFDIR | 0o755
+PRIVATE_DIRECTORIES = ("Data", "Downloads")
+_PRIVATE_DIRECTORY_NAMES = {
+    name.casefold(): name for name in PRIVATE_DIRECTORIES
+}
 
 
 class DeterministicZipError(RuntimeError):
@@ -40,6 +44,59 @@ def _is_link_or_reparse(path: Path) -> bool:
     return stat.S_ISLNK(info.st_mode) or bool(attributes & reparse)
 
 
+def _private_directory_state(root: Path) -> dict[str, tuple[int, int, int, int]]:
+    """Require canonical, plain, empty private roots without reading them."""
+    states: dict[str, tuple[int, int, int, int]] = {}
+    try:
+        with os.scandir(root) as entries:
+            for entry in entries:
+                expected = _PRIVATE_DIRECTORY_NAMES.get(entry.name.casefold())
+                if expected is None:
+                    continue
+                if entry.name != expected or expected in states:
+                    raise DeterministicZipError(
+                        f"private directory must use canonical name: {expected}"
+                    )
+                path = root / entry.name
+                info = path.lstat()
+                attributes = int(getattr(info, "st_file_attributes", 0))
+                reparse = int(getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+                if stat.S_ISLNK(info.st_mode) or bool(attributes & reparse) or not stat.S_ISDIR(
+                    info.st_mode
+                ):
+                    raise DeterministicZipError(
+                        f"private archive path must be a plain directory: {expected}"
+                    )
+                with os.scandir(path) as children:
+                    if next(children, None) is not None:
+                        raise DeterministicZipError(
+                            f"private archive directory must be empty: {expected}"
+                        )
+                states[expected] = (
+                    int(getattr(info, "st_dev", 0)),
+                    int(getattr(info, "st_ino", 0)),
+                    int(getattr(info, "st_ctime_ns", 0)),
+                    int(getattr(info, "st_mtime_ns", 0)),
+                )
+    except DeterministicZipError:
+        raise
+    except OSError as exc:
+        raise DeterministicZipError("cannot inspect private archive directories") from exc
+    missing = [name for name in PRIVATE_DIRECTORIES if name not in states]
+    if missing:
+        raise DeterministicZipError(
+            f"required private archive directory is missing: {missing[0]}"
+        )
+    return states
+
+
+def _require_unchanged_private_directories(
+    root: Path, expected: dict[str, tuple[int, int, int, int]]
+) -> None:
+    if _private_directory_state(root) != expected:
+        raise DeterministicZipError("private archive directories changed while archiving")
+
+
 def _entries(root: Path) -> tuple[list[Path], list[Path]]:
     directories: list[Path] = []
     files: list[Path] = []
@@ -47,6 +104,7 @@ def _entries(root: Path) -> tuple[list[Path], list[Path]]:
         root, topdown=True, followlinks=False
     ):
         directory = Path(directory_text)
+        relative_directory = directory.relative_to(root)
         kept: list[str] = []
         for name in directory_names:
             path = directory / name
@@ -58,6 +116,19 @@ def _entries(root: Path) -> tuple[list[Path], list[Path]]:
             if "\r" in relative.as_posix() or "\n" in relative.as_posix():
                 raise DeterministicZipError("archive path contains a line break")
             directories.append(relative)
+            private_name = (
+                _PRIVATE_DIRECTORY_NAMES.get(name.casefold())
+                if not relative_directory.parts
+                else None
+            )
+            if private_name is not None:
+                if name != private_name:
+                    raise DeterministicZipError(
+                        f"private directory must use canonical name: {private_name}"
+                    )
+                # These two entries are represented in the ZIP, but their
+                # contents are never traversed or serialized.
+                continue
             kept.append(name)
         directory_names[:] = kept
         for name in file_names:
@@ -69,6 +140,14 @@ def _entries(root: Path) -> tuple[list[Path], list[Path]]:
             relative = path.relative_to(root)
             if "\r" in relative.as_posix() or "\n" in relative.as_posix():
                 raise DeterministicZipError("archive path contains a line break")
+            if (
+                not relative_directory.parts
+                and name.casefold() in _PRIVATE_DIRECTORY_NAMES
+            ):
+                raise DeterministicZipError(
+                    f"private archive path must be a plain directory: "
+                    f"{_PRIVATE_DIRECTORY_NAMES[name.casefold()]}"
+                )
             files.append(relative)
     key = lambda value: (value.as_posix().casefold(), value.as_posix())
     return sorted(directories, key=key), sorted(files, key=key)
@@ -123,6 +202,17 @@ def _write_file(
         )
 
 
+def _verify_archive(path: Path, expected: list[str]) -> None:
+    try:
+        with zipfile.ZipFile(path, "r") as archive:
+            if archive.namelist() != expected or archive.testzip() is not None:
+                raise DeterministicZipError("temporary archive failed verification")
+    except DeterministicZipError:
+        raise
+    except (OSError, zipfile.BadZipFile) as exc:
+        raise DeterministicZipError("temporary archive failed verification") from exc
+
+
 def build_deterministic_zip(source: Path, output: Path) -> int:
     source = source.resolve()
     output = output.resolve(strict=False)
@@ -135,7 +225,11 @@ def build_deterministic_zip(source: Path, output: Path) -> int:
     if output.exists() or _is_link_or_reparse(output.parent) or not output.parent.is_dir():
         raise DeterministicZipError("archive output must be a new file in a plain directory")
 
+    private_state = _private_directory_state(source)
     directories, files = _entries(source)
+    _require_unchanged_private_directories(source, private_state)
+    expected = [f"{path.as_posix()}/" for path in directories]
+    expected.extend(path.as_posix() for path in files)
     descriptor: int | None = None
     temporary: Path | None = None
     try:
@@ -160,9 +254,16 @@ def build_deterministic_zip(source: Path, output: Path) -> int:
                     )
                 for relative in files:
                     _write_file(archive, source, relative)
+                _require_unchanged_private_directories(source, private_state)
             raw.flush()
             os.fsync(raw.fileno())
 
+        _require_unchanged_private_directories(source, private_state)
+        _verify_archive(temporary, expected)
+        # Verification can be expensive for a full portable runtime.  Recheck
+        # the private roots immediately before the no-clobber publish step so
+        # a change during verification cannot satisfy the release contract.
+        _require_unchanged_private_directories(source, private_state)
         try:
             os.link(temporary, output)
         except FileExistsError as exc:
@@ -178,14 +279,16 @@ def build_deterministic_zip(source: Path, output: Path) -> int:
                 ) from rename_exc
             temporary = None
         if temporary is not None:
-            temporary.unlink()
-            temporary = None
-
-        with zipfile.ZipFile(output, "r") as archive:
-            expected = [f"{path.as_posix()}/" for path in directories]
-            expected.extend(path.as_posix() for path in files)
-            if archive.namelist() != expected or archive.testzip() is not None:
-                raise DeterministicZipError("published archive failed verification")
+            try:
+                temporary.unlink()
+            except OSError:
+                # The verified inode has already been published by a
+                # no-clobber hard link.  A leftover hidden temporary is a
+                # cleanup warning, not a reason to misreport the valid output
+                # as failed; the finally block makes one more best effort.
+                pass
+            else:
+                temporary = None
         return len(directories) + len(files)
     finally:
         if descriptor is not None:

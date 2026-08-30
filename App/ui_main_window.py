@@ -318,6 +318,7 @@ class MainWindow(QMainWindow):
         self.library_worker: LibraryScanWorker | None = None
         self.library_preview_worker: LibraryThumbnailWorker | None = None
         self._download_block_reason = ""
+        self._download_task_ids: frozenset[str] = frozenset()
         self.thumbnail_pool = QThreadPool(self)
         self.thumbnail_pool.setMaxThreadCount(2)
         self._thumbnail_generation = 0
@@ -1992,18 +1993,32 @@ class MainWindow(QMainWindow):
         try:
             worker = DownloadWorker(self._settings_snapshot(), self.access_token, queued, self)
         except Exception as exc:
+            recovered = False
             try:
                 self.task_store.update_many(
                     [task.post_id for task in queued], status="pending", error=""
                 )
-            except TaskStoreError:
-                pass
+            except TaskStoreError as recovery_exc:
+                self._log(
+                    "下载线程创建失败，且任务状态恢复失败："
+                    f"{type(recovery_exc).__name__}"
+                )
+            else:
+                recovered = True
             self._refresh_tasks()
+            detail = (
+                "；任务已恢复为待处理"
+                if recovered
+                else "；任务状态恢复失败，请重启后重试"
+            )
             QMessageBox.warning(
-                self, "无法开始下载", f"下载线程创建失败（{type(exc).__name__}）"
+                self,
+                "无法开始下载",
+                f"下载线程创建失败（{type(exc).__name__}）{detail}",
             )
             return
         self.download_worker = worker
+        self._download_task_ids = frozenset(task.post_id for task in queued)
         worker.item_started.connect(self._download_item_started)
         worker.item_progress.connect(self._download_item_progress)
         worker.item_succeeded.connect(self._download_item_succeeded)
@@ -2020,10 +2035,63 @@ class MainWindow(QMainWindow):
         self.global_progress.show()
         self.status_label.setText(f"开始顺序下载 {len(queued)} 项")
         self._log(f"下载批次开始：{len(queued)} 项，单并发。")
-        worker.start()
+        try:
+            worker.start()
+        except Exception as exc:
+            try:
+                running = bool(worker.isRunning())
+            except Exception:
+                running = True
+            if running:
+                message = (
+                    f"下载线程启动状态异常（{type(exc).__name__}）；"
+                    "线程可能仍在运行，请等待或安全停止"
+                )
+                self.status_label.setText(message)
+                self._log(message)
+                QMessageBox.warning(self, "下载启动状态异常", message)
+                return
 
-    @Slot(str)
-    def _download_item_started(self, post_id: str) -> None:
+            recovered = False
+            try:
+                self.task_store.update_many(
+                    list(self._download_task_ids),
+                    status="pending",
+                    error="下载线程启动失败，任务已恢复为待处理",
+                )
+            except TaskStoreError as recovery_exc:
+                self._log(
+                    "下载线程启动失败，且任务状态恢复失败："
+                    f"{type(recovery_exc).__name__}"
+                )
+            else:
+                recovered = True
+            self.stop_download_button.setEnabled(False)
+            self.global_progress.hide()
+            self.download_worker = None
+            self._download_task_ids = frozenset()
+            # ``run()`` normally scrubs this secret in its finally block.  A
+            # thread that never started cannot reach that cleanup path.
+            if hasattr(worker, "token"):
+                worker.token = ""
+            delete_later = getattr(worker, "deleteLater", None)
+            if callable(delete_later):
+                delete_later()
+            self._refresh_tasks()
+            detail = (
+                "；任务已恢复为待处理"
+                if recovered
+                else "；任务状态恢复失败，请重启后重试"
+            )
+            message = f"下载线程启动失败（{type(exc).__name__}）{detail}"
+            self.status_label.setText(message)
+            self._log(message)
+            QMessageBox.warning(self, "无法开始下载", message)
+
+    @Slot(object, str)
+    def _download_item_started(self, owner: object, post_id: str) -> None:
+        if owner is not self.download_worker:
+            return
         try:
             self.task_store.update(post_id, status="running", error="")
         except TaskStoreError as exc:
@@ -2031,8 +2099,12 @@ class MainWindow(QMainWindow):
         self._refresh_tasks()
         self.status_label.setText(f"正在下载 {post_id}")
 
-    @Slot(str, int, int)
-    def _download_item_progress(self, post_id: str, current: int, total: int) -> None:
+    @Slot(object, str, int, int)
+    def _download_item_progress(
+        self, owner: object, post_id: str, current: int, total: int
+    ) -> None:
+        if owner is not self.download_worker:
+            return
         if total > 0:
             self.global_progress.setRange(0, 100)
             self.global_progress.setValue(min(100, int(current * 100 / total)))
@@ -2042,8 +2114,12 @@ class MainWindow(QMainWindow):
         else:
             self.global_progress.setRange(0, 0)
 
-    @Slot(str, object)
-    def _download_item_succeeded(self, post_id: str, result: object) -> None:
+    @Slot(object, str, object)
+    def _download_item_succeeded(
+        self, owner: object, post_id: str, result: object
+    ) -> None:
+        if owner is not self.download_worker:
+            return
         relative = getattr(result, "relative_path", "")
         try:
             self.task_store.update(
@@ -2057,14 +2133,22 @@ class MainWindow(QMainWindow):
         self._refresh_tasks()
         self._log(f"作品 {post_id} 下载完成。")
 
-    @Slot(str, str)
-    def _download_item_warning(self, post_id: str, message: str) -> None:
+    @Slot(object, str, str)
+    def _download_item_warning(
+        self, owner: object, post_id: str, message: str
+    ) -> None:
+        if owner is not self.download_worker:
+            return
         safe = message[:1000]
         self._log(f"作品 {post_id} 已保存，但有附加警告：{safe}")
         self.status_label.setText(f"{post_id} 已保存；{safe}")
 
-    @Slot(str, str)
-    def _download_item_failed(self, post_id: str, message: str) -> None:
+    @Slot(object, str, str)
+    def _download_item_failed(
+        self, owner: object, post_id: str, message: str
+    ) -> None:
+        if owner is not self.download_worker:
+            return
         try:
             self.task_store.update(post_id, status="failed", error=message[:1000])
         except TaskStoreError as exc:
@@ -2072,37 +2156,75 @@ class MainWindow(QMainWindow):
         self._refresh_tasks()
         self._log(f"作品 {post_id} 失败：{message}")
 
-    @Slot(int, int, bool)
-    def _download_batch_finished(self, succeeded: int, failed: int, cancelled: bool) -> None:
-        if cancelled:
-            reason = self._download_block_reason or "用户停止了批次"
-            remaining = [
-                task.post_id
-                for task in self.task_store.list()
-                if task.status in {"queued", "running"}
-            ]
-            if remaining:
-                try:
-                    self.task_store.update_many(
-                        remaining,
-                        status="pending" if self._download_block_reason else "cancelled",
-                        error=reason,
-                    )
-                except TaskStoreError as exc:
-                    self._log(f"未能原子恢复剩余任务：{exc}")
+    @Slot(object, int, int, bool)
+    def _download_batch_finished(
+        self, owner: object, succeeded: int, failed: int, stopped: bool
+    ) -> None:
+        if owner is not self.download_worker:
+            return
+        remaining = [
+            task.post_id
+            for task in self.task_store.list()
+            if task.post_id in self._download_task_ids
+            and task.status in {"queued", "running"}
+        ]
+        block_reason = self._download_block_reason
+        abnormal_end = bool(remaining) and not stopped
+        recovery_attempted = bool(remaining)
+        recovery_succeeded = False
+        if remaining:
+            if block_reason:
+                next_status = "pending"
+                reason = block_reason
+            elif stopped:
+                next_status = "cancelled"
+                reason = "用户停止了批次"
+            else:
+                next_status = "pending"
+                reason = "下载批次异常结束，任务已恢复为待处理"
+            try:
+                self.task_store.update_many(
+                    remaining,
+                    status=next_status,
+                    error=reason,
+                )
+            except TaskStoreError as exc:
+                self._log(f"未能原子恢复剩余任务：{exc}")
+            else:
+                recovery_succeeded = True
+                if abnormal_end:
+                    self._log("下载批次未报告停止但仍有活动任务，已恢复为待处理。")
         self._refresh_tasks()
+        if recovery_attempted and not recovery_succeeded:
+            terminal_suffix = "，任务状态恢复失败"
+            if block_reason:
+                terminal_suffix = (
+                    f"；批次已阻断：{block_reason}；任务状态恢复失败"
+                )
+        elif block_reason:
+            terminal_suffix = f"；批次已阻断：{block_reason}"
+            if recovery_succeeded:
+                terminal_suffix += "；剩余任务已恢复为待处理"
+        elif stopped:
+            terminal_suffix = "，已停止"
+        elif abnormal_end:
+            terminal_suffix = "，异常任务已恢复"
+        else:
+            terminal_suffix = ""
         self.status_label.setText(
-            f"批次结束：成功 {succeeded}，失败 {failed}" + ("，已停止" if cancelled else "")
+            f"批次结束：成功 {succeeded}，失败 {failed}" + terminal_suffix
         )
         self._log(
-            f"下载批次结束：成功 {succeeded}，失败 {failed}，停止={str(cancelled).lower()}。"
+            f"下载批次结束：成功 {succeeded}，失败 {failed}，停止={str(stopped).lower()}。"
         )
 
-    @Slot(str)
-    def _download_batch_blocked(self, message: str) -> None:
-        self._download_block_reason = message[:1000]
-        self.status_label.setText(message)
-        self._log(f"站点要求停止当前批次：{message}")
+    @Slot(object, str)
+    def _download_batch_blocked(self, owner: object, message: str) -> None:
+        if owner is not self.download_worker:
+            return
+        self._download_block_reason = (message or "下载批次被阻断")[:1000]
+        self.status_label.setText(self._download_block_reason)
+        self._log(f"下载批次已阻断：{self._download_block_reason}")
 
     @Slot(object)
     def _download_thread_finished(self, owner: object) -> None:
@@ -2120,6 +2242,7 @@ class MainWindow(QMainWindow):
         if callable(delete_later):
             delete_later()
         self.download_worker = None
+        self._download_task_ids = frozenset()
 
     def _stop_download(self) -> None:
         if self.download_worker and self.download_worker.isRunning():

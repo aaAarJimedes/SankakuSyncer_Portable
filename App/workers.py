@@ -353,13 +353,16 @@ def _thumbnail_retry_after_seconds(headers: object) -> float:
 
 
 class DownloadWorker(QThread):
-    item_started = Signal(str)
-    item_progress = Signal(str, int, int)
-    item_succeeded = Signal(str, object)
-    item_warning = Signal(str, str)
-    item_failed = Signal(str, str)
-    batch_finished = Signal(int, int, bool)
-    batch_blocked = Signal(str)
+    # Include the emitting worker in every queued signal.  The window can then
+    # reject late events from an obsolete thread instead of applying them to a
+    # newer batch that happens to own the same task IDs.
+    item_started = Signal(object, str)
+    item_progress = Signal(object, str, int, int)
+    item_succeeded = Signal(object, str, object)
+    item_warning = Signal(object, str, str)
+    item_failed = Signal(object, str, str)
+    batch_finished = Signal(object, int, int, bool)
+    batch_blocked = Signal(object, str)
 
     def __init__(
         self,
@@ -401,18 +404,18 @@ class DownloadWorker(QThread):
             for task in self.tasks:
                 if self.stop_event.is_set():
                     break
-                self.item_started.emit(task.post_id)
+                self.item_started.emit(self, task.post_id)
                 try:
                     result = downloader.download(
                         task.post_id,
                         progress=lambda current, total, post_id=task.post_id: self.item_progress.emit(
-                            post_id, current, total
+                            self, post_id, current, total
                         ),
                     )
                     succeeded += 1
-                    self.item_succeeded.emit(task.post_id, result)
+                    self.item_succeeded.emit(self, task.post_id, result)
                     if result.metadata_warning:
-                        self.item_warning.emit(task.post_id, result.metadata_warning)
+                        self.item_warning.emit(self, task.post_id, result.metadata_warning)
                 except Exception as exc:
                     if self.stop_event.is_set():
                         break
@@ -421,12 +424,14 @@ class DownloadWorker(QThread):
                         message = str(exc)
                     else:
                         message = f"下载发生内部错误（{type(exc).__name__}）"
-                    self.item_failed.emit(task.post_id, message)
+                    self.item_failed.emit(self, task.post_id, message)
                     # Only process-wide authentication/rate-limit failures stop
                     # the batch.  API/media access denial errors are per-item
                     # SankakuAPIError/DownloadError values and continue safely.
                     if isinstance(exc, (AuthenticationError, RateLimitError)):
-                        self.batch_blocked.emit(message or "站点要求停止当前批次")
+                        self.batch_blocked.emit(
+                            self, message or "站点要求停止当前批次"
+                        )
                         self.stop_event.set()
                         break
         except Exception as exc:
@@ -435,12 +440,21 @@ class DownloadWorker(QThread):
                     message = str(exc)
                 else:
                     message = f"下载初始化发生内部错误（{type(exc).__name__}）"
-                self.batch_blocked.emit(message)
+                self.batch_blocked.emit(self, message)
+                # The window persists every member of this batch as queued
+                # before the thread starts.  A construction/runtime-boundary
+                # failure must therefore finish as a stopped batch so the UI
+                # can atomically return every unstarted task to a retryable
+                # state instead of stranding it until the next application
+                # restart.
+                self.stop_event.set()
         finally:
             self._network.close(downloader)
             self._network.close(api)
             self.token = ""
-            self.batch_finished.emit(succeeded, failed, self.stop_event.is_set())
+            self.batch_finished.emit(
+                self, succeeded, failed, self.stop_event.is_set()
+            )
 
 
 class LibraryScanWorker(QThread):
