@@ -161,6 +161,70 @@ class HeaderMappingTests(unittest.TestCase):
             headers["X-Test"] = "ok\r\nInjected: yes"
 
 
+class ContentLengthPolicyTests(unittest.TestCase):
+    def test_missing_and_bounded_ascii_decimal_values_are_accepted(self):
+        self.assertIsNone(transport.parse_content_length(None, 10))
+        for value, expected in (("0", 0), ("000", 0), ("9", 9), ("0010", 10)):
+            with self.subTest(value=value):
+                self.assertEqual(
+                    transport.parse_content_length(value, 10),
+                    expected,
+                )
+
+    def test_noncanonical_or_non_ascii_values_are_rejected(self):
+        for value in (
+            b"1",
+            1,
+            "",
+            "-1",
+            "+1",
+            " 1",
+            "1 ",
+            "1, 1",
+            "\N{FULLWIDTH DIGIT ONE}",
+            "\N{SUPERSCRIPT TWO}",
+        ):
+            with self.subTest(value=value), self.assertRaises(
+                transport.ContentLengthError
+            ):
+                transport.parse_content_length(value, 10)
+
+    def test_limit_is_checked_before_hostile_integer_conversion(self):
+        for value in ("11", "9" * 5000):
+            with self.subTest(size=len(value)), self.assertRaises(
+                transport.ContentLengthLimitError
+            ):
+                transport.parse_content_length(value, 10)
+
+    def test_invalid_internal_limit_is_rejected(self):
+        for maximum in (-1, True, 1.0):
+            with self.subTest(maximum=maximum), self.assertRaises(ValueError):
+                transport.parse_content_length("0", maximum)  # type: ignore[arg-type]
+
+
+class ResponseHeaderParsingTests(unittest.TestCase):
+    def test_explicit_empty_content_length_is_preserved_for_strict_rejection(self):
+        headers = transport._parse_response_headers(
+            "HTTP/1.1 200 OK\r\nContent-Length:\r\nX-Test: ok\r\n\r\n"
+        )
+
+        self.assertIn("Content-Length", headers)
+        self.assertEqual(headers["Content-Length"], "")
+        with self.assertRaises(transport.ContentLengthError):
+            transport.parse_content_length(headers.get("Content-Length"), 10)
+
+    def test_duplicate_content_length_lines_are_rejected(self):
+        for first, second in (("5", "5"), ("5", "9")):
+            with self.subTest(first=first, second=second), self.assertRaises(
+                transport.TransportError
+            ):
+                transport._parse_response_headers(
+                    "HTTP/1.1 200 OK\r\n"
+                    f"Content-Length: {first}\r\n"
+                    f"content-length: {second}\r\n\r\n"
+                )
+
+
 class ProxyPolicyTests(unittest.TestCase):
     def test_only_credential_free_cern_http_proxy_is_supported(self):
         self.assertEqual(

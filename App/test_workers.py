@@ -130,6 +130,70 @@ class ThumbnailWorkerOfflineTests(unittest.TestCase):
         self.assertFalse(session.gets[0][1]["allow_redirects"])
         self.assertTrue(response.closed)
 
+    def test_valid_thumbnail_without_content_length_remains_supported(self):
+        response = FakeResponse(
+            200,
+            headers={"Content-Type": "image/jpeg"},
+            chunks=[JPEG_THUMBNAIL],
+        )
+
+        _worker, session, _gate, succeeded, failed = self._run(response)
+
+        self.assertEqual(succeeded, [(7, "123", JPEG_THUMBNAIL)])
+        self.assertEqual(failed, [])
+        self.assertTrue(response.closed)
+        self.assertTrue(session.closed)
+
+    def test_thumbnail_content_length_must_be_strict_and_match_the_body(self):
+        invalid_or_mismatched = (
+            "",
+            "-1",
+            "+1",
+            " 1",
+            "\N{FULLWIDTH DIGIT ONE}",
+            "\N{SUPERSCRIPT TWO}",
+            "9" * 5000,
+            str(len(JPEG_THUMBNAIL) - 1),
+            str(len(JPEG_THUMBNAIL) + 1),
+        )
+        for declared in invalid_or_mismatched:
+            with self.subTest(declared=declared[:20]):
+                response = FakeResponse(
+                    200,
+                    headers={
+                        "Content-Type": "image/jpeg",
+                        "Content-Length": declared,
+                    },
+                    chunks=[JPEG_THUMBNAIL],
+                )
+
+                _worker, session, _gate, succeeded, failed = self._run(response)
+
+                self.assertEqual(succeeded, [])
+                self.assertEqual(failed, [(7, "123")])
+                self.assertTrue(response.closed)
+                self.assertTrue(session.closed)
+
+    def test_declared_oversize_thumbnail_is_rejected_before_streaming(self):
+        before_chunk = mock.Mock(side_effect=AssertionError("body must not be read"))
+        response = FakeResponse(
+            200,
+            headers={
+                "Content-Type": "image/jpeg",
+                "Content-Length": str(ThumbnailWorker.MAX_BYTES + 1),
+            },
+            chunks=[JPEG_THUMBNAIL],
+            before_chunk=before_chunk,
+        )
+
+        _worker, session, _gate, succeeded, failed = self._run(response)
+
+        self.assertEqual(succeeded, [])
+        self.assertEqual(failed, [(7, "123")])
+        before_chunk.assert_not_called()
+        self.assertTrue(response.closed)
+        self.assertTrue(session.closed)
+
     def test_cancel_closes_live_session_and_unblocks_request(self):
         class BlockingSession:
             def __init__(self):

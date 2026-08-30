@@ -325,6 +325,9 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
 
     def test_pathological_content_length_is_a_domain_error_before_writing(self):
         cases = (
+            ("", "无效 Content-Length"),
+            (" 1", "无效 Content-Length"),
+            ("-1", "无效 Content-Length"),
             ("\N{SUPERSCRIPT TWO}", "无效 Content-Length"),
             ("9" * 5000, "50 GiB"),
         )
@@ -345,6 +348,26 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
 
                 self.assertTrue(response.closed)
                 self.assertEqual(os.listdir(self.temp_dir.name), [])
+
+    def test_explicit_zero_content_length_cannot_accept_a_nonempty_body(self):
+        response = FakeMediaResponse(
+            200,
+            headers={
+                "Content-Type": "image/jpeg",
+                "Content-Length": "0",
+            },
+            chunks=[JPEG],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+        final_path, part_path, state_path = self._paths()
+
+        with self.assertRaisesRegex(DownloadError, "超过声明长度"):
+            downloader.download("Post_1")
+
+        self.assertFalse(os.path.exists(final_path))
+        self.assertEqual(os.path.getsize(part_path), 0)
+        self.assertTrue(os.path.isfile(state_path))
+        self.assertTrue(response.closed)
 
     def test_existing_part_is_resumed_with_matching_206(self):
         final_path, part_path, state_path = self._paths()

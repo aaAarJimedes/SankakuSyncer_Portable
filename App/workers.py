@@ -11,7 +11,12 @@ from PySide6.QtCore import QObject, QRunnable, QThread, Signal, Slot
 
 from credential_vault import Credentials
 from download_engine import DownloadError, MediaDownloader
-from http_transport import Session
+from http_transport import (
+    ContentLengthError,
+    ContentLengthLimitError,
+    Session,
+    parse_content_length,
+)
 from image_metadata_policy import (
     BOUNDARY_PREFIX_BYTES,
     BOUNDARY_SUFFIX_BYTES,
@@ -262,10 +267,17 @@ class ThumbnailWorker(QRunnable):
                     if not _thumbnail_content_type_allowed(content_type):
                         response.close()
                         raise ValueError("thumbnail type is not allowed")
-                    declared = response.headers.get("Content-Length", "")
-                    if declared.isdigit() and int(declared) > self.MAX_BYTES:
+                    try:
+                        declared_length = parse_content_length(
+                            response.headers.get("Content-Length"),
+                            self.MAX_BYTES,
+                        )
+                    except ContentLengthLimitError:
                         response.close()
                         raise ValueError("thumbnail is too large")
+                    except ContentLengthError:
+                        response.close()
+                        raise ValueError("thumbnail length is invalid")
                     data = bytearray()
                     try:
                         for chunk in response.iter_content(128 * 1024):
@@ -275,10 +287,20 @@ class ThumbnailWorker(QRunnable):
                                 data.extend(chunk)
                                 if len(data) > self.MAX_BYTES:
                                     raise ValueError("thumbnail is too large")
+                                if (
+                                    declared_length is not None
+                                    and len(data) > declared_length
+                                ):
+                                    raise ValueError("thumbnail length mismatch")
                     finally:
                         response.close()
                     if self.stop_event.is_set():
                         raise GateCancelled("thumbnail cancelled")
+                    if (
+                        declared_length is not None
+                        and len(data) != declared_length
+                    ):
+                        raise ValueError("thumbnail length mismatch")
                     payload = bytes(data)
                     if not _thumbnail_payload_allowed(content_type, payload):
                         raise ValueError("thumbnail signature is not allowed")

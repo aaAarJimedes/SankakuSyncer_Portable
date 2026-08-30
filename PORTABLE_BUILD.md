@@ -124,7 +124,7 @@ Runtime\python.exe -B App\tools\probe_webengine_codecs.py --require-no-patented-
 ```bat
 Runtime\python.exe -B -s App\tools\build_manifest.py --root "."
 Runtime\python.exe -B -s App\tools\build_manifest.py --root "." --check
-Runtime\python.exe -B -s App\tools\build_deterministic_zip.py --source "." --output "..\SankakuSyncer_Portable-v0.1.14.zip"
+Runtime\python.exe -B -s App\tools\build_deterministic_zip.py --source "." --output "..\SankakuSyncer_Portable-v0.1.15.zip"
 ```
 
 `SHA256SUMS.txt` 覆盖除私有目录和清单自身外的发行树。确定性 ZIP 工具按规范化 UTF-8 路径排序、写入固定 DOS 时间与权限属性、拒绝链接和树内输出；它还要求规范命名的 `Data/`、`Downloads/` 必须存在、为普通空目录，只写两个空目录项且从不遍历其内容，并在发布临时 ZIP 前复查。相同发行树的重复构建必须逐字节一致。最终 ZIP 还需另算 SHA-256，并按发布策略签名。把 ZIP 解压到含空格和非 ASCII 字符的一次性目录，再次运行清单检查和发布门禁，并人工检查启动、搜索、浏览、下载和取消。烟测产生的用户数据不能回灌正式发行目录。

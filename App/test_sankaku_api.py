@@ -606,16 +606,116 @@ class SankakuAPIOfflineTests(unittest.TestCase):
         self.assertTrue(response.closed)
 
     def test_declared_oversize_json_is_rejected_without_reading_body(self):
-        response = FakeResponse(
-            headers={"Content-Length": str(32 * 1024 * 1024 + 1)},
-            stream_error=AssertionError("body must not be read"),
+        for declared in (str(32 * 1024 * 1024 + 1), "9" * 5000):
+            with self.subTest(size=len(declared)):
+                response = FakeResponse(
+                    headers={"Content-Length": declared},
+                    stream_error=AssertionError("body must not be read"),
+                )
+                client, _session = self._client(response)
+
+                with self.assertRaisesRegex(SankakuAPIError, "响应过大"):
+                    client.search_posts("cat")
+
+                self.assertTrue(response.closed)
+
+    def test_exact_or_missing_json_content_length_is_accepted(self):
+        for declared in (None, "exact"):
+            with self.subTest(declared=declared):
+                response = FakeResponse(
+                    payload={"data": [], "meta": {"next": "ok"}},
+                )
+                if declared == "exact":
+                    response.headers["Content-Length"] = str(len(response.content))
+                client, _session = self._client(response)
+
+                page = client.search_posts("cat")
+
+                self.assertEqual(page.posts, ())
+                self.assertEqual(page.next_cursor, "ok")
+                self.assertTrue(response.closed)
+
+    def test_json_content_length_must_be_strict_and_match_the_body(self):
+        invalid_values = (
+            "",
+            "-1",
+            "+1",
+            " 1",
+            "\N{FULLWIDTH DIGIT ONE}",
+            "\N{SUPERSCRIPT TWO}",
         )
-        client, _session = self._client(response)
+        for declared in invalid_values:
+            with self.subTest(declared=declared[:20]):
+                response = FakeResponse(payload={"data": [], "meta": {}})
+                response.headers["Content-Length"] = declared
+                client, session = self._client(response)
 
-        with self.assertRaisesRegex(SankakuAPIError, "响应过大"):
-            client.search_posts("cat")
+                with self.assertRaisesRegex(
+                    SankakuAPIError, "读取站点响应失败"
+                ) as raised:
+                    client.search_posts("cat")
 
-        self.assertTrue(response.closed)
+                self.assertNotIn("data", str(raised.exception))
+                self.assertEqual(len(session.requests), 1)
+                self.assertTrue(response.closed)
+
+        for adjustment in (-1, 1):
+            with self.subTest(adjustment=adjustment):
+                response = FakeResponse(payload={"data": [], "meta": {}})
+                response.headers["Content-Length"] = str(
+                    len(response.content) + adjustment
+                )
+                client, session = self._client(response)
+
+                with self.assertRaisesRegex(
+                    SankakuAPIError, "读取站点响应失败"
+                ):
+                    client.search_posts("cat")
+
+                self.assertEqual(len(session.requests), 1)
+                self.assertTrue(response.closed)
+
+    def test_json_content_length_mismatch_retries_only_replayable_get(self):
+        broken = FakeResponse(payload={"data": [], "meta": {}})
+        broken.headers["Content-Length"] = str(len(broken.content) + 1)
+        success = FakeResponse(
+            payload={"data": [_post_payload("Length_Retry")], "meta": {}}
+        )
+        success.headers["Content-Length"] = str(len(success.content))
+        client, session = self._client(broken, success, max_retries=1)
+        backoffs: list[int] = []
+        client._backoff = backoffs.append
+
+        page = client.search_posts("cat")
+
+        self.assertEqual([post.post_id for post in page.posts], ["Length_Retry"])
+        self.assertEqual(backoffs, [0])
+        self.assertEqual(
+            [request["method"] for request in session.requests],
+            ["GET", "GET"],
+        )
+        self.assertTrue(broken.closed)
+        self.assertTrue(success.closed)
+
+    def test_json_content_length_mismatch_never_replays_password_post(self):
+        broken = FakeResponse(
+            payload={"success": True, "access_token": "MUST_NOT_BE_ACCEPTED"}
+        )
+        broken.headers["Content-Length"] = str(len(broken.content) + 1)
+        unused_success = FakeResponse(
+            payload={"success": True, "access_token": "MUST_NOT_BE_USED"}
+        )
+        client, session = self._client(broken, unused_success, max_retries=4)
+        client._backoff = mock.Mock()
+
+        with self.assertRaisesRegex(SankakuAPIError, "读取站点响应失败"):
+            client.authenticate("user@example.test", "secret")
+
+        self.assertEqual(len(session.requests), 1)
+        self.assertEqual(session.responses, [unused_success])
+        self.assertTrue(broken.closed)
+        self.assertFalse(unused_success.closed)
+        client._backoff.assert_not_called()
 
     def test_stream_failure_is_sanitized_and_response_is_closed(self):
         response = FakeResponse(

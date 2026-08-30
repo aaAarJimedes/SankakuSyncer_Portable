@@ -24,7 +24,14 @@ from bound_file_reader import (
     BoundFileUnreadable,
     BoundRootSession,
 )
-from http_transport import Response, Session, TransportError
+from http_transport import (
+    ContentLengthError,
+    ContentLengthLimitError,
+    Response,
+    Session,
+    TransportError,
+    parse_content_length,
+)
 from image_metadata_policy import (
     BOUNDARY_SUFFIX_BYTES,
     ImageMetadataPolicyError,
@@ -664,7 +671,7 @@ class MediaDownloader:
                 response.headers.get("Content-Encoding", "")
             )
             content_length = _content_length(
-                response.headers.get("Content-Length", "")
+                response.headers.get("Content-Length")
             )
         except DownloadError as exc:
             self._integrity_failure(part_path, state_path, str(exc))
@@ -752,6 +759,7 @@ class MediaDownloader:
             )
 
         current = resume_from if append else 0
+        received = 0
         progress_total = total or expected_size
         stream_error = ""
         while True:
@@ -779,9 +787,13 @@ class MediaDownloader:
                 self._check_cancelled()
                 if not chunk:
                     continue
+                received += len(chunk)
                 current += len(chunk)
                 if current > MAX_MEDIA_BYTES:
                     stream_error = "媒体文件超过 50 GiB 安全上限"
+                    break
+                if content_length is not None and received > content_length:
+                    stream_error = "媒体响应超过声明长度"
                     break
                 if progress_total and current > progress_total:
                     stream_error = "媒体响应超过声明长度"
@@ -795,6 +807,8 @@ class MediaDownloader:
         if stream_error:
             self._integrity_failure(part_path, state_path, stream_error)
 
+        if content_length is not None and received != content_length:
+            self._integrity_failure(part_path, state_path, "媒体下载不完整")
         if total and current != total:
             self._integrity_failure(part_path, state_path, "媒体下载不完整")
         if expected_size and current != expected_size:
@@ -1142,22 +1156,12 @@ def _trusted_expected_extension(value: object) -> str:
 
 
 def _content_length(value: object) -> int | None:
-    if value in (None, ""):
-        return None
-    if (
-        not isinstance(value, str)
-        or not value.isascii()
-        or not value.isdecimal()
-    ):
-        raise DownloadError("媒体响应包含无效 Content-Length")
-    significant = value.lstrip("0") or "0"
-    maximum = str(MAX_MEDIA_BYTES)
-    if len(significant) > len(maximum):
-        raise DownloadError("媒体文件超过 50 GiB 安全上限")
-    length = int(significant)
-    if length > MAX_MEDIA_BYTES:
-        raise DownloadError("媒体文件超过 50 GiB 安全上限")
-    return length
+    try:
+        return parse_content_length(value, MAX_MEDIA_BYTES)
+    except ContentLengthLimitError as exc:
+        raise DownloadError("媒体文件超过 50 GiB 安全上限") from exc
+    except ContentLengthError as exc:
+        raise DownloadError("媒体响应包含无效 Content-Length") from exc
 
 
 def _parse_content_range(value: object) -> tuple[int, int, int]:

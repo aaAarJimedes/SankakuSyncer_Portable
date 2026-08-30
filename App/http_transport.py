@@ -112,6 +112,46 @@ class TransportTimeout(TransportError):
     """A WinHTTP operation exceeded an explicit timeout."""
 
 
+class ContentLengthError(ValueError):
+    """A response Content-Length is not one canonical ASCII decimal value."""
+
+
+class ContentLengthLimitError(ContentLengthError):
+    """A valid response Content-Length exceeds its consumer's byte limit."""
+
+
+def parse_content_length(value: object, maximum: int) -> int | None:
+    """Parse one bounded Content-Length without converting hostile integers.
+
+    Header adapters must remove protocol whitespace before exposing a value.
+    Consumers therefore accept only a missing value or an exact ASCII decimal
+    representation.  The digit-length and lexical checks happen
+    before ``int`` so Python's integer-string conversion limit is never part
+    of the response boundary.
+    """
+    if type(maximum) is not int or maximum < 0:
+        raise ValueError("maximum must be a non-negative integer")
+    if value is None:
+        return None
+    if (
+        not isinstance(value, str)
+        or not value.isascii()
+        or not value.isdecimal()
+    ):
+        raise ContentLengthError("invalid Content-Length")
+    significant = value.lstrip("0") or "0"
+    maximum_text = str(maximum)
+    if (
+        len(significant) > len(maximum_text)
+        or (
+            len(significant) == len(maximum_text)
+            and significant > maximum_text
+        )
+    ):
+        raise ContentLengthLimitError("Content-Length exceeds limit")
+    return int(significant)
+
+
 class CaseInsensitiveHeaders(MutableMapping[str, str]):
     """Minimal case-insensitive string mapping used by Session/Response."""
 
@@ -138,6 +178,26 @@ class CaseInsensitiveHeaders(MutableMapping[str, str]):
 
     def copy(self) -> "CaseInsensitiveHeaders":
         return CaseInsensitiveHeaders(dict(self.items()))
+
+
+def _parse_response_headers(raw_headers: str) -> CaseInsensitiveHeaders:
+    """Parse WinHTTP's raw block without losing Content-Length ambiguity."""
+    headers = CaseInsensitiveHeaders()
+    for line in raw_headers.split("\r\n")[1:]:
+        if not line or ":" not in line:
+            continue
+        name, value = line.split(":", 1)
+        normalized_name = name.strip()
+        if (
+            normalized_name.casefold() == "content-length"
+            and normalized_name in headers
+        ):
+            raise TransportError("duplicate response Content-Length")
+        try:
+            headers[normalized_name] = value.strip()
+        except ValueError as exc:
+            raise TransportError("invalid response header") from exc
+    return headers
 
 
 def _validate_header(name: object, value: object) -> tuple[str, str]:
@@ -472,13 +532,7 @@ class _WinHttpBindings:
             None,
         ):
             _raise_last_error("query response headers")
-        headers = CaseInsensitiveHeaders()
-        for line in buffer.value.split("\r\n")[1:]:
-            if not line or ":" not in line:
-                continue
-            name, value = line.split(":", 1)
-            headers[name.strip()] = value.strip()
-        return headers
+        return _parse_response_headers(buffer.value)
 
     def data_available(self, request: object) -> int:
         available = wintypes.DWORD()
@@ -916,9 +970,12 @@ class Session:
 
 __all__ = [
     "CaseInsensitiveHeaders",
+    "ContentLengthError",
+    "ContentLengthLimitError",
     "Response",
     "Session",
     "TransportError",
     "TransportTimeout",
     "normalize_proxy",
+    "parse_content_length",
 ]

@@ -12,7 +12,14 @@ import time
 from typing import Callable, Iterable
 from urllib.parse import urljoin, urlsplit
 
-from http_transport import Response, Session, TransportError
+from http_transport import (
+    ContentLengthError,
+    ContentLengthLimitError,
+    Response,
+    Session,
+    TransportError,
+    parse_content_length,
+)
 from request_gate import retry_after_seconds
 from sankaku_url_policy import (
     normalize_media_url,
@@ -500,21 +507,22 @@ def _parse_posts(items: Iterable[object]) -> tuple[SankakuPost, ...]:
 
 
 def _read_bounded_body(response: Response, limit: int) -> bytes:
-    declared = response.headers.get("Content-Length", "")
-    if declared:
-        try:
-            declared_length = int(declared)
-            if declared_length < 0:
-                raise ValueError
-            if declared_length > limit:
-                raise SankakuAPIError("站点响应过大，已停止处理")
-        except ValueError:
-            raise SankakuAPIError("站点返回了无效长度")
+    try:
+        declared_length = parse_content_length(
+            response.headers.get("Content-Length"),
+            limit,
+        )
+    except ContentLengthLimitError as exc:
+        raise SankakuAPIError("站点响应过大，已停止处理") from exc
+    except ContentLengthError as exc:
+        raise TransportError("invalid response Content-Length") from exc
     iterator = getattr(response, "iter_content", None)
     if not callable(iterator):
         data = bytes(response.content)
         if len(data) > limit:
             raise SankakuAPIError("站点响应过大，已停止处理")
+        if declared_length is not None and len(data) != declared_length:
+            raise TransportError("response Content-Length mismatch")
         return data
     body = bytearray()
     for chunk in iterator(64 * 1024):
@@ -523,6 +531,10 @@ def _read_bounded_body(response: Response, limit: int) -> bytes:
         body.extend(chunk)
         if len(body) > limit:
             raise SankakuAPIError("站点响应过大，已停止处理")
+        if declared_length is not None and len(body) > declared_length:
+            raise TransportError("response Content-Length mismatch")
+    if declared_length is not None and len(body) != declared_length:
+        raise TransportError("response Content-Length mismatch")
     return bytes(body)
 
 
