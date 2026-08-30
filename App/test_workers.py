@@ -24,7 +24,6 @@ from workers import (
     SearchWorker,
     ThumbnailWorker,
     _thumbnail_payload_allowed,
-    _thumbnail_retry_after_seconds,
 )
 
 
@@ -75,25 +74,6 @@ class RecordingGate:
 
     def defer(self, seconds: float) -> None:
         self.deferred.append(seconds)
-
-
-class ThumbnailRetryAfterTests(unittest.TestCase):
-    def test_numeric_http_date_reset_and_default_values(self):
-        self.assertEqual(_thumbnail_retry_after_seconds({"Retry-After": "12"}), 12.0)
-        self.assertEqual(_thumbnail_retry_after_seconds({"Retry-After": "999999"}), 86_400.0)
-        with mock.patch("workers.time.time", return_value=1_000.0):
-            self.assertEqual(
-                _thumbnail_retry_after_seconds(
-                    {"Retry-After": "Thu, 01 Jan 1970 00:20:00 GMT"}
-                ),
-                200.0,
-            )
-            self.assertEqual(
-                _thumbnail_retry_after_seconds({"X-RateLimit-Reset": "1300"}),
-                300.0,
-            )
-        self.assertEqual(_thumbnail_retry_after_seconds({"Retry-After": "broken"}), 600.0)
-        self.assertEqual(_thumbnail_retry_after_seconds(object()), 600.0)
 
 
 class ThumbnailWorkerOfflineTests(unittest.TestCase):
@@ -219,6 +199,14 @@ class ThumbnailWorkerOfflineTests(unittest.TestCase):
         response = FakeResponse(429, headers={"Retry-After": "30"})
         _worker, _session, gate, succeeded, failed = self._run(response)
         self.assertEqual(gate.deferred, [30.0])
+        self.assertEqual(succeeded, [])
+        self.assertEqual(failed, [(7, "123")])
+        self.assertTrue(response.closed)
+
+    def test_non_finite_rate_limit_uses_default_process_cooldown(self):
+        response = FakeResponse(429, headers={"Retry-After": "NaN"})
+        _worker, _session, gate, succeeded, failed = self._run(response)
+        self.assertEqual(gate.deferred, [600.0])
         self.assertEqual(succeeded, [])
         self.assertEqual(failed, [(7, "123")])
         self.assertTrue(response.closed)

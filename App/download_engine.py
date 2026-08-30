@@ -13,7 +13,6 @@ import re
 import stat
 import tempfile
 import threading
-import time
 from typing import Callable
 from urllib.parse import urljoin, urlsplit
 
@@ -26,7 +25,7 @@ from bound_file_reader import (
     BoundRootSession,
 )
 from http_transport import Response, Session, TransportError
-from request_gate import GateCancelled, MEDIA_REQUEST_GATE
+from request_gate import GateCancelled, MEDIA_REQUEST_GATE, retry_after_seconds
 from sankaku_api import (
     CancelledError,
     RateLimitError,
@@ -541,7 +540,7 @@ class MediaDownloader:
                                 "当前作品的签名媒体地址不可用或无权访问"
                             )
                         if response.status_code == 429:
-                            wait_seconds = _retry_after_seconds(response.headers)
+                            wait_seconds = retry_after_seconds(response.headers)
                             MEDIA_REQUEST_GATE.defer(wait_seconds)
                             if wait_seconds >= _LONG_RATE_LIMIT_SECONDS:
                                 raise RateLimitError(
@@ -2265,29 +2264,6 @@ def _remove_compatible_part_state(path: str, *, expected: _PartState) -> None:
         # The media is already committed.  A leftover state is harmless and
         # is preferable to deleting a path whose identity became uncertain.
         return
-
-
-def _retry_after_seconds(headers: object) -> float:
-    getter = getattr(headers, "get", None)
-    if not callable(getter):
-        return _LONG_RATE_LIMIT_SECONDS
-    value = getter("Retry-After")
-    if value:
-        try:
-            return max(0.0, min(float(value), 86_400.0))
-        except (TypeError, ValueError):
-            try:
-                target = parsedate_to_datetime(str(value)).timestamp()
-                return max(0.0, min(target - time.time(), 86_400.0))
-            except (TypeError, ValueError, OverflowError):
-                pass
-    reset = getter("X-RateLimit-Reset")
-    if reset:
-        try:
-            return max(0.0, min(float(reset) - time.time(), 86_400.0))
-        except (TypeError, ValueError):
-            pass
-    return _LONG_RATE_LIMIT_SECONDS
 
 
 def _remove_quietly(path: str) -> None:

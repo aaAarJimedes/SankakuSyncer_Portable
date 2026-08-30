@@ -4,12 +4,72 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from email.utils import parsedate_to_datetime
+import math
 import threading
 import time
 
 
+_MAX_COOLDOWN_SECONDS = 86_400.0
+_DEFAULT_RETRY_AFTER_SECONDS = 600.0
+
+
 class GateCancelled(RuntimeError):
     pass
+
+
+def _finite_number(value: object) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _bounded_default(default: object) -> float:
+    value = _finite_number(default)
+    if value is None or value < 0:
+        raise ValueError("default cooldown must be finite and non-negative")
+    return min(value, _MAX_COOLDOWN_SECONDS)
+
+
+def retry_after_seconds(
+    headers: object, default: float = _DEFAULT_RETRY_AFTER_SECONDS
+) -> float:
+    """Return one bounded, finite server cooldown from HTTP response headers.
+
+    ``Retry-After`` accepts either a non-negative delay or an HTTP date.
+    Invalid values fall through to ``X-RateLimit-Reset`` and finally to the
+    caller's default instead of accidentally becoming a zero-second delay.
+    """
+
+    fallback = _bounded_default(default)
+    getter = getattr(headers, "get", None)
+    if not callable(getter):
+        return fallback
+
+    value = getter("Retry-After")
+    if value is not None:
+        delay = _finite_number(value)
+        if delay is not None and delay >= 0:
+            return min(delay, _MAX_COOLDOWN_SECONDS)
+        try:
+            target = parsedate_to_datetime(str(value)).timestamp()
+            date_delay = target - time.time()
+        except (TypeError, ValueError, OverflowError, OSError):
+            pass
+        else:
+            if math.isfinite(date_delay):
+                return max(0.0, min(date_delay, _MAX_COOLDOWN_SECONDS))
+
+    reset = getter("X-RateLimit-Reset")
+    if reset is not None:
+        target = _finite_number(reset)
+        if target is not None:
+            reset_delay = target - time.time()
+            if math.isfinite(reset_delay):
+                return max(0.0, min(reset_delay, _MAX_COOLDOWN_SECONDS))
+    return fallback
 
 
 class SharedRequestGate:
@@ -24,7 +84,10 @@ class SharedRequestGate:
 
     def defer(self, seconds: float) -> None:
         """Move the shared next-start deadline forward after a server cooldown."""
-        delay = max(0.0, min(float(seconds), 86_400.0))
+        value = _finite_number(seconds)
+        if value is None:
+            raise ValueError("cooldown must be finite")
+        delay = max(0.0, min(value, _MAX_COOLDOWN_SECONDS))
         with self._pace_lock:
             self._next_start = max(self._next_start, time.monotonic() + delay)
 
@@ -61,4 +124,9 @@ class SharedRequestGate:
 MEDIA_REQUEST_GATE = SharedRequestGate(2)
 
 
-__all__ = ["GateCancelled", "MEDIA_REQUEST_GATE", "SharedRequestGate"]
+__all__ = [
+    "GateCancelled",
+    "MEDIA_REQUEST_GATE",
+    "SharedRequestGate",
+    "retry_after_seconds",
+]

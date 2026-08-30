@@ -4,16 +4,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from email.utils import parsedate_to_datetime
 import json
+import math
 import random
 import threading
 import time
-from collections.abc import Mapping
 from typing import Callable, Iterable
 from urllib.parse import urljoin, urlsplit
 
 from http_transport import Response, Session, TransportError
+from request_gate import retry_after_seconds
 from sankaku_url_policy import (
     normalize_media_url,
     normalize_post_id,
@@ -361,10 +361,10 @@ class SankakuAPI:
                     )
                     response_wait_seconds: float | None = None
                     if response.status_code == 429:
-                        response_wait_seconds = _retry_after_seconds(response.headers)
+                        response_wait_seconds = retry_after_seconds(response.headers)
                         _defer_global_api_requests_locked(response_wait_seconds)
                     elif response.status_code in {408, 500, 502, 503, 504}:
-                        response_wait_seconds = _retry_after_seconds(
+                        response_wait_seconds = retry_after_seconds(
                             response.headers, default=0.0
                         )
                         if response_wait_seconds:
@@ -393,7 +393,7 @@ class SankakuAPI:
                 if response.status_code == 429:
                     wait_seconds = response_wait_seconds
                     if wait_seconds is None:
-                        wait_seconds = _retry_after_seconds(response.headers)
+                        wait_seconds = retry_after_seconds(response.headers)
                     if wait_seconds > 600:
                         raise RateLimitError(
                             "站点要求较长冷却，已停止本批次；请稍后手动重试"
@@ -406,7 +406,7 @@ class SankakuAPI:
                         raise SankakuAPIError(f"站点暂时不可用（HTTP {response.status_code}）")
                     wait_seconds = response_wait_seconds
                     if wait_seconds is None:
-                        wait_seconds = _retry_after_seconds(
+                        wait_seconds = retry_after_seconds(
                             response.headers, default=0.0
                         )
                     if wait_seconds:
@@ -526,30 +526,16 @@ def _read_bounded_body(response: Response, limit: int) -> bytes:
     return bytes(body)
 
 
-def _retry_after_seconds(headers: Mapping[str, str], default: float = 600.0) -> float:
-    value = headers.get("Retry-After")
-    if value:
-        try:
-            return max(0.0, min(float(value), 86_400.0))
-        except ValueError:
-            try:
-                target = parsedate_to_datetime(value).timestamp()
-                return max(0.0, min(target - time.time(), 86_400.0))
-            except (TypeError, ValueError, OverflowError):
-                pass
-    reset = headers.get("X-RateLimit-Reset")
-    if reset:
-        try:
-            return max(0.0, min(float(reset) - time.time(), 86_400.0))
-        except ValueError:
-            pass
-    return max(0.0, min(default, 86_400.0))
-
-
 def _defer_global_api_requests_locked(seconds: float) -> None:
     """Extend the process-wide API deadline while its request lock is held."""
     global _GLOBAL_API_NEXT_START
-    delay = max(0.0, min(float(seconds), 86_400.0))
+    try:
+        value = float(seconds)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("cooldown must be finite") from exc
+    if not math.isfinite(value):
+        raise ValueError("cooldown must be finite")
+    delay = max(0.0, min(value, 86_400.0))
     _GLOBAL_API_NEXT_START = max(
         _GLOBAL_API_NEXT_START,
         time.monotonic() + delay,

@@ -940,6 +940,26 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         self.assertEqual(deferred, [601.0])
         self.assertTrue(response.closed)
 
+    def test_non_finite_rate_limit_uses_default_without_retrying(self):
+        deferred: list[float] = []
+
+        class RateGate(ImmediateGate):
+            def defer(self, seconds: float) -> None:
+                deferred.append(seconds)
+
+        response = FakeMediaResponse(429, headers={"Retry-After": "NaN"})
+        downloader, _api, session = self._downloader(
+            _post(), response, max_retries=3
+        )
+
+        with mock.patch("download_engine.MEDIA_REQUEST_GATE", RateGate()):
+            with self.assertRaises(RateLimitError):
+                downloader.download("Post_1")
+
+        self.assertEqual(len(session.gets), 1)
+        self.assertEqual(deferred, [600.0])
+        self.assertTrue(response.closed)
+
     def test_metadata_failure_is_a_warning_after_media_success(self):
         response = FakeMediaResponse(
             200,

@@ -5,12 +5,13 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
+import hashlib
 import json
 import ntpath
 import os
 import tempfile
 import threading
-from typing import Iterable
+from typing import Callable, Iterable
 
 from sankaku_url_policy import canonical_post_url, normalize_page_url, normalize_post_id
 
@@ -18,6 +19,8 @@ from sankaku_url_policy import canonical_post_url, normalize_page_url, normalize
 MAX_TASKS = 10_000
 MAX_ERROR_CHARS = 1000
 MAX_REVISION = 2**63 - 1
+_MAX_TASK_STORE_BYTES = 16 * 1024 * 1024
+_TASK_LOCK_NAME = ".task-store.lock"
 TASK_STATES = frozenset(
     {"pending", "queued", "running", "completed", "failed", "cancelled"}
 )
@@ -155,16 +158,76 @@ def _validate_relative_path(value: object) -> str:
     return "/".join(parts)
 
 
+class _TaskStoreProcessLock:
+    """Short-lived cross-process lock around one task-store transaction."""
+
+    def __init__(self, data_dir: str) -> None:
+        self.path = os.path.join(os.path.abspath(data_dir), _TASK_LOCK_NAME)
+        self._descriptor: int | None = None
+
+    def __enter__(self) -> "_TaskStoreProcessLock":
+        descriptor = None
+        try:
+            os.makedirs(os.path.dirname(self.path), exist_ok=True)
+            descriptor = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o600)
+            if os.fstat(descriptor).st_size == 0:
+                os.write(descriptor, b"\0")
+                os.fsync(descriptor)
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (OSError, ImportError) as exc:
+            if descriptor is not None:
+                os.close(descriptor)
+            raise TaskStoreConflictError(
+                "任务篮正在被另一个程序更新，请稍后重试"
+            ) from exc
+        self._descriptor = descriptor
+        return self
+
+    def __exit__(self, _exc_type, _exc, _traceback) -> None:
+        descriptor = self._descriptor
+        self._descriptor = None
+        if descriptor is None:
+            return
+        try:
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(descriptor)
+
+
 class TaskStore:
     SCHEMA_VERSION = 1
 
-    def __init__(self, data_dir: str) -> None:
+    def __init__(
+        self,
+        data_dir: str,
+        *,
+        lock_factory: Callable[[], object] | None = None,
+    ) -> None:
         self.data_dir = os.path.abspath(data_dir)
         self.path = os.path.join(self.data_dir, "tasks.json")
         self._lock = threading.RLock()
         self._tasks: dict[str, DownloadTask] = {}
         self._revision = 0
-        self._signature: tuple[int, int] | None = None
+        self._signature: tuple[int, str] | None = None
+        self._process_lock_factory = lock_factory or (
+            lambda: _TaskStoreProcessLock(self.data_dir)
+        )
         self.load()
 
     @property
@@ -304,109 +367,117 @@ class TaskStore:
 
     def load(self) -> bool:
         with self._lock:
-            if not os.path.exists(self.path):
-                self._tasks = {}
-                self._revision = 0
-                self._signature = None
-                return True
-            try:
-                if os.path.getsize(self.path) > 16 * 1024 * 1024:
+            with self._process_lock_factory():
+                snapshot = self._read_file_snapshot()
+                if snapshot is None:
+                    self._tasks = {}
+                    self._revision = 0
+                    self._signature = None
+                    return True
+                encoded, signature, oversized = snapshot
+                if oversized:
                     raise TaskStoreCorruptError("task store is too large")
-                with open(self.path, "r", encoding="utf-8") as file_obj:
-                    payload = json.load(file_obj)
-            except OSError as exc:
-                raise TaskStoreReadError(
-                    f"任务篮读取失败（{type(exc).__name__}）"
-                ) from exc
-            except (
-                UnicodeDecodeError,
-                json.JSONDecodeError,
-                ValueError,
-                RecursionError,
-            ) as exc:
-                raise TaskStoreCorruptError(
-                    f"任务篮内容损坏（{type(exc).__name__}）"
-                ) from exc
-            try:
-                if not isinstance(payload, dict) or set(payload) != {
-                    "schema_version",
-                    "revision",
-                    "tasks",
-                }:
-                    raise TaskStoreCorruptError("invalid task store shape")
-                if payload["schema_version"] != self.SCHEMA_VERSION:
-                    raise TaskStoreCorruptError("unsupported task schema")
-                if (
-                    type(payload["revision"]) is not int
-                    or not 0 <= payload["revision"] <= MAX_REVISION
-                ):
-                    raise TaskStoreCorruptError("invalid revision")
-                if not isinstance(payload["tasks"], list) or len(payload["tasks"]) > MAX_TASKS:
-                    raise TaskStoreCorruptError("invalid task list")
-                tasks: dict[str, DownloadTask] = {}
-                for item in payload["tasks"]:
-                    if not isinstance(item, dict) or set(item) != {
-                        "post_id",
-                        "source_url",
-                        "status",
-                        "added_at",
-                        "updated_at",
-                        "rating",
-                        "error",
-                        "output_files",
-                    }:
-                        raise TaskStoreCorruptError("invalid task item")
-                    task = DownloadTask(**item).validated(recover_interrupted=True)
-                    if task.post_id in tasks:
-                        raise TaskStoreCorruptError("duplicate task")
-                    tasks[task.post_id] = task
-            except TaskStoreCorruptError:
-                raise
-            except (TaskStoreError, TypeError, ValueError, OverflowError) as exc:
-                raise TaskStoreCorruptError(
-                    f"任务篮内容损坏（{type(exc).__name__}）"
-                ) from exc
-
-            revision = payload["revision"]
-            signature = self._file_signature()
-            interrupted = any(
-                item.get("status") in ACTIVE_TASK_STATES
-                for item in payload["tasks"]
-            )
-            if interrupted:
                 try:
-                    if revision >= MAX_REVISION:
-                        raise TaskStoreWriteError("任务篮版本号已达到安全上限")
-                    recovered_revision = revision + 1
-                    encoded = self._encode(tasks, recovered_revision)
-                    if signature != self._file_signature():
-                        raise TaskStoreConflictError(
-                            "任务篮已被另一个程序修改，请重新打开后再试"
-                        )
-                    self._atomic_write(encoded)
-                    signature = self._file_signature()
-                except TaskStoreFailure as exc:
-                    raise TaskStoreRecoveryError(
-                        f"任务篮恢复状态无法持久化（{type(exc).__name__}）"
+                    payload = json.loads(encoded.decode("utf-8"))
+                except (
+                    UnicodeDecodeError,
+                    json.JSONDecodeError,
+                    ValueError,
+                    RecursionError,
+                ) as exc:
+                    raise TaskStoreCorruptError(
+                        f"任务篮内容损坏（{type(exc).__name__}）"
                     ) from exc
-                revision = recovered_revision
+                try:
+                    if not isinstance(payload, dict) or set(payload) != {
+                        "schema_version",
+                        "revision",
+                        "tasks",
+                    }:
+                        raise TaskStoreCorruptError("invalid task store shape")
+                    if payload["schema_version"] != self.SCHEMA_VERSION:
+                        raise TaskStoreCorruptError("unsupported task schema")
+                    if (
+                        type(payload["revision"]) is not int
+                        or not 0 <= payload["revision"] <= MAX_REVISION
+                    ):
+                        raise TaskStoreCorruptError("invalid revision")
+                    if (
+                        not isinstance(payload["tasks"], list)
+                        or len(payload["tasks"]) > MAX_TASKS
+                    ):
+                        raise TaskStoreCorruptError("invalid task list")
+                    tasks: dict[str, DownloadTask] = {}
+                    for item in payload["tasks"]:
+                        if not isinstance(item, dict) or set(item) != {
+                            "post_id",
+                            "source_url",
+                            "status",
+                            "added_at",
+                            "updated_at",
+                            "rating",
+                            "error",
+                            "output_files",
+                        }:
+                            raise TaskStoreCorruptError("invalid task item")
+                        task = DownloadTask(**item).validated(
+                            recover_interrupted=True
+                        )
+                        if task.post_id in tasks:
+                            raise TaskStoreCorruptError("duplicate task")
+                        tasks[task.post_id] = task
+                except TaskStoreCorruptError:
+                    raise
+                except (TaskStoreError, TypeError, ValueError, OverflowError) as exc:
+                    raise TaskStoreCorruptError(
+                        f"任务篮内容损坏（{type(exc).__name__}）"
+                    ) from exc
 
-            self._tasks = tasks
-            self._revision = revision
-            self._signature = signature
-            return True
+                revision = payload["revision"]
+                interrupted = any(
+                    item.get("status") in ACTIVE_TASK_STATES
+                    for item in payload["tasks"]
+                )
+                if interrupted:
+                    try:
+                        if revision >= MAX_REVISION:
+                            raise TaskStoreWriteError(
+                                "任务篮版本号已达到安全上限"
+                            )
+                        recovered_revision = revision + 1
+                        recovered = self._encode(tasks, recovered_revision)
+                        if signature != self._file_signature():
+                            raise TaskStoreConflictError(
+                                "任务篮已被另一个程序修改，请重新打开后再试"
+                            )
+                        self._atomic_write(recovered)
+                        signature = self._verified_committed_signature(recovered)
+                    except TaskStoreFailure as exc:
+                        raise TaskStoreRecoveryError(
+                            f"任务篮恢复状态无法持久化（{type(exc).__name__}）"
+                        ) from exc
+                    revision = recovered_revision
+
+                self._tasks = tasks
+                self._revision = revision
+                self._signature = signature
+                return True
 
     def _commit(self, tasks: dict[str, DownloadTask]) -> None:
-        if self._signature != self._file_signature():
-            raise TaskStoreConflictError("任务篮已被另一个程序修改，请重新打开后再试")
         if self._revision >= MAX_REVISION:
             raise TaskStoreWriteError("任务篮版本号已达到安全上限")
         revision = self._revision + 1
         encoded = self._encode(tasks, revision)
-        self._atomic_write(encoded)
-        self._tasks = tasks
-        self._revision = revision
-        self._signature = self._file_signature()
+        with self._process_lock_factory():
+            if self._signature != self._file_signature():
+                raise TaskStoreConflictError(
+                    "任务篮已被另一个程序修改，请重新打开后再试"
+                )
+            self._atomic_write(encoded)
+            signature = self._verified_committed_signature(encoded)
+            self._tasks = tasks
+            self._revision = revision
+            self._signature = signature
 
     def _encode(self, tasks: dict[str, DownloadTask], revision: int) -> bytes:
         payload = {
@@ -418,22 +489,79 @@ class TaskStore:
             ],
         }
         try:
-            return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+            encoded = json.dumps(payload, ensure_ascii=False, indent=2).encode(
+                "utf-8"
+            )
         except (TypeError, ValueError, OverflowError) as exc:
             raise TaskStoreWriteError(
                 f"任务篮序列化失败（{type(exc).__name__}）"
             ) from exc
+        if len(encoded) > _MAX_TASK_STORE_BYTES:
+            raise TaskStoreWriteError("任务篮超过 16 MiB 安全上限")
+        return encoded
 
-    def _file_signature(self) -> tuple[int, int] | None:
-        try:
-            stat = os.stat(self.path)
-        except FileNotFoundError:
-            return None
-        except OSError as exc:
-            raise TaskStoreReadError(
-                f"任务篮状态读取失败（{type(exc).__name__}）"
-            ) from exc
-        return stat.st_mtime_ns, stat.st_size
+    @staticmethod
+    def _signature_for(data: bytes) -> tuple[int, str]:
+        return len(data), hashlib.sha256(data).hexdigest()
+
+    @staticmethod
+    def _stat_identity(file_stat: os.stat_result) -> tuple[int, int, int, int, int]:
+        return (
+            file_stat.st_dev,
+            file_stat.st_ino,
+            file_stat.st_size,
+            getattr(file_stat, "st_mtime_ns", 0),
+            getattr(file_stat, "st_ctime_ns", 0),
+        )
+
+    def _read_file_snapshot(
+        self,
+    ) -> tuple[bytes, tuple[int, str], bool] | None:
+        for _attempt in range(3):
+            try:
+                with open(self.path, "rb") as file_obj:
+                    before = os.fstat(file_obj.fileno())
+                    encoded = (
+                        b""
+                        if before.st_size > _MAX_TASK_STORE_BYTES
+                        else file_obj.read(_MAX_TASK_STORE_BYTES + 1)
+                    )
+                    after = os.fstat(file_obj.fileno())
+                current = os.stat(self.path)
+            except FileNotFoundError:
+                return None
+            except OSError as exc:
+                raise TaskStoreReadError(
+                    f"任务篮读取失败（{type(exc).__name__}）"
+                ) from exc
+            if (
+                self._stat_identity(before) != self._stat_identity(after)
+                or not os.path.samestat(after, current)
+                or after.st_size != current.st_size
+                or getattr(after, "st_mtime_ns", 0)
+                != getattr(current, "st_mtime_ns", 0)
+            ):
+                continue
+            oversized = (
+                after.st_size > _MAX_TASK_STORE_BYTES
+                or len(encoded) > _MAX_TASK_STORE_BYTES
+            )
+            if oversized:
+                return b"", (after.st_size, "oversized"), True
+            if len(encoded) != after.st_size:
+                continue
+            return encoded, self._signature_for(encoded), False
+        raise TaskStoreReadError("任务篮在读取期间持续发生变化")
+
+    def _file_signature(self) -> tuple[int, str] | None:
+        snapshot = self._read_file_snapshot()
+        return None if snapshot is None else snapshot[1]
+
+    def _verified_committed_signature(self, encoded: bytes) -> tuple[int, str]:
+        expected = self._signature_for(encoded)
+        if self._file_signature() != expected:
+            raise TaskStoreConflictError("任务篮在保存后被另一个程序修改")
+        return expected
 
     def _atomic_write(self, data: bytes) -> None:
         temp_path = None

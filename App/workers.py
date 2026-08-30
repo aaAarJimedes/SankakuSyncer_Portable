@@ -3,10 +3,8 @@
 
 from __future__ import annotations
 
-from email.utils import parsedate_to_datetime
 import os
 import threading
-import time
 from urllib.parse import urljoin
 
 from PySide6.QtCore import QObject, QRunnable, QThread, Signal, Slot
@@ -20,7 +18,7 @@ from library_thumbnail import (
     load_library_thumbnail,
 )
 from local_library import LibraryScanError, scan_download_library
-from request_gate import GateCancelled, MEDIA_REQUEST_GATE
+from request_gate import GateCancelled, MEDIA_REQUEST_GATE, retry_after_seconds
 from sankaku_api import (
     AuthenticationError,
     CancelledError,
@@ -240,7 +238,7 @@ class ThumbnailWorker(QRunnable):
                         current = normalized_redirect
                         continue
                     if response.status_code == 429:
-                        wait_seconds = _thumbnail_retry_after_seconds(response.headers)
+                        wait_seconds = retry_after_seconds(response.headers)
                         MEDIA_REQUEST_GATE.defer(wait_seconds)
                         response.close()
                         raise ValueError("thumbnail rate limited")
@@ -327,29 +325,6 @@ def _thumbnail_payload_allowed(content_type: object, payload: bytes) -> bool:
             and payload[8:12] == b"WEBP"
         )
     return False
-
-
-def _thumbnail_retry_after_seconds(headers: object) -> float:
-    getter = getattr(headers, "get", None)
-    if not callable(getter):
-        return 600.0
-    value = getter("Retry-After")
-    if value:
-        try:
-            return max(0.0, min(float(value), 86_400.0))
-        except (TypeError, ValueError):
-            try:
-                target = parsedate_to_datetime(str(value)).timestamp()
-                return max(0.0, min(target - time.time(), 86_400.0))
-            except (TypeError, ValueError, OverflowError):
-                pass
-    reset = getter("X-RateLimit-Reset")
-    if reset:
-        try:
-            return max(0.0, min(float(reset) - time.time(), 86_400.0))
-        except (TypeError, ValueError):
-            pass
-    return 600.0
 
 
 class DownloadWorker(QThread):

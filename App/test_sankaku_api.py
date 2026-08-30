@@ -381,6 +381,32 @@ class SankakuAPIOfflineTests(unittest.TestCase):
         self.assertTrue(first.closed)
         self.assertTrue(second.closed)
 
+    def test_non_finite_retry_after_uses_valid_reset_for_wait_and_global_gate(self):
+        limited = FakeResponse(
+            status_code=429,
+            headers={
+                "Retry-After": "NaN",
+                "X-RateLimit-Reset": "1030",
+            },
+        )
+        success = FakeResponse(payload={"data": [], "meta": {}})
+        client, session = self._client(limited, success, max_retries=1)
+        waits: list[float] = []
+        client._interruptible_wait = waits.append
+
+        with (
+            mock.patch("request_gate.time.time", return_value=1_000.0),
+            mock.patch("sankaku_api.time.monotonic", return_value=50.0),
+        ):
+            page = client.search_posts("cat")
+
+        self.assertEqual(page.posts, ())
+        self.assertEqual(waits, [30.0])
+        self.assertEqual(sankaku_api_module._GLOBAL_API_NEXT_START, 80.0)
+        self.assertEqual(len(session.requests), 2)
+        self.assertTrue(limited.closed)
+        self.assertTrue(success.closed)
+
     def test_transient_server_failure_closes_response_before_backoff(self):
         unavailable = FakeResponse(status_code=503)
         success = FakeResponse(payload={"data": [], "meta": {}})
@@ -485,6 +511,19 @@ class SankakuAPIOfflineTests(unittest.TestCase):
         self.assertEqual(second_waits, [29.0])
         self.assertEqual(len(first_session.requests), 1)
         self.assertEqual(len(second_session.requests), 1)
+
+    def test_global_rate_limit_gate_rejects_non_finite_or_overflowing_values(self):
+        sankaku_api_module._GLOBAL_API_NEXT_START = 123.0
+        invalid_values = (
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+            10**1000,
+        )
+        for value in invalid_values:
+            with self.subTest(value=repr(value)), self.assertRaises(ValueError):
+                sankaku_api_module._defer_global_api_requests_locked(value)
+            self.assertEqual(sankaku_api_module._GLOBAL_API_NEXT_START, 123.0)
 
     def test_long_global_cooldown_is_recomputed_until_fully_elapsed(self):
         client, _session = self._client()
