@@ -1,6 +1,6 @@
 {
   "@context": "https://openvex.dev/ns/v0.2.0",
-  "@id": "https://github.com/aaAarJimedes/SankakuSyncer_Portable/vex/0.1.5/023b0b08b67e40a973bf6b8d",
+  "@id": "https://github.com/aaAarJimedes/SankakuSyncer_Portable/vex/0.1.6/ea6264413ce18db6de101129",
   "author": "SankakuSyncer maintainers",
   "role": "Document Creator",
   "statements": [
@@ -8,7 +8,7 @@
       "justification": "component_not_present",
       "products": [
         {
-          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.5?arch=x86_64&os=windows"
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.6?arch=x86_64&os=windows"
         }
       ],
       "status": "not_affected",
@@ -22,7 +22,7 @@
       "justification": "component_not_present",
       "products": [
         {
-          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.5?arch=x86_64&os=windows"
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.6?arch=x86_64&os=windows"
         }
       ],
       "status": "not_affected",
@@ -36,7 +36,7 @@
       "justification": "component_not_present",
       "products": [
         {
-          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.5?arch=x86_64&os=windows"
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.6?arch=x86_64&os=windows"
         }
       ],
       "status": "not_affected",
@@ -50,7 +50,7 @@
       "justification": "component_not_present",
       "products": [
         {
-          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.5?arch=x86_64&os=windows"
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.6?arch=x86_64&os=windows"
         }
       ],
       "status": "not_affected",
@@ -64,7 +64,7 @@
       "justification": "component_not_present",
       "products": [
         {
-          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.5?arch=x86_64&os=windows"
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.6?arch=x86_64&os=windows"
         }
       ],
       "status": "not_affected",

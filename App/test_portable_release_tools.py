@@ -33,6 +33,8 @@ class PortableSelfCheckTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             runtime = root / "Runtime"
+            resolved_root = root.resolve()
+            resolved_runtime = runtime.resolve()
             with mock.patch.multiple(
                 portable_self_check,
                 _check_required_files=mock.DEFAULT,
@@ -53,7 +55,7 @@ class PortableSelfCheckTests(unittest.TestCase):
 
             self.assertEqual(failures, [])
             checks["_offline_image_codec_smoke"].assert_called_once_with(
-                root / "App", runtime, failures
+                resolved_root / "App", resolved_runtime, failures
             )
             checks["_offline_gui_smoke"].assert_not_called()
 
