@@ -184,51 +184,87 @@ FORBIDDEN_COMPONENT_PREFIXES = (
 FORBIDDEN_COMPONENTS = FORBIDDEN_COMPONENTS | frozenset(
     {"certifi", "charset_normalizer", "idna", "requests", "urllib3"}
 )
-KNOWN_SYSTEM_DLLS = frozenset(
+# Exact external imports reviewed for the frozen Python 3.13.15 / PySide6
+# 6.11.2 Runtime on the documented Windows 10 1903 minimum.  This must stay an
+# explicit set: a newer build host can contain DLLs and API-set contracts which
+# do not exist on the oldest supported Windows release.
+WINDOWS_10_1903_SYSTEM_IMPORTS = frozenset(
     {
         "advapi32.dll",
+        "api-ms-win-core-handle-l1-1-0.dll",
+        "api-ms-win-core-path-l1-1-0.dll",
+        "api-ms-win-core-realtime-l1-1-1.dll",
+        "api-ms-win-core-synch-l1-2-0.dll",
+        "api-ms-win-core-winrt-error-l1-1-1.dll",
+        "api-ms-win-core-winrt-l1-1-0.dll",
+        "api-ms-win-core-winrt-string-l1-1-0.dll",
+        "api-ms-win-crt-conio-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-process-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "api-ms-win-power-base-l1-1-0.dll",
+        "api-ms-win-shcore-scaling-l1-1-1.dll",
+        "authz.dll",
         "bcrypt.dll",
-        "bcryptprimitives.dll",
+        "bthprops.cpl",
         "cfgmgr32.dll",
-        "combase.dll",
         "comctl32.dll",
+        "comdlg32.dll",
         "crypt32.dll",
-        "d2d1.dll",
         "d3d11.dll",
         "d3d12.dll",
+        "d3d9.dll",
         "dcomp.dll",
         "dbghelp.dll",
+        "dhcpcsvc.dll",
         "dnsapi.dll",
         "dwmapi.dll",
+        "dwrite.dll",
         "dxgi.dll",
+        "fontsub.dll",
         "gdi32.dll",
-        "gdi32full.dll",
+        "hid.dll",
+        "icuuc.dll",
+        "imagehlp.dll",
         "imm32.dll",
         "iphlpapi.dll",
         "kernel32.dll",
-        "kernelbase.dll",
+        "mf.dll",
+        "mfplat.dll",
+        "mfreadwrite.dll",
+        "mmdevapi.dll",
         "mpr.dll",
         "ncrypt.dll",
         "netapi32.dll",
         "ntdll.dll",
         "ole32.dll",
         "oleaut32.dll",
-        "powrprof.dll",
+        "pdh.dll",
         "propsys.dll",
         "rpcrt4.dll",
         "secur32.dll",
         "setupapi.dll",
         "shell32.dll",
         "shlwapi.dll",
+        "uiautomationcore.dll",
+        "urlmon.dll",
         "user32.dll",
         "userenv.dll",
-        "usp10.dll",
         "uxtheme.dll",
         "version.dll",
         "winhttp.dll",
-        "wininet.dll",
         "winmm.dll",
-        "wldap32.dll",
+        "winspool.drv",
+        "winusb.dll",
         "ws2_32.dll",
         "wtsapi32.dll",
     }
@@ -603,13 +639,7 @@ def _pyside_module_binaries(package: Path, module: str) -> list[Path]:
 
 
 def _is_system_import(name: str) -> bool:
-    folded = name.casefold()
-    if folded in KNOWN_SYSTEM_DLLS:
-        return True
-    if folded.startswith(("api-ms-win-", "ext-ms-win-")):
-        return True
-    windows = Path(os.environ.get("SystemRoot", r"C:\Windows"))
-    return any((directory / name).is_file() for directory in (windows / "System32", windows))
+    return name.casefold() in WINDOWS_10_1903_SYSTEM_IMPORTS
 
 
 class RuntimeSubsetBuilder:

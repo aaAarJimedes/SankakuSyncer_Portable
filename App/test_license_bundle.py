@@ -330,6 +330,121 @@ shiboken6==6.11.2
             with self.assertRaisesRegex(runtime_compliance.RuntimeComplianceError, "sentinel"):
                 runtime_compliance._iter_payload_files(runtime)
 
+    def test_builder_report_cannot_approve_a_runner_only_windows_import(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime = Path(temporary)
+            payload = runtime / "payload.dll"
+            payload.write_bytes(b"MZ")
+            _builder_metadata(runtime, [payload])
+            report_path = runtime / runtime_compliance.BUILDER_REPORT
+            report = json.loads(report_path.read_text("utf-8"))
+            report["external_system_imports"] = [
+                "runner-only-not-in-policy.dll"
+            ]
+            report["pe_images_scanned"] = 1
+            report_path.write_text(
+                json.dumps(report), encoding="utf-8", newline="\n"
+            )
+
+            with self.assertRaisesRegex(
+                runtime_compliance.RuntimeComplianceError,
+                "unsupported external Windows import",
+            ):
+                runtime_compliance._validate_builder_metadata(
+                    runtime,
+                    [payload],
+                )
+
+    def test_builder_report_schema_and_import_names_are_canonical(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime = Path(temporary)
+            payload = runtime / "payload.dll"
+            payload.write_bytes(b"MZ")
+            _builder_metadata(runtime, [payload])
+            report_path = runtime / runtime_compliance.BUILDER_REPORT
+            report = json.loads(report_path.read_text("utf-8"))
+            report["schema_version"] = 3.0
+            report_path.write_text(
+                json.dumps(report), encoding="utf-8", newline="\n"
+            )
+
+            with self.assertRaisesRegex(
+                runtime_compliance.RuntimeComplianceError,
+                "report schema mismatch",
+            ):
+                runtime_compliance._validate_builder_metadata(runtime, [payload])
+
+            report["schema_version"] = 3
+            report["external_system_imports"] = [
+                "KERNEL32.dll",
+                "kernel32.dll",
+            ]
+            report_path.write_text(
+                json.dumps(report), encoding="utf-8", newline="\n"
+            )
+            with self.assertRaisesRegex(
+                runtime_compliance.RuntimeComplianceError,
+                "external import list is invalid",
+            ):
+                runtime_compliance._validate_builder_metadata(runtime, [payload])
+
+    def test_runtime_inventory_rejects_recomputed_unknown_windows_import(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            runtime = Path(temporary)
+            payload = runtime / "payload.dll"
+            payload_bytes = b"MZ"
+            payload.write_bytes(payload_bytes)
+            _builder_metadata(runtime, [payload])
+            report_path = runtime / runtime_compliance.BUILDER_REPORT
+            report = json.loads(report_path.read_text("utf-8"))
+            report["external_system_imports"] = ["kernel32.dll"]
+            report["pe_images_scanned"] = 1
+            report_path.write_text(
+                json.dumps(report), encoding="utf-8", newline="\n"
+            )
+            artifact = {
+                "artifact_id": "cpython@3.13.15",
+                "bytes": 1,
+                "canonical_name": "cpython",
+                "filename": "python.zip",
+                "sha256": "a" * 64,
+                "url": "https://www.python.org/python.zip",
+            }
+            members = {
+                "schema_version": 1,
+                "source_artifact": {
+                    key: artifact[key]
+                    for key in ("bytes", "filename", "sha256", "url")
+                },
+                "members": [
+                    {
+                        "path": payload.name,
+                        "sha256": hashlib.sha256(payload_bytes).hexdigest(),
+                        "size": len(payload_bytes),
+                    }
+                ],
+            }
+            artifact["member_inventory_sha256"] = hashlib.sha256(
+                runtime_compliance.json_bytes(members)
+            ).hexdigest()
+
+            with mock.patch.object(
+                runtime_compliance,
+                "parse_pe_imports",
+                return_value={"runner-only-not-in-policy.dll"},
+            ):
+                with self.assertRaisesRegex(
+                    runtime_compliance.RuntimeComplianceError,
+                    "unsupported external Windows import",
+                ):
+                    runtime_compliance.build_runtime_inventory(
+                        runtime,
+                        {"artifacts": [artifact]},
+                        "b" * 64,
+                        members,
+                        [],
+                    )
+
     def test_vex_never_marks_openssl_3021_not_affected(self):
         inventory = {
             "components": {"openssl": "OpenSSL 3.0.21 9 Jun 2026"},

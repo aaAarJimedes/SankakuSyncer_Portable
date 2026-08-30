@@ -10,12 +10,13 @@
 
 ![SankakuSyncer 下载任务搜索与状态筛选界面](docs/SankakuSyncer_UI.png)
 
-## 0.1.19 功能
+## 0.1.20 功能
 
 逐版变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 当前版本包含：
 
+- 精简 Runtime 只允许 Windows 10 1903 合同下逐项审核的 77 个精确外部 PE 导入；Windows N/KN 版本须先安装对应的 Media Feature Pack。任意未来 API-set 前缀和构建机 `%SystemRoot%`/`System32` 中偶然存在的 DLL 都不再自动视为系统组件。构建器遇到策略外导入会保留为未解析依赖并中止，离线合规层还会从最终 payload 独立重算普通与延迟导入，防止自洽但越权的 builder report 通过发布门禁。
 - 确定性 ZIP 全程保留源码根目录句柄，不再在递归枚举后按路径重开。Windows 直接枚举已打开目录 HANDLE，并用根相对的原生打开逐层核对卷与 128 位文件 ID；POSIX 使用目录 fd、`scandir(fd)` 与 `openat`/`O_NOFOLLOW`。每个普通文件在快照阶段先做 SHA-256，写入时从根逐段重开并再次核对祖先身份、元数据与摘要。
 - 归档拒绝符号链接、Windows 重解析点、多链接普通文件、跨卷节点、同目录大小写冲突及构建期间的结构变化，并限制为 100,000 个项目、128 层、单文件 50 GiB、总计 100 GiB。`Data/`、`Downloads/` 仍必须规范命名、普通且为空，只写两个目录项并在归档验证后从绑定根再次复查。
 - 临时 ZIP 从写入、`fsync` 到完整成员/CRC 验证与发布前 SHA-256 复核都绑定同一个文件对象；Windows 从原生 `CREATE_NEW` 创建起拒绝共享写，落盘后把写描述符降权为只读，POSIX 则在每次流式摘要前后核对不可由普通写恢复的 ctime 令牌。发布只使用 no-clobber 硬链接，随后绑定正式输出描述符，从它复核身份、变更令牌与完整摘要并在返回前重查输出名称，不再以较弱的路径 `rename` 回退。为避免按路径清理误删并发替换文件，具名临时项会保留；成功时它只是正式 ZIP 的第二个硬链接。完整 Windows 回归之外，CI 新增 Linux 专测，实际覆盖 POSIX 目录 fd、祖先换名与输出名晚替换分支。

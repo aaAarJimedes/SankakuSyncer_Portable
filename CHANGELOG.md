@@ -2,6 +2,11 @@
 
 本项目遵循语义化版本号。每个版本在通过离线回归、便携自检和私有数据扫描后再提交并同步到 GitHub。
 
+## 0.1.20 - 2026-08-30
+
+- 精简 Runtime 的外部 PE 依赖改为 Windows 10 1903 合同下逐项审核的 77 个精确名称，并明确 N/KN 版本必须先安装对应 Media Feature Pack。构建器不再把任意 `api-ms-win-*` / `ext-ms-win-*` 名称或恰好存在于当前构建机 `%SystemRoot%`/`System32` 的 DLL 当作可省略系统依赖；锁定 Runtime 新增任何外部导入时都会先作为未解析依赖阻止构建，必须经过最低系统与 SKU 审核后才能更新策略。
+- 离线 Runtime 合规层会从最终 payload 重新解析普通及延迟 PE 导入，并独立要求 builder report 与实测集合都落在同一冻结策略内。新增伪造未来 API-set、模拟 runner-only System32 DLL、builder 未解析依赖、合规 report 越权及冻结 inventory 精确匹配回归；现有 77 项外部导入不变，不依赖联网或放宽 WebEngine sandbox。
+
 ## 0.1.19 - 2026-08-30
 
 - 设置、任务篮与凭据事务的三把独立短时锁抽为共同的句柄绑定实现，但继续保持不同锁域以支持凭据事务内嵌套设置保存。锁文件从已绑定且非链接/重解析点的普通 `Data/` 目录对象相对打开；符号链接、Windows 重解析点、目录/FIFO、跨卷对象及多链接普通文件都会在不读取、截断或改写目标的前提下失败关闭。Windows 使用 `NtCreateFile(RootDirectory=...)`、普通磁盘对象/单链接/同卷身份复核，并在临界区内拒绝锁对象共享写入/删除和 `Data/` 对象共享删除；POSIX 使用目录 fd、`openat`/`O_NOFOLLOW`、非阻塞打开和 `flock`。

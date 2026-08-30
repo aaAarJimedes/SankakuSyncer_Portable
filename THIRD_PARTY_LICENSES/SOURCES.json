@@ -1,6 +1,6 @@
 {
   "components": {
-    "application": "0.1.19",
+    "application": "0.1.20",
     "pyside6": "6.11.2",
     "python": "3.13.15",
     "python_packages": {
@@ -25,12 +25,12 @@
     },
     "sbom": {
       "path": "SBOM.spdx.json",
-      "sha256": "0a9a1c3294995d313c31ea2fd80bc4d31927f114322b554c847b2a3296840c10",
+      "sha256": "3057f312d630393e390840d00e6bbf61638fc5042042960024f294e08df3eeb3",
       "size": 159612
     },
     "vex": {
       "path": "VEX.openvex.json",
-      "sha256": "7a1c93f5d78b12e806df390b27bf1b693f0687a22f53cf42587b78e8347b540a",
+      "sha256": "71b8490800e53c2d79ba68f793e6038412098be44a2907be65c1b23ddd20feb5",
       "size": 4065
     }
   },

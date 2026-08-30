@@ -38,6 +38,8 @@ python -B App\tools\build_runtime_subset.py --source "_runtime_source_staging" -
 - 不得加入 manifest 未列出的文件，也不得修改 manifest 已列文件；
 - report 必须严格使用确定性的 schema 3：顶层 key 集合、各字段类型和 verification 顺序必须精确，`artifact_name` 固定为 `SankakuSyncer_Runtime_Lean`；Python/Qt 版本、file count、bytes 和 PE count 必须吻合，`unresolved_imports` 与 `forbidden_files` 必须为空，所有 verification 的 `returncode` 必须是整数 0（JSON `false` 不接受）。schema 3 不得重新加入时间戳、耗时或构建目标目录名。
 
+外部 PE 导入只接受 `build_runtime_subset.py` 中针对 Windows 10 1903 最低平台逐项审核的精确集合。构建机当前 `%SystemRoot%`/`System32` 存在同名文件，以及名称匹配 `api-ms-win-*` / `ext-ms-win-*` 前缀，都不是可省略依赖的证据。任何新增普通或延迟导入必须先核对最低平台与 SKU，再显式更新冻结策略；builder 和离线 Runtime inventory 会分别失败关闭，不能只修改 report 使其自洽。
+
 正式 Runtime 不得含 `__pycache__`、`.pyc`、`.pyo`、测试缓存、安装器或未锁定 DLL。
 
 ## 2. 收集许可、盘点 Runtime、生成 SPDX/VEX
@@ -124,7 +126,7 @@ Runtime\python.exe -B App\tools\probe_webengine_codecs.py --require-no-patented-
 ```bat
 Runtime\python.exe -B -s App\tools\build_manifest.py --root "."
 Runtime\python.exe -B -s App\tools\build_manifest.py --root "." --check
-Runtime\python.exe -B -s App\tools\build_deterministic_zip.py --source "." --output "..\SankakuSyncer_Portable-v0.1.19.zip"
+Runtime\python.exe -B -s App\tools\build_deterministic_zip.py --source "." --output "..\SankakuSyncer_Portable-v0.1.20.zip"
 ```
 
 `SHA256SUMS.txt` 覆盖除私有目录和清单自身外的发行树。确定性 ZIP 工具按规范化 UTF-8 路径排序、写入固定 DOS 时间与权限属性，并在整个构建期间保留源码根句柄；Windows 从目录 HANDLE 枚举并逐层根相对打开，POSIX 使用目录 fd 与 `openat`/`O_NOFOLLOW`。文件会先建立 SHA-256 快照，写入时再次核对完整祖先链和摘要；链接、重解析点、多链接普通文件、跨卷节点、大小写冲突、超过 100,000 个项目/128 层/单文件 50 GiB/总计 100 GiB 的输入及构建期间结构变化都会失败关闭。

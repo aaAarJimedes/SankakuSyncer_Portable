@@ -1,6 +1,6 @@
 {
   "@context": "https://openvex.dev/ns/v0.2.0",
-  "@id": "https://github.com/aaAarJimedes/SankakuSyncer_Portable/vex/0.1.19/7aab8861495f1fa41b2a1221",
+  "@id": "https://github.com/aaAarJimedes/SankakuSyncer_Portable/vex/0.1.20/f4b9bc6a6cb0071fa0cbd9aa",
   "author": "SankakuSyncer maintainers",
   "role": "Document Creator",
   "statements": [
@@ -8,7 +8,7 @@
       "justification": "component_not_present",
       "products": [
         {
-          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.19?arch=x86_64&os=windows"
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.20?arch=x86_64&os=windows"
         }
       ],
       "status": "not_affected",
@@ -22,7 +22,7 @@
       "justification": "component_not_present",
       "products": [
         {
-          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.19?arch=x86_64&os=windows"
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.20?arch=x86_64&os=windows"
         }
       ],
       "status": "not_affected",
@@ -36,7 +36,7 @@
       "justification": "component_not_present",
       "products": [
         {
-          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.19?arch=x86_64&os=windows"
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.20?arch=x86_64&os=windows"
         }
       ],
       "status": "not_affected",
@@ -50,7 +50,7 @@
       "justification": "component_not_present",
       "products": [
         {
-          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.19?arch=x86_64&os=windows"
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.20?arch=x86_64&os=windows"
         }
       ],
       "status": "not_affected",
@@ -64,7 +64,7 @@
       "justification": "component_not_present",
       "products": [
         {
-          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.19?arch=x86_64&os=windows"
+          "@id": "pkg:generic/sankakusyncer-portable-runtime@0.1.20?arch=x86_64&os=windows"
         }
       ],
       "status": "not_affected",

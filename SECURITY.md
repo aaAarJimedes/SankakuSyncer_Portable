@@ -4,7 +4,9 @@
 
 当前支持的稳定系列为 0.1.x。安全问题应通过正式发布页所列规范仓库的 GitHub Security Advisory 私下报告；如果发行物没有提供可验证的规范仓库和私下报告入口，不应把它视为正式版本。不要在公开 Issue 粘贴账号、密码、令牌、Cookie、签名媒体 URL、日志或下载样本。
 
-支持的最低平台为 Windows 10 1903 x64。WinHTTP 的 `WINHTTP_OPTION_DISABLE_SECURE_PROTOCOL_FALLBACK` 在该版本起可用；初始化该防护失败时网络会话直接失败，程序不在旧系统上静默放宽 TLS 策略。
+支持的最低平台为 Windows 10 1903 x64。N/KN 版本默认缺少 Runtime 所需的 Media Foundation 组件，必须先安装该 Windows 版本对应的 Media Feature Pack；未安装时不属于支持配置。WinHTTP 的 `WINHTTP_OPTION_DISABLE_SECURE_PROTOCOL_FALLBACK` 在该版本起可用；初始化该防护失败时网络会话直接失败，程序不在旧系统上静默放宽 TLS 策略。
+
+精简 Runtime 的普通与延迟 PE 外部导入只接受针对该最低平台逐项审核的精确集合。构建机当前 System32 中存在同名 DLL 或名称匹配通配 API-set 前缀都不构成系统依赖证据；builder 与离线合规层会分别拒绝策略外导入。
 
 本项目是非官方独立客户端，不隶属于 Sankaku，也未获得其运营方或内容权利人的授权、认可或背书。站点名称仅用于描述互操作对象。
 

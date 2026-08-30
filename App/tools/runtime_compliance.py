@@ -29,12 +29,18 @@ from typing import Iterable, Mapping
 from urllib.parse import urlsplit
 
 try:
-    from .build_runtime_subset import parse_pe_imports
+    from .build_runtime_subset import (
+        WINDOWS_10_1903_SYSTEM_IMPORTS,
+        parse_pe_imports,
+    )
 except ImportError:  # Direct execution from App/tools.
     tools_directory = str(Path(__file__).resolve().parent)
     if tools_directory not in sys.path:
         sys.path.insert(0, tools_directory)
-    from build_runtime_subset import parse_pe_imports
+    from build_runtime_subset import (
+        WINDOWS_10_1903_SYSTEM_IMPORTS,
+        parse_pe_imports,
+    )
 
 
 def _load_application_version() -> str:
@@ -553,6 +559,7 @@ def _validate_builder_metadata(runtime: Path, files: Iterable[Path]) -> dict[str
     if (
         not isinstance(report, dict)
         or set(report) != expected_report_keys
+        or type(report.get("schema_version")) is not int
         or report.get("schema_version") != 3
     ):
         raise RuntimeComplianceError("builder Runtime report schema mismatch")
@@ -578,9 +585,17 @@ def _validate_builder_metadata(runtime: Path, files: Iterable[Path]) -> dict[str
     if (
         not isinstance(reported_imports, list)
         or not all(isinstance(value, str) and value for value in reported_imports)
-        or reported_imports != sorted(set(reported_imports))
     ):
         raise RuntimeComplianceError("builder Runtime external import list is invalid")
+    canonical_reported_imports = sorted(
+        {value.casefold() for value in reported_imports}
+    )
+    if reported_imports != canonical_reported_imports:
+        raise RuntimeComplianceError("builder Runtime external import list is invalid")
+    if not set(reported_imports).issubset(WINDOWS_10_1903_SYSTEM_IMPORTS):
+        raise RuntimeComplianceError(
+            "builder Runtime uses an unsupported external Windows import"
+        )
     dynamic_seeds = report.get("dynamic_seeds")
     actual_paths = {path.relative_to(runtime).as_posix() for path in files}
     if (
@@ -747,6 +762,10 @@ def build_runtime_inventory(
     recomputed_external = {
         value.casefold() for value in external_imports if value.casefold() not in local_pe_names
     }
+    if not recomputed_external.issubset(WINDOWS_10_1903_SYSTEM_IMPORTS):
+        raise RuntimeComplianceError(
+            "Runtime uses an unsupported external Windows import"
+        )
     reported_imports = report.get("external_system_imports")
     if not isinstance(reported_imports, list) or {
         str(value).casefold() for value in reported_imports

@@ -277,7 +277,63 @@ class RuntimeAllowlistTests(unittest.TestCase):
     def test_known_windows_imports_are_external(self):
         self.assertTrue(runtime_builder._is_system_import("KERNEL32.dll"))
         self.assertTrue(
-            runtime_builder._is_system_import("api-ms-win-core-file-l1-1-0.dll")
+            runtime_builder._is_system_import("api-ms-win-core-handle-l1-1-0.dll")
+        )
+
+    def test_unknown_imports_never_inherit_the_build_host_system32_policy(self):
+        with tempfile.TemporaryDirectory() as raw_root:
+            windows = Path(raw_root) / "Windows"
+            system32 = windows / "System32"
+            system32.mkdir(parents=True)
+            (system32 / "runner-only-not-in-policy.dll").write_bytes(b"MZ")
+
+            with mock.patch.dict(
+                runtime_builder.os.environ,
+                {"SystemRoot": str(windows)},
+            ):
+                self.assertFalse(
+                    runtime_builder._is_system_import(
+                        "runner-only-not-in-policy.dll"
+                    )
+                )
+                self.assertFalse(
+                    runtime_builder._is_system_import(
+                        "api-ms-win-sankaku-not-real-l9-9-9.dll"
+                    )
+                )
+                self.assertFalse(
+                    runtime_builder._is_system_import(
+                        "ext-ms-win-sankaku-not-real-l9-9-9.dll"
+                    )
+                )
+
+    def test_unknown_pe_import_remains_a_builder_failure(self):
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = Path(raw_root)
+            source = _make_embedded_runtime_source(root)
+            destination = root / "runtime-subset-build"
+            builder = runtime_builder.RuntimeSubsetBuilder(source, destination)
+            builder.prepare(clean=False)
+            builder._copy_file(source / "python.exe")
+            builder._source_index = {}
+
+            with mock.patch.object(
+                runtime_builder,
+                "parse_pe_imports",
+                return_value={"runner-only-not-in-policy.dll"},
+            ):
+                with self.assertRaisesRegex(
+                    runtime_builder.RuntimeBuildError,
+                    "unresolved non-system PE imports",
+                ):
+                    builder.collect_pe_dependencies()
+
+    def test_frozen_runtime_imports_exactly_match_the_reviewed_policy(self):
+        inventory_path = Path(__file__).resolve().parents[1] / "RUNTIME_INVENTORY.json"
+        inventory = json.loads(inventory_path.read_text("utf-8"))
+        self.assertEqual(
+            inventory["external_pe_imports"],
+            sorted(runtime_builder.WINDOWS_10_1903_SYSTEM_IMPORTS),
         )
 
 
