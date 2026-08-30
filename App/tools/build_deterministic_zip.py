@@ -214,10 +214,14 @@ def _verify_archive(path: Path, expected: list[str]) -> None:
 
 
 def build_deterministic_zip(source: Path, output: Path) -> int:
-    source = source.resolve()
-    output = output.resolve(strict=False)
-    if _is_link_or_reparse(source) or not source.is_dir():
+    source_input = Path(source)
+    if _is_link_or_reparse(source_input) or not source_input.is_dir():
         raise DeterministicZipError("archive source must be a plain directory")
+    try:
+        source = source_input.resolve(strict=True)
+    except OSError as exc:
+        raise DeterministicZipError("archive source must be a plain directory") from exc
+    output = output.resolve(strict=False)
     if output.suffix.casefold() != ".zip":
         raise DeterministicZipError("archive output must use a .zip suffix")
     if _within(output, source):

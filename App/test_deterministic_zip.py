@@ -223,6 +223,22 @@ class DeterministicZipTests(unittest.TestCase):
             zipper.build_deterministic_zip(self.source, output)
         self.assertFalse(output.exists())
 
+    def test_refuses_symbolic_link_as_source_root_when_supported(self) -> None:
+        link = self.root / "SankakuSyncer Portable source link"
+        try:
+            link.symlink_to(self.source, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("directory symbolic links unavailable")
+        output = self.root / "linked-source.zip"
+        try:
+            with self.assertRaisesRegex(
+                zipper.DeterministicZipError, "source must be a plain directory"
+            ):
+                zipper.build_deterministic_zip(link, output)
+            self.assertFalse(output.exists())
+        finally:
+            link.unlink(missing_ok=True)
+
 
 if __name__ == "__main__":
     unittest.main()

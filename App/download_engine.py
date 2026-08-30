@@ -1135,9 +1135,17 @@ def _trusted_expected_extension(value: object) -> str:
 def _content_length(value: object) -> int | None:
     if value in (None, ""):
         return None
-    if not isinstance(value, str) or not value.isdigit():
+    if (
+        not isinstance(value, str)
+        or not value.isascii()
+        or not value.isdecimal()
+    ):
         raise DownloadError("媒体响应包含无效 Content-Length")
-    length = int(value)
+    significant = value.lstrip("0") or "0"
+    maximum = str(MAX_MEDIA_BYTES)
+    if len(significant) > len(maximum):
+        raise DownloadError("媒体文件超过 50 GiB 安全上限")
+    length = int(significant)
     if length > MAX_MEDIA_BYTES:
         raise DownloadError("媒体文件超过 50 GiB 安全上限")
     return length
@@ -1149,7 +1157,11 @@ def _parse_content_range(value: object) -> tuple[int, int, int]:
     match = _CONTENT_RANGE_RE.fullmatch(value.strip())
     if match is None:
         raise DownloadError("服务器返回了无效 Content-Range")
-    start, end, total = (int(part) for part in match.groups())
+    maximum_digits = len(str(MAX_MEDIA_BYTES))
+    normalized = tuple(part.lstrip("0") or "0" for part in match.groups())
+    if any(len(part) > maximum_digits for part in normalized):
+        raise DownloadError("服务器返回了无效 Content-Range")
+    start, end, total = (int(part) for part in normalized)
     if start > end or total <= end or total > MAX_MEDIA_BYTES:
         raise DownloadError("服务器返回了无效 Content-Range")
     return start, end, total

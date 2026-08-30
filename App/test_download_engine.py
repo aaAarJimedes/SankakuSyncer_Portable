@@ -301,6 +301,29 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         self.assertFalse(session.gets[0]["kwargs"]["allow_redirects"])
         self.assertEqual(os.listdir(self.temp_dir.name), [])
 
+    def test_pathological_content_length_is_a_domain_error_before_writing(self):
+        cases = (
+            ("\N{SUPERSCRIPT TWO}", "无效 Content-Length"),
+            ("9" * 5000, "50 GiB"),
+        )
+        for value, message in cases:
+            with self.subTest(message=message):
+                response = FakeMediaResponse(
+                    200,
+                    headers={
+                        "Content-Type": "image/jpeg",
+                        "Content-Length": value,
+                    },
+                    chunks=[JPEG],
+                )
+                downloader, _api, _session = self._downloader(_post(), response)
+
+                with self.assertRaisesRegex(DownloadError, message):
+                    downloader.download("Post_1")
+
+                self.assertTrue(response.closed)
+                self.assertEqual(os.listdir(self.temp_dir.name), [])
+
     def test_existing_part_is_resumed_with_matching_206(self):
         final_path, part_path, state_path = self._paths()
         with open(part_path, "wb") as file_obj:
@@ -784,6 +807,30 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
             downloader.download("Post_1")
 
         self.assertTrue(os.path.isfile(part_path))
+        self.assertTrue(os.path.isfile(state_path))
+
+    def test_pathological_content_range_is_a_domain_error_and_preserves_resume(self):
+        _final_path, part_path, state_path = self._paths()
+        with open(part_path, "wb") as file_obj:
+            file_obj.write(JPEG[:3])
+        self._write_state()
+        response = FakeMediaResponse(
+            206,
+            headers={
+                "Content-Type": "image/jpeg",
+                "Content-Length": "3",
+                "Content-Range": f"bytes 3-5/{'9' * 5000}",
+            },
+            chunks=[JPEG[3:]],
+        )
+        downloader, _api, _session = self._downloader(_post(), response)
+
+        with self.assertRaisesRegex(DownloadError, "无效 Content-Range"):
+            downloader.download("Post_1")
+
+        self.assertTrue(response.closed)
+        with open(part_path, "rb") as file_obj:
+            self.assertEqual(file_obj.read(), JPEG[:3])
         self.assertTrue(os.path.isfile(state_path))
 
     def test_unsolicited_partial_response_is_rejected(self):

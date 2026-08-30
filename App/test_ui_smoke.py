@@ -1966,6 +1966,172 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                     window._download_thread_finished(window.download_worker)
                 self._close(window)
 
+    def test_success_terminal_write_is_retried_without_losing_output(self):
+        from types import SimpleNamespace
+
+        from task_store import TaskStoreWriteError
+
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Post_A"])
+                window._start_download(selected_only=False)
+                worker = _FakeDownloadWorker.instances[-1]
+                worker.item_started.emit(worker, "Post_A")
+
+                original_update = window.task_store.update
+                completed_attempts = 0
+
+                def fail_first_completed(post_id, **changes):
+                    nonlocal completed_attempts
+                    if changes.get("status") == "completed":
+                        completed_attempts += 1
+                        if completed_attempts == 1:
+                            raise TaskStoreWriteError("one-shot terminal failure")
+                    return original_update(post_id, **changes)
+
+                with mock.patch.object(
+                    window.task_store, "update", side_effect=fail_first_completed
+                ):
+                    worker.item_succeeded.emit(
+                        worker,
+                        "Post_A",
+                        SimpleNamespace(relative_path="Post_A.jpg"),
+                    )
+                    self.assertEqual(window.task_store.get("Post_A").status, "running")
+                    self.assertIn("Post_A", window._download_terminal_intents)
+
+                    worker.batch_finished.emit(worker, 1, 0, False)
+
+                task = window.task_store.get("Post_A")
+                self.assertEqual(completed_attempts, 2)
+                self.assertEqual(task.status, "completed")
+                self.assertEqual(task.output_files, ("Post_A.jpg",))
+                self.assertEqual(task.error, "")
+                self.assertEqual(window._download_terminal_intents, {})
+                self.assertNotIn("异常任务已恢复", window.status_label.text())
+                self.assertNotIn("终态保存失败", window.status_label.text())
+                worker.complete()
+            finally:
+                if window.download_worker is not None:
+                    window._download_thread_finished(window.download_worker)
+                self._close(window)
+
+    def test_failed_terminal_write_is_retried_with_original_error(self):
+        from task_store import TaskStoreWriteError
+
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Post_A"])
+                window._start_download(selected_only=False)
+                worker = _FakeDownloadWorker.instances[-1]
+                worker.item_started.emit(worker, "Post_A")
+
+                original_update = window.task_store.update
+                failed_attempts = 0
+
+                def fail_first_failed(post_id, **changes):
+                    nonlocal failed_attempts
+                    if changes.get("status") == "failed":
+                        failed_attempts += 1
+                        if failed_attempts == 1:
+                            raise TaskStoreWriteError("one-shot terminal failure")
+                    return original_update(post_id, **changes)
+
+                original_error = "媒体校验失败：原始错误必须保留"
+                with mock.patch.object(
+                    window.task_store, "update", side_effect=fail_first_failed
+                ):
+                    worker.item_failed.emit(worker, "Post_A", original_error)
+                    self.assertEqual(window.task_store.get("Post_A").status, "running")
+                    self.assertIn("Post_A", window._download_terminal_intents)
+
+                    worker.batch_finished.emit(worker, 0, 1, False)
+
+                task = window.task_store.get("Post_A")
+                self.assertEqual(failed_attempts, 2)
+                self.assertEqual(task.status, "failed")
+                self.assertEqual(task.error, original_error)
+                self.assertEqual(window._download_terminal_intents, {})
+                self.assertNotIn("异常结束", task.error)
+                self.assertNotIn("终态保存失败", window.status_label.text())
+                worker.complete()
+            finally:
+                if window.download_worker is not None:
+                    window._download_thread_finished(window.download_worker)
+                self._close(window)
+
+    def test_persistent_terminal_failure_is_not_overwritten_by_batch_fallback(self):
+        from types import SimpleNamespace
+
+        from task_store import TaskStoreWriteError
+
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker", _FakeDownloadWorker
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(["Terminal_A", "Unstarted_B"])
+                window._start_download(selected_only=False)
+                worker = _FakeDownloadWorker.instances[-1]
+
+                original_update = window.task_store.update
+                original_update_many = window.task_store.update_many
+                terminal_attempts = 0
+
+                def fail_completed(post_id, **changes):
+                    nonlocal terminal_attempts
+                    if changes.get("status") == "completed":
+                        terminal_attempts += 1
+                        raise TaskStoreWriteError("persistent terminal failure")
+                    return original_update(post_id, **changes)
+
+                with (
+                    mock.patch.object(
+                        window.task_store, "update", side_effect=fail_completed
+                    ),
+                    mock.patch.object(
+                        window.task_store,
+                        "update_many",
+                        wraps=original_update_many,
+                    ) as update_many,
+                ):
+                    worker.item_started.emit(worker, "Terminal_A")
+                    worker.item_succeeded.emit(
+                        worker,
+                        "Terminal_A",
+                        SimpleNamespace(relative_path="Terminal_A.jpg"),
+                    )
+                    worker.batch_finished.emit(worker, 1, 0, True)
+
+                self.assertEqual(terminal_attempts, 2)
+                self.assertEqual(window.task_store.get("Terminal_A").status, "running")
+                self.assertEqual(window.task_store.get("Terminal_A").output_files, ())
+                self.assertEqual(window.task_store.get("Unstarted_B").status, "cancelled")
+                update_many.assert_called_once()
+                self.assertEqual(update_many.call_args.args[0], ["Unstarted_B"])
+                self.assertIn("Terminal_A", window._download_terminal_intents)
+                self.assertIn("媒体成功 1", window.status_label.text())
+                self.assertIn("终态未能确认保存 1 项", window.status_label.text())
+                self.assertIn("重启后请核对任务状态", window.status_label.text())
+                self.assertNotIn("异常任务已恢复", window.status_label.text())
+
+                worker.complete()
+                self.assertIsNone(window._download_terminal_owner)
+                self.assertEqual(window._download_terminal_intents, {})
+            finally:
+                if window.download_worker is not None:
+                    window._download_thread_finished(window.download_worker)
+                self._close(window)
+
     def test_remove_protects_owned_batch_but_allows_external_tasks(self):
         from types import SimpleNamespace
 
@@ -2135,6 +2301,7 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 self.assertEqual(task.output_files, ())
                 self.assertEqual(window._download_block_reason, "")
                 self.assertEqual(window.status_label.text(), "replacement active")
+                self.assertEqual(window._download_terminal_intents, {})
             finally:
                 if window.download_worker is not None:
                     window._download_thread_finished(window.download_worker)

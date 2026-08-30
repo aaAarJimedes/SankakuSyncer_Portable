@@ -138,6 +138,42 @@ class AssemblePortableTests(unittest.TestCase):
             assembler.assemble_portable(self.source, self.runtime, destination)
         self.assertFalse(destination.exists())
 
+    def test_refuses_symbolic_link_as_source_root_when_supported(self) -> None:
+        source_link = self.root / "source-link"
+        try:
+            source_link.symlink_to(self.source, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("directory symbolic links unavailable")
+        destination = self.root / "SankakuSyncer_Source_Link_Staging"
+        try:
+            with self.assertRaisesRegex(
+                assembler.AssemblyError, "source is not a plain directory"
+            ):
+                assembler.assemble_portable(
+                    source_link, self.runtime, destination
+                )
+            self.assertFalse(destination.exists())
+        finally:
+            source_link.unlink(missing_ok=True)
+
+    def test_refuses_symbolic_link_as_runtime_root_when_supported(self) -> None:
+        runtime_link = self.root / "runtime-link"
+        try:
+            runtime_link.symlink_to(self.runtime, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest("directory symbolic links unavailable")
+        destination = self.root / "SankakuSyncer_Runtime_Link_Staging"
+        try:
+            with self.assertRaisesRegex(
+                assembler.AssemblyError, "Runtime is not a plain directory"
+            ):
+                assembler.assemble_portable(
+                    self.source, runtime_link, destination
+                )
+            self.assertFalse(destination.exists())
+        finally:
+            runtime_link.unlink(missing_ok=True)
+
 
 if __name__ == "__main__":
     unittest.main()

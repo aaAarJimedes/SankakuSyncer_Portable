@@ -231,12 +231,17 @@ def _copy_directory(source: Path, destination: Path, files: list[Path]) -> int:
 
 
 def assemble_portable(source: Path, runtime: Path, destination: Path) -> int:
-    source = source.resolve()
-    runtime = runtime.resolve()
-    if _is_link_or_reparse(source) or not source.is_dir():
+    source_input = Path(source)
+    runtime_input = Path(runtime)
+    if _is_link_or_reparse(source_input) or not source_input.is_dir():
         raise AssemblyError("project source is not a plain directory")
-    if _is_link_or_reparse(runtime) or not runtime.is_dir():
+    if _is_link_or_reparse(runtime_input) or not runtime_input.is_dir():
         raise AssemblyError("Runtime is not a plain directory")
+    try:
+        source = source_input.resolve(strict=True)
+        runtime = runtime_input.resolve(strict=True)
+    except OSError as exc:
+        raise AssemblyError("source or Runtime could not be resolved safely") from exc
     for name in RUNTIME_AUDIT_FILES:
         path = runtime / name
         if _is_link_or_reparse(path) or not path.is_file():

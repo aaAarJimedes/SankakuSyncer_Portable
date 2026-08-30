@@ -165,6 +165,13 @@ class _LibraryPreviewBinding:
     entry: LibraryEntry
 
 
+@dataclass(frozen=True)
+class _DownloadTerminalIntent:
+    status: str
+    error: str
+    output_files: tuple[object, ...] | None = None
+
+
 def _format_file_size(value: object) -> str:
     if type(value) is not int or value < 0:
         return "—"
@@ -435,6 +442,8 @@ class MainWindow(QMainWindow):
         self.library_preview_worker: LibraryThumbnailWorker | None = None
         self._download_block_reason = ""
         self._download_task_ids: frozenset[str] = frozenset()
+        self._download_terminal_owner: object | None = None
+        self._download_terminal_intents: dict[str, _DownloadTerminalIntent] = {}
         self.thumbnail_pool = QThreadPool(self)
         self.thumbnail_pool.setMaxThreadCount(2)
         self._thumbnail_generation = 0
@@ -2444,6 +2453,8 @@ class MainWindow(QMainWindow):
             return
         self.download_worker = worker
         self._download_task_ids = frozenset(task.post_id for task in queued)
+        self._download_terminal_owner = worker
+        self._download_terminal_intents = {}
         self._update_remove_tasks_action()
         worker.item_started.connect(self._download_item_started)
         worker.item_progress.connect(self._download_item_progress)
@@ -2496,6 +2507,8 @@ class MainWindow(QMainWindow):
             self.global_progress.hide()
             self.download_worker = None
             self._download_task_ids = frozenset()
+            self._download_terminal_owner = None
+            self._download_terminal_intents = {}
             # ``run()`` normally scrubs this secret in its finally block.  A
             # thread that never started cannot reach that cleanup path.
             if hasattr(worker, "token"):
@@ -2544,18 +2557,26 @@ class MainWindow(QMainWindow):
     def _download_item_succeeded(
         self, owner: object, post_id: str, result: object
     ) -> None:
-        if owner is not self.download_worker:
+        if (
+            owner is not self.download_worker
+            or owner is not self._download_terminal_owner
+            or post_id not in self._download_task_ids
+        ):
             return
         relative = getattr(result, "relative_path", "")
+        intent = _DownloadTerminalIntent(
+            status="completed",
+            error="",
+            output_files=(relative,) if relative else (),
+        )
+        self._download_terminal_intents[post_id] = intent
         try:
-            self.task_store.update(
-                post_id,
-                status="completed",
-                error="",
-                output_files=(relative,) if relative else (),
-            )
+            self._persist_download_terminal_intent(post_id, intent)
         except TaskStoreError as exc:
             self._log(f"下载成功但任务终态保存失败：{exc}")
+        else:
+            if self._download_terminal_intents.get(post_id) == intent:
+                del self._download_terminal_intents[post_id]
         self._refresh_tasks()
         self._log(f"作品 {post_id} 下载完成。")
 
@@ -2573,14 +2594,34 @@ class MainWindow(QMainWindow):
     def _download_item_failed(
         self, owner: object, post_id: str, message: str
     ) -> None:
-        if owner is not self.download_worker:
+        if (
+            owner is not self.download_worker
+            or owner is not self._download_terminal_owner
+            or post_id not in self._download_task_ids
+        ):
             return
+        intent = _DownloadTerminalIntent(status="failed", error=message[:1000])
+        self._download_terminal_intents[post_id] = intent
         try:
-            self.task_store.update(post_id, status="failed", error=message[:1000])
+            self._persist_download_terminal_intent(post_id, intent)
         except TaskStoreError as exc:
             self._log(f"任务失败状态保存失败：{exc}")
+        else:
+            if self._download_terminal_intents.get(post_id) == intent:
+                del self._download_terminal_intents[post_id]
         self._refresh_tasks()
         self._log(f"作品 {post_id} 失败：{message}")
+
+    def _persist_download_terminal_intent(
+        self, post_id: str, intent: _DownloadTerminalIntent
+    ) -> None:
+        changes: dict[str, object] = {
+            "status": intent.status,
+            "error": intent.error,
+        }
+        if intent.output_files is not None:
+            changes["output_files"] = intent.output_files
+        self.task_store.update(post_id, **changes)
 
     @Slot(object, int, int, bool)
     def _download_batch_finished(
@@ -2588,11 +2629,26 @@ class MainWindow(QMainWindow):
     ) -> None:
         if owner is not self.download_worker:
             return
+        terminal_intents = (
+            self._download_terminal_intents
+            if owner is self._download_terminal_owner
+            else {}
+        )
+        for post_id, intent in list(terminal_intents.items()):
+            try:
+                self._persist_download_terminal_intent(post_id, intent)
+            except TaskStoreError as exc:
+                self._log(f"任务终态重试保存失败（{post_id}）：{exc}")
+            else:
+                if terminal_intents.get(post_id) == intent:
+                    del terminal_intents[post_id]
+        unpersisted_terminal_ids = frozenset(terminal_intents)
         remaining = [
             task.post_id
             for task in self.task_store.list()
             if task.post_id in self._download_task_ids
             and task.status in {"queued", "running"}
+            and task.post_id not in unpersisted_terminal_ids
         ]
         block_reason = self._download_block_reason
         abnormal_end = bool(remaining) and not stopped
@@ -2637,12 +2693,24 @@ class MainWindow(QMainWindow):
             terminal_suffix = "，异常任务已恢复"
         else:
             terminal_suffix = ""
+        if unpersisted_terminal_ids:
+            terminal_suffix += (
+                f"；任务终态未能确认保存 {len(unpersisted_terminal_ids)} 项，"
+                "重启后请核对任务状态"
+            )
+        summary_kind = "媒体" if unpersisted_terminal_ids else ""
         self.status_label.setText(
-            f"批次结束：成功 {succeeded}，失败 {failed}" + terminal_suffix
+            f"批次结束：{summary_kind}成功 {succeeded}，失败 {failed}"
+            + terminal_suffix
         )
         self._log(
             f"下载批次结束：成功 {succeeded}，失败 {failed}，停止={str(stopped).lower()}。"
         )
+        if unpersisted_terminal_ids:
+            self._log(
+                f"下载批次有 {len(unpersisted_terminal_ids)} 项终态未能持久化；"
+                "这些任务未被批次兜底状态覆盖。"
+            )
 
     @Slot(object, str)
     def _download_batch_blocked(self, owner: object, message: str) -> None:
@@ -2669,6 +2737,9 @@ class MainWindow(QMainWindow):
             delete_later()
         self.download_worker = None
         self._download_task_ids = frozenset()
+        if owner is self._download_terminal_owner:
+            self._download_terminal_owner = None
+            self._download_terminal_intents = {}
         self._update_remove_tasks_action()
 
     def _stop_download(self) -> None:
