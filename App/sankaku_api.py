@@ -326,7 +326,12 @@ class SankakuAPI:
         if urlsplit(url).hostname != API_HOST or not url.startswith(API_ROOT + "/"):
             raise SankakuAPIError("API 地址越界")
 
-        retry_limit = self.max_retries if retryable else 0
+        # Only idempotent reads may be replayed.  Keep this guard here as a
+        # backstop so a future password- or mutation-bearing POST cannot be
+        # retried merely because a caller forgot ``retryable=False``.
+        retry_limit = (
+            self.max_retries if retryable and method.upper() == "GET" else 0
+        )
         for attempt in range(retry_limit + 1):
             if self.stop_event.is_set():
                 raise CancelledError("操作已取消")
@@ -336,6 +341,8 @@ class SankakuAPI:
             headers = {"Accept-Encoding": "identity"}
             if authenticated and self._access_token:
                 headers["Authorization"] = "Bearer " + self._access_token
+            retry_wait_seconds: float | None = None
+            retry_with_backoff = False
             try:
                 self._acquire_global_request_lock()
                 try:
@@ -365,6 +372,8 @@ class SankakuAPI:
                 finally:
                     _GLOBAL_API_REQUEST_LOCK.release()
             except TransportError as exc:
+                if self.stop_event.is_set():
+                    raise CancelledError("操作已取消") from exc
                 if attempt >= retry_limit:
                     raise SankakuAPIError(
                         f"网络请求失败（{type(exc).__name__}）"
@@ -391,9 +400,8 @@ class SankakuAPI:
                         )
                     if attempt >= retry_limit:
                         raise RateLimitError("站点请求过于频繁，请稍后再试")
-                    self._interruptible_wait(wait_seconds)
-                    continue
-                if response.status_code in {408, 500, 502, 503, 504}:
+                    retry_wait_seconds = wait_seconds
+                elif response.status_code in {408, 500, 502, 503, 504}:
                     if attempt >= retry_limit:
                         raise SankakuAPIError(f"站点暂时不可用（HTTP {response.status_code}）")
                     wait_seconds = response_wait_seconds
@@ -406,34 +414,51 @@ class SankakuAPI:
                             raise RateLimitError(
                                 "站点要求较长冷却，已停止本批次；请稍后手动重试"
                             )
-                        self._interruptible_wait(wait_seconds)
+                        retry_wait_seconds = wait_seconds
                     else:
-                        self._backoff(attempt)
-                    continue
-                if response.status_code == 404:
+                        retry_with_backoff = True
+                elif response.status_code == 404:
                     raise SankakuAPIError("请求的资源不存在")
-                if not 200 <= response.status_code < 300:
+                elif not 200 <= response.status_code < 300:
                     raise SankakuAPIError(f"站点请求失败（HTTP {response.status_code}）")
-                content_encoding = response.headers.get("Content-Encoding", "")
-                if (
-                    not isinstance(content_encoding, str)
-                    or content_encoding.strip().casefold() not in {"", "identity"}
-                ):
-                    raise SankakuAPIError("站点响应使用了不安全的压缩编码")
-                content_type = response.headers.get("Content-Type", "").lower()
-                if "json" not in content_type:
-                    raise SankakuAPIError("站点返回了非 JSON 内容")
-                try:
-                    raw = _read_bounded_body(response, MAX_JSON_BYTES)
-                    return json.loads(raw.decode("utf-8-sig"))
-                except TransportError as exc:
-                    raise SankakuAPIError(
-                        f"读取站点响应失败（{type(exc).__name__}）"
-                    ) from exc
-                except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-                    raise SankakuAPIError("站点返回了损坏的 JSON") from exc
+                else:
+                    content_encoding = response.headers.get("Content-Encoding", "")
+                    if (
+                        not isinstance(content_encoding, str)
+                        or content_encoding.strip().casefold() not in {"", "identity"}
+                    ):
+                        raise SankakuAPIError("站点响应使用了不安全的压缩编码")
+                    content_type = response.headers.get("Content-Type", "").lower()
+                    if "json" not in content_type:
+                        raise SankakuAPIError("站点返回了非 JSON 内容")
+                    try:
+                        raw = _read_bounded_body(response, MAX_JSON_BYTES)
+                        if self.stop_event.is_set():
+                            raise CancelledError("操作已取消")
+                        payload = json.loads(raw.decode("utf-8-sig"))
+                        if self.stop_event.is_set():
+                            raise CancelledError("操作已取消")
+                        return payload
+                    except TransportError as exc:
+                        if self.stop_event.is_set():
+                            raise CancelledError("操作已取消") from exc
+                        if attempt >= retry_limit:
+                            raise SankakuAPIError(
+                                f"读取站点响应失败（{type(exc).__name__}）"
+                            ) from exc
+                        retry_with_backoff = True
+                    except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                        if self.stop_event.is_set():
+                            raise CancelledError("操作已取消") from exc
+                        raise SankakuAPIError("站点返回了损坏的 JSON") from exc
             finally:
                 response.close()
+            if retry_wait_seconds is not None:
+                self._interruptible_wait(retry_wait_seconds)
+                continue
+            if retry_with_backoff:
+                self._backoff(attempt)
+                continue
         raise SankakuAPIError("请求重试次数已用尽")
 
     def _wait_for_request_slot(self) -> None:

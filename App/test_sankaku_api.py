@@ -197,6 +197,80 @@ class SankakuAPIOfflineTests(unittest.TestCase):
         self.assertEqual(len(session.requests), 1)
         self.assertEqual(session.responses, [unused_success])
 
+    def test_authenticate_does_not_replay_password_post_after_body_failure(self):
+        response = FakeResponse(
+            stream_error=TransportError("password-bearing response detail")
+        )
+        unused_success = FakeResponse(
+            payload={"success": True, "access_token": "MUST_NOT_BE_USED"}
+        )
+        client, session = self._client(response, unused_success, max_retries=4)
+        client._backoff = mock.Mock()
+
+        with self.assertRaisesRegex(
+            SankakuAPIError, "读取站点响应失败"
+        ) as raised:
+            client.authenticate("user@example.test", "secret")
+
+        self.assertEqual(len(session.requests), 1)
+        self.assertEqual(session.responses, [unused_success])
+        self.assertTrue(response.closed)
+        self.assertFalse(unused_success.closed)
+        self.assertNotIn("password-bearing", str(raised.exception))
+        client._backoff.assert_not_called()
+
+    def test_post_is_never_replayed_even_if_retryable_is_not_disabled(self):
+        response = FakeResponse(
+            stream_error=TransportError("mutation response detail")
+        )
+        unused_success = FakeResponse(payload={"success": True})
+        client, session = self._client(response, unused_success, max_retries=4)
+        client._backoff = mock.Mock()
+
+        with self.assertRaisesRegex(
+            SankakuAPIError, "读取站点响应失败"
+        ) as raised:
+            client._request_json(
+                "POST",
+                "/v2/example-mutation",
+                json_body={"value": "non-secret test value"},
+                authenticated=False,
+            )
+
+        self.assertEqual(len(session.requests), 1)
+        self.assertEqual(session.responses, [unused_success])
+        self.assertTrue(response.closed)
+        self.assertFalse(unused_success.closed)
+        self.assertNotIn("mutation response detail", str(raised.exception))
+        client._backoff.assert_not_called()
+
+    def test_request_transport_failure_after_cancellation_is_not_retried(self):
+        stop_event = threading.Event()
+        unused_success = FakeResponse(payload={"data": [], "meta": {}})
+        client, session = self._client(
+            unused_success,
+            max_retries=4,
+            stop_event=stop_event,
+        )
+
+        def cancelled_request(method: str, url: str, **kwargs):
+            session.requests.append(
+                {"method": method, "url": url, "kwargs": kwargs}
+            )
+            stop_event.set()
+            raise TransportError("cancelled request detail")
+
+        session.request = cancelled_request
+        client._backoff = mock.Mock()
+
+        with self.assertRaises(CancelledError) as raised:
+            client.search_posts("cat")
+
+        self.assertEqual(str(raised.exception), "操作已取消")
+        self.assertEqual(len(session.requests), 1)
+        self.assertEqual(session.responses, [unused_success])
+        client._backoff.assert_not_called()
+
     def test_search_uses_keyset_cursor_and_parses_page(self):
         response = FakeResponse(
             payload={
@@ -292,7 +366,12 @@ class SankakuAPIOfflineTests(unittest.TestCase):
         second = FakeResponse(status_code=429, headers={"Retry-After": "9"})
         client, session = self._client(first, second, max_retries=1)
         waits: list[float] = []
-        client._interruptible_wait = waits.append
+
+        def record_wait(seconds: float) -> None:
+            self.assertTrue(first.closed)
+            waits.append(seconds)
+
+        client._interruptible_wait = record_wait
 
         with self.assertRaises(RateLimitError):
             client.search_posts("cat")
@@ -301,6 +380,72 @@ class SankakuAPIOfflineTests(unittest.TestCase):
         self.assertEqual(len(session.requests), 2)
         self.assertTrue(first.closed)
         self.assertTrue(second.closed)
+
+    def test_transient_server_failure_closes_response_before_backoff(self):
+        unavailable = FakeResponse(status_code=503)
+        success = FakeResponse(payload={"data": [], "meta": {}})
+        client, session = self._client(unavailable, success, max_retries=1)
+        backoffs: list[int] = []
+
+        def record_backoff(attempt: int) -> None:
+            self.assertTrue(unavailable.closed)
+            backoffs.append(attempt)
+
+        client._backoff = record_backoff
+
+        page = client.search_posts("cat")
+
+        self.assertEqual(page.posts, ())
+        self.assertEqual(backoffs, [0])
+        self.assertEqual(len(session.requests), 2)
+        self.assertTrue(unavailable.closed)
+        self.assertTrue(success.closed)
+
+    def test_transient_server_retry_after_closes_response_before_wait(self):
+        unavailable = FakeResponse(status_code=503, headers={"Retry-After": "3"})
+        success = FakeResponse(payload={"data": [], "meta": {}})
+        client, session = self._client(unavailable, success, max_retries=1)
+        waits: list[float] = []
+
+        def record_wait(seconds: float) -> None:
+            self.assertTrue(unavailable.closed)
+            waits.append(seconds)
+
+        client._interruptible_wait = record_wait
+
+        page = client.search_posts("cat")
+
+        self.assertEqual(page.posts, ())
+        self.assertEqual(waits, [3.0])
+        self.assertEqual(len(session.requests), 2)
+        self.assertTrue(unavailable.closed)
+        self.assertTrue(success.closed)
+
+    def test_retry_after_cancellation_closes_without_replaying(self):
+        stop_event = threading.Event()
+        limited = FakeResponse(status_code=429, headers={"Retry-After": "3"})
+        unused_success = FakeResponse(payload={"data": [], "meta": {}})
+        client, session = self._client(
+            limited,
+            unused_success,
+            max_retries=4,
+            stop_event=stop_event,
+        )
+
+        def cancel_wait(_seconds: float) -> None:
+            self.assertTrue(limited.closed)
+            stop_event.set()
+            raise CancelledError("操作已取消")
+
+        client._interruptible_wait = cancel_wait
+
+        with self.assertRaises(CancelledError):
+            client.search_posts("cat")
+
+        self.assertEqual(len(session.requests), 1)
+        self.assertEqual(session.responses, [unused_success])
+        self.assertTrue(limited.closed)
+        self.assertFalse(unused_success.closed)
 
     def test_429_defers_other_api_clients_process_wide(self):
         limited = FakeResponse(status_code=429, headers={"Retry-After": "30"})
@@ -443,6 +588,140 @@ class SankakuAPIOfflineTests(unittest.TestCase):
             client.search_posts("cat")
 
         self.assertNotIn("signed URL", str(raised.exception))
+        self.assertTrue(response.closed)
+
+    def test_stream_failure_retries_after_closing_replayable_response(self):
+        broken = FakeResponse(
+            stream_error=TransportError("signed URL must not leak")
+        )
+        success = FakeResponse(
+            payload={
+                "data": [_post_payload("Retried_Post")],
+                "meta": {"next": "after_retry"},
+            }
+        )
+        client, session = self._client(broken, success, max_retries=1)
+        backoffs: list[int] = []
+
+        def record_backoff(attempt: int) -> None:
+            self.assertTrue(broken.closed)
+            backoffs.append(attempt)
+
+        client._backoff = record_backoff
+
+        page = client.search_posts("cat")
+
+        self.assertEqual([post.post_id for post in page.posts], ["Retried_Post"])
+        self.assertEqual(page.next_cursor, "after_retry")
+        self.assertEqual(backoffs, [0])
+        self.assertEqual(len(session.requests), 2)
+        self.assertEqual(
+            [request["method"] for request in session.requests],
+            ["GET", "GET"],
+        )
+        self.assertTrue(broken.closed)
+        self.assertTrue(success.closed)
+        self.assertEqual(session.responses, [])
+
+    def test_stream_failure_stops_after_retry_budget_is_exhausted(self):
+        first = FakeResponse(
+            stream_error=TransportError("first signed URL must not leak")
+        )
+        second = FakeResponse(
+            stream_error=TransportError("second signed URL must not leak")
+        )
+        client, session = self._client(first, second, max_retries=1)
+        backoffs: list[int] = []
+        client._backoff = backoffs.append
+
+        with self.assertRaisesRegex(
+            SankakuAPIError, "读取站点响应失败"
+        ) as raised:
+            client.search_posts("cat")
+
+        self.assertEqual(backoffs, [0])
+        self.assertEqual(len(session.requests), 2)
+        self.assertEqual(
+            [request["method"] for request in session.requests],
+            ["GET", "GET"],
+        )
+        self.assertTrue(first.closed)
+        self.assertTrue(second.closed)
+        self.assertEqual(session.responses, [])
+        self.assertNotIn("signed URL", str(raised.exception))
+
+    def test_stream_failure_after_cancellation_closes_without_retrying(self):
+        stop_event = threading.Event()
+        response = FakeResponse()
+        unused_success = FakeResponse(payload={"data": [], "meta": {}})
+        client, session = self._client(
+            response,
+            unused_success,
+            max_retries=4,
+            stop_event=stop_event,
+        )
+
+        def cancelled_stream(_chunk_size: int = 1):
+            stop_event.set()
+            raise TransportError("cancelled body detail")
+            yield b""  # pragma: no cover - makes this a generator
+
+        response.iter_content = cancelled_stream
+        client._backoff = mock.Mock()
+
+        with self.assertRaises(CancelledError) as raised:
+            client.search_posts("cat")
+
+        self.assertEqual(str(raised.exception), "操作已取消")
+        self.assertEqual(len(session.requests), 1)
+        self.assertEqual(session.responses, [unused_success])
+        self.assertTrue(response.closed)
+        client._backoff.assert_not_called()
+
+    def test_silent_stream_eof_after_cancellation_is_not_mislabeled_as_bad_json(self):
+        stop_event = threading.Event()
+        response = FakeResponse()
+        unused_success = FakeResponse(payload={"data": [], "meta": {}})
+        client, session = self._client(
+            response,
+            unused_success,
+            max_retries=4,
+            stop_event=stop_event,
+        )
+
+        def cancelled_stream(_chunk_size: int = 1):
+            stop_event.set()
+            return
+            yield b""  # pragma: no cover - makes this a generator
+
+        response.iter_content = cancelled_stream
+        client._backoff = mock.Mock()
+
+        with self.assertRaises(CancelledError) as raised:
+            client.search_posts("cat")
+
+        self.assertEqual(str(raised.exception), "操作已取消")
+        self.assertEqual(len(session.requests), 1)
+        self.assertEqual(session.responses, [unused_success])
+        self.assertTrue(response.closed)
+        self.assertFalse(unused_success.closed)
+        client._backoff.assert_not_called()
+
+    def test_json_parse_failure_after_cancellation_is_reported_as_cancelled(self):
+        stop_event = threading.Event()
+        response = FakeResponse(payload={"data": [], "meta": {}})
+        client, session = self._client(response, stop_event=stop_event)
+
+        def cancelled_parse(_raw: str):
+            stop_event.set()
+            raise ValueError("parser detail must not be shown")
+
+        with mock.patch("sankaku_api.json.loads", side_effect=cancelled_parse):
+            with self.assertRaises(CancelledError) as raised:
+                client.search_posts("cat")
+
+        self.assertEqual(str(raised.exception), "操作已取消")
+        self.assertEqual(len(session.requests), 1)
         self.assertTrue(response.closed)
 
     def test_pre_cancelled_request_never_reaches_session(self):
