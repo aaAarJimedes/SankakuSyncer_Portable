@@ -419,6 +419,353 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
             finally:
                 self._close(window)
 
+    def test_task_refresh_preserves_selection_current_and_viewport_by_post_id(self):
+        from PySide6.QtCore import QItemSelectionModel
+        from PySide6.QtWidgets import QAbstractItemView, QHeaderView
+        from task_store import DownloadTask
+
+        with tempfile.TemporaryDirectory() as root:
+            window = self.MainWindow(root)
+            try:
+                tasks = tuple(
+                    DownloadTask(
+                        f"Post_{index:03d}",
+                        "",
+                        status="completed" if index % 4 == 0 else "pending",
+                    )
+                    for index in range(160)
+                )
+                window.task_store.add_many(tasks)
+                window._refresh_tasks()
+                window.tabs.setCurrentIndex(2)
+                window.resize(720, 440)
+                header = window.task_table.horizontalHeader()
+                for column in range(window.task_model.columnCount()):
+                    header.setSectionResizeMode(column, QHeaderView.Fixed)
+                    header.resizeSection(column, 220)
+                window.task_table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+                window.show()
+                self.app.processEvents()
+
+                def row_for(post_id):
+                    return next(
+                        row
+                        for row in range(window.task_model.rowCount())
+                        if window.task_model.task_at(row).post_id == post_id
+                    )
+
+                selection = window.task_table.selectionModel()
+                for post_id in ("Post_061", "Post_119"):
+                    selection.select(
+                        window.task_model.index(row_for(post_id), 0),
+                        QItemSelectionModel.Select | QItemSelectionModel.Rows,
+                    )
+                selection.setCurrentIndex(
+                    window.task_model.index(row_for("Post_119"), 5),
+                    QItemSelectionModel.NoUpdate,
+                )
+                window.task_table.scrollTo(
+                    window.task_model.index(row_for("Post_081"), 0),
+                    QAbstractItemView.PositionAtTop,
+                )
+                vertical = window.task_table.verticalScrollBar()
+                vertical.setValue(min(vertical.value() + 7, vertical.maximum()))
+                horizontal = window.task_table.horizontalScrollBar()
+                self.assertGreater(horizontal.maximum(), 0)
+                horizontal.setValue(min(73, horizontal.maximum()))
+                expected_horizontal = horizontal.value()
+                self.app.processEvents()
+                top_before_index = window.task_table.indexAt(
+                    window.task_table.viewport().rect().topLeft()
+                )
+                top_before = window.task_model.task_at(top_before_index.row())
+                self.assertEqual(top_before.post_id, "Post_081")
+                expected_top_offset = window.task_table.visualRect(top_before_index).top()
+                self.assertLess(expected_top_offset, 0)
+                resets = []
+                window.task_model.modelReset.connect(lambda: resets.append(True))
+
+                window.task_filter_combo.setCurrentIndex(
+                    window.task_filter_combo.findData("pending")
+                )
+                self.app.processEvents()
+
+                self.assertEqual(resets, [True])
+                self.assertEqual(
+                    window._selected_task_ids(), ["Post_061", "Post_119"]
+                )
+                current = window.task_table.currentIndex()
+                self.assertEqual(
+                    window.task_model.task_at(current.row()).post_id, "Post_119"
+                )
+                self.assertEqual(current.column(), 5)
+                top_after = window.task_table.indexAt(
+                    window.task_table.viewport().rect().topLeft()
+                )
+                self.assertTrue(top_after.isValid())
+                self.assertEqual(
+                    window.task_model.task_at(top_after.row()).post_id, "Post_081"
+                )
+                self.assertEqual(
+                    window.task_table.visualRect(top_after).top(), expected_top_offset
+                )
+                self.assertEqual(horizontal.value(), expected_horizontal)
+            finally:
+                self._close(window)
+
+    def test_task_refresh_drops_hidden_and_deleted_ids_without_resurrection(self):
+        from PySide6.QtCore import QItemSelectionModel
+        from task_store import DownloadTask
+
+        with tempfile.TemporaryDirectory() as root:
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(
+                    (
+                        DownloadTask("Pending_A", "", status="pending"),
+                        DownloadTask("Failed_B", "", status="failed"),
+                        DownloadTask("Failed_C", "", status="failed"),
+                    )
+                )
+                window._refresh_tasks()
+                selection = window.task_table.selectionModel()
+                selection.select(
+                    window.task_model.index(0, 0),
+                    QItemSelectionModel.Select | QItemSelectionModel.Rows,
+                )
+                selection.select(
+                    window.task_model.index(1, 0),
+                    QItemSelectionModel.Select | QItemSelectionModel.Rows,
+                )
+                selection.setCurrentIndex(
+                    window.task_model.index(0, 3), QItemSelectionModel.NoUpdate
+                )
+
+                window.task_filter_combo.setCurrentIndex(
+                    window.task_filter_combo.findData("failed")
+                )
+                self.assertEqual(window._selected_task_ids(), ["Failed_B"])
+                self.assertFalse(window.task_table.currentIndex().isValid())
+
+                window.task_filter_combo.setCurrentIndex(
+                    window.task_filter_combo.findData("")
+                )
+                self.assertEqual(window._selected_task_ids(), ["Failed_B"])
+                self.assertFalse(window.task_table.currentIndex().isValid())
+
+                failed_b_row = next(
+                    row
+                    for row in range(window.task_model.rowCount())
+                    if window.task_model.task_at(row).post_id == "Failed_B"
+                )
+                failed_c_row = next(
+                    row
+                    for row in range(window.task_model.rowCount())
+                    if window.task_model.task_at(row).post_id == "Failed_C"
+                )
+                selection = window.task_table.selectionModel()
+                selection.select(
+                    window.task_model.index(failed_c_row, 0),
+                    QItemSelectionModel.Select | QItemSelectionModel.Rows,
+                )
+                selection.setCurrentIndex(
+                    window.task_model.index(failed_b_row, 2),
+                    QItemSelectionModel.NoUpdate,
+                )
+                window.task_store.remove(["Failed_B"])
+                window._refresh_tasks()
+
+                self.assertEqual(window._selected_task_ids(), ["Failed_C"])
+                self.assertFalse(window.task_table.currentIndex().isValid())
+            finally:
+                self._close(window)
+
+    def test_task_refresh_updates_same_rows_without_model_reset(self):
+        from PySide6.QtCore import QItemSelectionModel
+        from PySide6.QtWidgets import QAbstractItemView, QHeaderView
+        from task_store import DownloadTask
+
+        with tempfile.TemporaryDirectory() as root:
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(
+                    tuple(
+                        DownloadTask(f"Post_{index:03d}", "", status="pending")
+                        for index in range(160)
+                    )
+                )
+                window._refresh_tasks()
+                window.tabs.setCurrentIndex(2)
+                window.resize(720, 440)
+                header = window.task_table.horizontalHeader()
+                for column in range(window.task_model.columnCount()):
+                    header.setSectionResizeMode(column, QHeaderView.Fixed)
+                    header.resizeSection(column, 220)
+                window.task_table.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
+                window.show()
+                self.app.processEvents()
+                selection = window.task_table.selectionModel()
+                selection.select(
+                    window.task_model.index(119, 0),
+                    QItemSelectionModel.Select | QItemSelectionModel.Rows,
+                )
+                selection.setCurrentIndex(
+                    window.task_model.index(119, 5), QItemSelectionModel.NoUpdate
+                )
+                vertical = window.task_table.verticalScrollBar()
+                horizontal = window.task_table.horizontalScrollBar()
+                self.assertGreater(vertical.maximum(), 0)
+                self.assertGreater(horizontal.maximum(), 0)
+                vertical.setValue(min(923, vertical.maximum()))
+                horizontal.setValue(min(73, horizontal.maximum()))
+                self.app.processEvents()
+                expected_vertical = vertical.value()
+                expected_horizontal = horizontal.value()
+                top_before = window.task_table.indexAt(
+                    window.task_table.viewport().rect().topLeft()
+                )
+                self.assertTrue(top_before.isValid())
+                expected_top_id = window.task_model.task_at(top_before.row()).post_id
+                expected_top_offset = window.task_table.visualRect(top_before).top()
+                resets = []
+                changes = []
+                window.task_model.modelReset.connect(lambda: resets.append(True))
+                window.task_model.dataChanged.connect(
+                    lambda top_left, bottom_right, roles: changes.append(
+                        (top_left.row(), bottom_right.row(), tuple(roles))
+                    )
+                )
+
+                window.task_store.update("Post_119", status="completed")
+                window._refresh_tasks()
+                self.app.processEvents()
+
+                self.assertEqual(resets, [])
+                self.assertEqual(len(changes), 1)
+                self.assertEqual(changes[0][:2], (119, 119))
+                self.assertEqual(window._selected_task_ids(), ["Post_119"])
+                current = window.task_table.currentIndex()
+                self.assertTrue(current.isValid())
+                self.assertEqual(
+                    window.task_model.task_at(current.row()).post_id, "Post_119"
+                )
+                self.assertEqual(current.column(), 5)
+                self.assertEqual(window.task_model.task_at(119).status, "completed")
+                self.assertEqual(vertical.value(), expected_vertical)
+                self.assertEqual(horizontal.value(), expected_horizontal)
+                top_after = window.task_table.indexAt(
+                    window.task_table.viewport().rect().topLeft()
+                )
+                self.assertTrue(top_after.isValid())
+                self.assertEqual(
+                    window.task_model.task_at(top_after.row()).post_id,
+                    expected_top_id,
+                )
+                self.assertEqual(
+                    window.task_table.visualRect(top_after).top(), expected_top_offset
+                )
+            finally:
+                self._close(window)
+
+    def test_selected_task_ids_reads_selection_ranges_at_task_limit(self):
+        from PySide6.QtCore import QItemSelection, QItemSelectionModel
+        from task_store import DownloadTask, MAX_TASKS
+
+        class _SelectionRangeCoordinates:
+            def __init__(self, selected_range):
+                self._selected_range = selected_range
+
+            def isValid(self):  # noqa: N802 - Qt-compatible facade
+                return self._selected_range.isValid()
+
+            def top(self):
+                return self._selected_range.top()
+
+            def bottom(self):
+                return self._selected_range.bottom()
+
+            def left(self):
+                return self._selected_range.left()
+
+            def right(self):
+                return self._selected_range.right()
+
+        class _SelectionCoordinates:
+            def __init__(self, selection):
+                self._selection = selection
+
+            def __iter__(self):
+                return (
+                    _SelectionRangeCoordinates(selected_range)
+                    for selected_range in self._selection
+                )
+
+        class _SelectionRangesOnly:
+            def __init__(self, selection_model):
+                self._selection_model = selection_model
+
+            def selection(self):
+                return _SelectionCoordinates(self._selection_model.selection())
+
+        with tempfile.TemporaryDirectory() as root:
+            window = self.MainWindow(root)
+            try:
+                tasks = tuple(
+                    DownloadTask(f"Post_{index:05d}", "", status="pending")
+                    for index in range(MAX_TASKS)
+                )
+                window.task_model.set_tasks(tasks)
+                selection_model = window.task_table.selectionModel()
+                selection_model.select(
+                    QItemSelection(
+                        window.task_model.index(0, 0),
+                        window.task_model.index(
+                            len(tasks) - 1, window.task_model.columnCount() - 1
+                        ),
+                    ),
+                    QItemSelectionModel.ClearAndSelect,
+                )
+
+                with mock.patch.object(
+                    window.task_table,
+                    "selectionModel",
+                    return_value=_SelectionRangesOnly(selection_model),
+                ), mock.patch.object(
+                    window.task_model,
+                    "index",
+                    side_effect=AssertionError("must not materialize selected indexes"),
+                ), mock.patch.object(
+                    window.task_model,
+                    "createIndex",
+                    side_effect=AssertionError("must not materialize selected indexes"),
+                ):
+                    selected_ids = window._selected_task_ids()
+
+                self.assertEqual(len(selected_ids), len(tasks))
+                self.assertEqual(selected_ids[0], "Post_00000")
+                self.assertEqual(selected_ids[-1], "Post_09999")
+
+                selection_model.select(
+                    window.task_model.index(4, 0),
+                    QItemSelectionModel.ClearAndSelect,
+                )
+                with mock.patch.object(
+                    window.task_table,
+                    "selectionModel",
+                    return_value=_SelectionRangesOnly(selection_model),
+                ), mock.patch.object(
+                    window.task_model,
+                    "index",
+                    side_effect=AssertionError("must not materialize selected indexes"),
+                ), mock.patch.object(
+                    window.task_model,
+                    "createIndex",
+                    side_effect=AssertionError("must not materialize selected indexes"),
+                ):
+                    self.assertEqual(window._selected_task_ids(), [])
+            finally:
+                self._close(window)
+
     def test_search_cancel_is_single_shot_and_preserves_committed_page(self):
         with tempfile.TemporaryDirectory() as root, mock.patch(
             "ui_main_window.SearchWorker", _FakeSearchWorker

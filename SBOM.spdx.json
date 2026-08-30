@@ -7,7 +7,7 @@
     ]
   },
   "dataLicense": "CC0-1.0",
-  "documentNamespace": "https://github.com/aaAarJimedes/SankakuSyncer_Portable/sbom/0.1.7/d18ea812631c1c83476e3c5d",
+  "documentNamespace": "https://github.com/aaAarJimedes/SankakuSyncer_Portable/sbom/0.1.8/d18ea812631c1c83476e3c5d",
   "files": [
     {
       "SPDXID": "SPDXRef-File-asyncio.pyd-93e5a7d998a8",
@@ -2157,7 +2157,7 @@
       ]
     }
   ],
-  "name": "SankakuSyncer-0.1.7-Windows-x64-runtime",
+  "name": "SankakuSyncer-0.1.8-Windows-x64-runtime",
   "packages": [
     {
       "SPDXID": "SPDXRef-Artifact-cpython-3.13.15-f4744a12d1e0",
@@ -2486,7 +2486,7 @@
         "packageVerificationCodeValue": "c8aa1cabe981e0c36b472ce9ae16467550a4c023"
       },
       "supplier": "NOASSERTION",
-      "versionInfo": "0.1.7"
+      "versionInfo": "0.1.8"
     },
     {
       "SPDXID": "SPDXRef-Package-SankakuSyncer",
@@ -2497,7 +2497,7 @@
       "licenseDeclared": "MIT",
       "name": "SankakuSyncer",
       "supplier": "NOASSERTION",
-      "versionInfo": "0.1.7"
+      "versionInfo": "0.1.8"
     },
     {
       "SPDXID": "SPDXRef-Qt-Module-qtbase-0ee5995ae652",

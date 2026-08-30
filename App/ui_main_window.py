@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import base64
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import os
 import re
@@ -15,6 +16,8 @@ from PySide6.QtCore import (
     QByteArray,
     QBuffer,
     QIODevice,
+    QItemSelection,
+    QItemSelectionModel,
     QModelIndex,
     QSize,
     Qt,
@@ -124,6 +127,17 @@ _LIBRARY_STATUS_TEXT = {
 }
 
 
+@dataclass(frozen=True)
+class _TaskViewState:
+    selected_ids: frozenset[str]
+    current_id: str
+    current_column: int
+    top_id: str
+    top_offset: int
+    vertical_scroll: int
+    horizontal_scroll: int
+
+
 def _format_file_size(value: object) -> str:
     if type(value) is not int or value < 0:
         return "—"
@@ -144,11 +158,44 @@ class _TaskTableModel(QAbstractTableModel):
         super().__init__(parent)
         self._tasks: tuple[DownloadTask, ...] = ()
 
-    def set_tasks(self, tasks: Iterable[DownloadTask]) -> None:
+    def requires_reset(self, tasks: Iterable[DownloadTask]) -> bool:
         prepared = tuple(tasks)
+        return len(prepared) != len(self._tasks) or any(
+            before.post_id != after.post_id
+            for before, after in zip(self._tasks, prepared)
+        )
+
+    def set_tasks(self, tasks: Iterable[DownloadTask]) -> bool:
+        prepared = tuple(tasks)
+        if not self.requires_reset(prepared):
+            changed_rows = [
+                row
+                for row, (before, after) in enumerate(zip(self._tasks, prepared))
+                if before != after
+            ]
+            self._tasks = prepared
+            if changed_rows:
+                last_column = self.columnCount() - 1
+                start = previous = changed_rows[0]
+                for row in changed_rows[1:]:
+                    if row != previous + 1:
+                        self.dataChanged.emit(
+                            self.index(start, 0),
+                            self.index(previous, last_column),
+                            [Qt.DisplayRole, Qt.ToolTipRole],
+                        )
+                        start = row
+                    previous = row
+                self.dataChanged.emit(
+                    self.index(start, 0),
+                    self.index(previous, last_column),
+                    [Qt.DisplayRole, Qt.ToolTipRole],
+                )
+            return False
         self.beginResetModel()
         self._tasks = prepared
         self.endResetModel()
+        return True
 
     def rowCount(self, parent=QModelIndex()) -> int:  # noqa: N802 - Qt API
         return 0 if parent.isValid() else len(self._tasks)
@@ -1164,16 +1211,25 @@ class MainWindow(QMainWindow):
     def _refresh_tasks(self) -> None:
         tasks = self.task_store.list()
         try:
-            visible = query_tasks(
-                tasks,
-                status=str(self.task_filter_combo.currentData() or ""),
-                query=self.task_search_edit.text(),
+            visible = tuple(
+                query_tasks(
+                    tasks,
+                    status=str(self.task_filter_combo.currentData() or ""),
+                    query=self.task_search_edit.text(),
+                )
             )
         except TaskQueryError as exc:
             self.task_model.set_tasks(())
             self.task_summary.setText(str(exc))
             return
-        self.task_model.set_tasks(visible)
+        view_state = (
+            self._capture_task_view_state()
+            if self.task_model.requires_reset(visible)
+            else None
+        )
+        reset = self.task_model.set_tasks(visible)
+        if reset and view_state is not None:
+            self._restore_task_view_state(visible, view_state)
         counts: dict[str, int] = {}
         for task in tasks:
             counts[task.status] = counts.get(task.status, 0) + 1
@@ -1183,10 +1239,104 @@ class MainWindow(QMainWindow):
             f"· 完成 {counts.get('completed', 0)}"
         )
 
+    def _capture_task_view_state(self) -> _TaskViewState:
+        current = self.task_table.currentIndex()
+        current_task = (
+            self.task_model.task_at(current.row()) if current.isValid() else None
+        )
+        top = self.task_table.indexAt(self.task_table.viewport().rect().topLeft())
+        top_task = self.task_model.task_at(top.row()) if top.isValid() else None
+        top_offset = self.task_table.visualRect(top).top() if top.isValid() else 0
+        return _TaskViewState(
+            selected_ids=frozenset(self._selected_task_ids()),
+            current_id=current_task.post_id if current_task is not None else "",
+            current_column=current.column() if current.isValid() else 0,
+            top_id=top_task.post_id if top_task is not None else "",
+            top_offset=top_offset,
+            vertical_scroll=self.task_table.verticalScrollBar().value(),
+            horizontal_scroll=self.task_table.horizontalScrollBar().value(),
+        )
+
+    def _restore_task_view_state(
+        self, visible: Iterable[DownloadTask], state: _TaskViewState
+    ) -> None:
+        rows_by_id = {task.post_id: row for row, task in enumerate(visible)}
+        selection_model = self.task_table.selectionModel()
+        selected_rows = sorted(
+            rows_by_id[post_id]
+            for post_id in state.selected_ids
+            if post_id in rows_by_id
+        )
+        if selected_rows:
+            selection = QItemSelection()
+            last_column = max(0, self.task_model.columnCount() - 1)
+            start = previous = selected_rows[0]
+            for row in selected_rows[1:]:
+                if row != previous + 1:
+                    selection.select(
+                        self.task_model.index(start, 0),
+                        self.task_model.index(previous, last_column),
+                    )
+                    start = row
+                previous = row
+            selection.select(
+                self.task_model.index(start, 0),
+                self.task_model.index(previous, last_column),
+            )
+            selection_model.select(selection, QItemSelectionModel.ClearAndSelect)
+
+        current_row = rows_by_id.get(state.current_id)
+        if current_row is not None and self.task_model.columnCount() > 0:
+            current_column = min(
+                max(0, state.current_column), self.task_model.columnCount() - 1
+            )
+            selection_model.setCurrentIndex(
+                self.task_model.index(current_row, current_column),
+                QItemSelectionModel.NoUpdate,
+            )
+
+        top_row = rows_by_id.get(state.top_id)
+        if top_row is not None:
+            self.task_table.scrollTo(
+                self.task_model.index(top_row, 0),
+                QAbstractItemView.PositionAtTop,
+            )
+            if self.task_table.verticalScrollMode() == QAbstractItemView.ScrollPerPixel:
+                bar = self.task_table.verticalScrollBar()
+                bar.setValue(bar.value() - state.top_offset)
+        else:
+            self.task_table.verticalScrollBar().setValue(state.vertical_scroll)
+        self.task_table.horizontalScrollBar().setValue(state.horizontal_scroll)
+
     def _selected_task_ids(self) -> list[str]:
         ids: list[str] = []
-        for index in self.task_table.selectionModel().selectedRows():
-            task = self.task_model.task_at(index.row())
+        row_count = self.task_model.rowCount()
+        column_count = self.task_model.columnCount()
+        if row_count <= 0 or column_count <= 0:
+            return ids
+        selected_rows: set[int] = set()
+        partial_masks: dict[int, int] = {}
+        full_mask = (1 << column_count) - 1
+        for selected_range in self.task_table.selectionModel().selection():
+            if not selected_range.isValid():
+                continue
+            first = max(0, selected_range.top())
+            last = min(row_count - 1, selected_range.bottom())
+            left = max(0, selected_range.left())
+            right = min(column_count - 1, selected_range.right())
+            if first > last or left > right:
+                continue
+            column_mask = ((1 << (right - left + 1)) - 1) << left
+            if column_mask == full_mask:
+                selected_rows.update(range(first, last + 1))
+                continue
+            for row in range(first, last + 1):
+                partial_masks[row] = partial_masks.get(row, 0) | column_mask
+        selected_rows.update(
+            row for row, mask in partial_masks.items() if mask == full_mask
+        )
+        for row in sorted(selected_rows):
+            task = self.task_model.task_at(row)
             if task is not None:
                 ids.append(task.post_id)
         return ids
