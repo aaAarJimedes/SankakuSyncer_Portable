@@ -353,6 +353,72 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
             finally:
                 self._close(window)
 
+    def test_task_view_filters_searches_and_keeps_download_all_global(self):
+        from task_store import DownloadTask
+
+        with tempfile.TemporaryDirectory() as root, mock.patch(
+            "ui_main_window.DownloadWorker",
+            _FakeDownloadWorker,
+        ):
+            _FakeDownloadWorker.instances.clear()
+            window = self.MainWindow(root)
+            try:
+                window.task_store.add_many(
+                    (
+                        DownloadTask("Pending_One", ""),
+                        DownloadTask(
+                            "Failed_Blue",
+                            "",
+                            status="failed",
+                            error="temporary server failure",
+                            output_files=("images/blue_sky.jpg",),
+                        ),
+                        DownloadTask(
+                            "Completed_One",
+                            "",
+                            status="completed",
+                            output_files=("images/finished.jpg",),
+                        ),
+                    )
+                )
+                window._refresh_tasks()
+
+                visible_ids = lambda: [
+                    window.task_model.task_at(row).post_id
+                    for row in range(window.task_model.rowCount())
+                ]
+                self.assertEqual(
+                    visible_ids(),
+                    ["Pending_One", "Failed_Blue", "Completed_One"],
+                )
+
+                window.task_filter_combo.setCurrentIndex(
+                    window.task_filter_combo.findData("failed")
+                )
+                window.task_search_edit.setText("blue_sky temporary")
+                self.assertEqual(visible_ids(), ["Failed_Blue"])
+                window.task_table.selectRow(0)
+                self.assertEqual(window._selected_task_ids(), ["Failed_Blue"])
+
+                window._retry_selected_tasks()
+                self.assertEqual(window.task_store.get("Failed_Blue").status, "pending")
+                self.assertEqual(visible_ids(), [])
+                self.assertIn("显示 0 / 共 3", window.task_summary.text())
+
+                window.task_search_edit.clear()
+                window.task_filter_combo.setCurrentIndex(
+                    window.task_filter_combo.findData("completed")
+                )
+                self.assertEqual(visible_ids(), ["Completed_One"])
+                window._start_download(selected_only=False)
+                self.assertEqual(len(_FakeDownloadWorker.instances), 1)
+                self.assertEqual(
+                    [task.post_id for task in _FakeDownloadWorker.instances[0].tasks],
+                    ["Pending_One", "Failed_Blue"],
+                )
+            finally:
+                self._close(window)
+
     def test_search_cancel_is_single_shot_and_preserves_committed_page(self):
         with tempfile.TemporaryDirectory() as root, mock.patch(
             "ui_main_window.SearchWorker", _FakeSearchWorker
@@ -1131,6 +1197,28 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
                 self.assertEqual(second._settings_snapshot()["download_dir"], expected)
             finally:
                 self._close(second)
+
+    def test_download_directory_resolution_rejects_ambiguous_windows_paths(self):
+        from settings_store import SettingsError
+
+        with tempfile.TemporaryDirectory() as root:
+            window = self.MainWindow(root)
+            try:
+                expected = os.path.abspath(os.path.join(root, "Downloads", "saved"))
+                self.assertEqual(
+                    window._resolve_download_dir("Downloads/saved"), expected
+                )
+                for value in (
+                    r"C:relative",
+                    r"\rooted",
+                    r"Downloads\..\escape",
+                    "Downloads/trailing ",
+                ):
+                    with self.subTest(value=value):
+                        with self.assertRaises(SettingsError):
+                            window._resolve_download_dir(value)
+            finally:
+                self._close(window)
 
     def test_disabled_remembrance_clears_an_orphaned_vault_on_startup(self):
         from credential_vault import StoredSession

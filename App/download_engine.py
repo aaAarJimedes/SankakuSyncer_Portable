@@ -798,6 +798,12 @@ class MediaDownloader:
             self._integrity_failure(part_path, state_path, "媒体文件为空")
 
         inspection = _inspect_media_file(part_path, self.stop_event)
+        if inspection.size != current or (total and inspection.size != total):
+            self._integrity_failure(
+                part_path,
+                state_path,
+                "媒体文件在校验前发生并发变化",
+            )
         try:
             content_type, extension = _resolve_media_format(
                 inspection,

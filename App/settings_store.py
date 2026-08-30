@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import json
+import ntpath
 import os
 import tempfile
 
@@ -13,6 +14,79 @@ from http_transport import normalize_proxy
 
 class SettingsError(RuntimeError):
     """Raised when settings cannot be validated or stored."""
+
+
+_WINDOWS_RESERVED_BASENAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{index}" for index in range(1, 10)}
+    | {f"LPT{index}" for index in range(1, 10)}
+    | {f"COM{suffix}" for suffix in ("¹", "²", "³")}
+    | {f"LPT{suffix}" for suffix in ("¹", "²", "³")}
+)
+_WINDOWS_INVALID_COMPONENT_CHARS = frozenset('<>:"|?*')
+_WINDOWS_DEVICE_PREFIXES = ("\\\\?\\", "\\\\.\\", "\\??\\", "\\\\??\\")
+
+
+def normalize_download_directory(value: object) -> str:
+    """Return an absolute Windows path or a portable ``Downloads`` path."""
+
+    if not isinstance(value, str) or len(value) > 32768:
+        raise SettingsError("invalid download directory")
+    if any(ord(character) < 32 for character in value):
+        raise SettingsError("invalid download directory")
+    candidate = value.strip()
+    if not candidate:
+        return ""
+    if candidate != value:
+        raise SettingsError("invalid download directory")
+
+    windows_value = candidate.replace("/", "\\")
+    if windows_value.startswith(_WINDOWS_DEVICE_PREFIXES):
+        raise SettingsError("invalid download directory")
+
+    drive, _tail = ntpath.splitdrive(windows_value)
+    absolute = ntpath.isabs(windows_value)
+    if drive and not absolute:
+        raise SettingsError("invalid download directory")
+
+    normalized = ntpath.normpath(windows_value)
+    if absolute:
+        if not drive:
+            raise SettingsError("invalid download directory")
+        if drive.startswith("\\\\"):
+            unc_parts = tuple(part for part in drive[2:].split("\\") if part)
+            if len(unc_parts) != 2:
+                raise SettingsError("invalid download directory")
+        elif len(drive) != 2 or drive[1] != ":" or not drive[0].isalpha():
+            raise SettingsError("invalid download directory")
+        _validate_windows_components(normalized, drive)
+        return normalized
+
+    if drive:
+        raise SettingsError("invalid download directory")
+    parts = tuple(part for part in normalized.split("\\") if part)
+    if not parts or parts[0].casefold() != "downloads":
+        raise SettingsError("invalid download directory")
+    _validate_windows_components(normalized, "")
+    return "/".join(("Downloads", *parts[1:]))
+
+
+def _validate_windows_components(path: str, drive: str) -> None:
+    components: list[str] = []
+    if drive.startswith("\\\\"):
+        components.extend(part for part in drive[2:].split("\\") if part)
+    tail = path[len(drive) :] if drive else path
+    components.extend(part for part in tail.split("\\") if part)
+    if not components and not drive:
+        raise SettingsError("invalid download directory")
+    for component in components:
+        if (
+            component in {".", ".."}
+            or component.endswith((".", " "))
+            or any(character in _WINDOWS_INVALID_COMPONENT_CHARS for character in component)
+            or component.split(".", 1)[0].upper() in _WINDOWS_RESERVED_BASENAMES
+        ):
+            raise SettingsError("invalid download directory")
 
 
 class SettingsStore:
@@ -99,11 +173,7 @@ class SettingsStore:
     @classmethod
     def _normalize(cls, key: str, value):
         if key == "download_dir":
-            if not isinstance(value, str) or len(value) > 32768:
-                raise SettingsError("invalid download directory")
-            if any(ord(char) < 32 for char in value):
-                raise SettingsError("invalid download directory")
-            return value
+            return normalize_download_directory(value)
         if key == "default_rating":
             if value not in {"s", "q", "e", "all"}:
                 raise SettingsError("invalid rating")
@@ -172,4 +242,4 @@ class SettingsStore:
                     pass
 
 
-__all__ = ["SettingsError", "SettingsStore"]
+__all__ = ["SettingsError", "SettingsStore", "normalize_download_directory"]

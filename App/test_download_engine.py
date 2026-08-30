@@ -337,6 +337,40 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         )
         self.assertTrue(response.closed)
 
+    def test_resume_rejects_concurrent_append_before_media_validation(self):
+        _final_path, part_path, state_path = self._paths()
+        with open(part_path, "wb") as file_obj:
+            file_obj.write(JPEG[:3])
+        self._write_state(variant="sample", expected_size=0, total_size=6)
+
+        def append_same_suffix(_index: int) -> None:
+            with open(part_path, "ab") as file_obj:
+                file_obj.write(JPEG[3:])
+
+        response = FakeMediaResponse(
+            206,
+            headers={
+                "Content-Type": "image/jpeg",
+                "Content-Length": "3",
+                "Content-Range": "bytes 3-5/6",
+                "ETag": '"v1"',
+            },
+            chunks=[JPEG[3:]],
+            before_chunk=append_same_suffix,
+        )
+        downloader, _api, _session = self._downloader(
+            _post(), response, prefer_original=False
+        )
+
+        with self.assertRaisesRegex(DownloadError, "并发变化"):
+            downloader.download("Post_1")
+
+        self.assertFalse(
+            os.path.exists(os.path.join(self.temp_dir.name, "Post_1.sample.jpg"))
+        )
+        self.assertEqual(os.path.getsize(part_path), 9)
+        self.assertTrue(os.path.isfile(state_path))
+
     def test_200_response_to_range_request_restarts_instead_of_appending(self):
         _final_path, part_path, state_path = self._paths()
         with open(part_path, "wb") as file_obj:

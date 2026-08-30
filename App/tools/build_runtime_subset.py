@@ -21,6 +21,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import tempfile
 import time
 from typing import Iterable, Sequence
 
@@ -913,18 +914,45 @@ def _run_verification_step(
     )
 
 
-_OFFLINE_MAINWINDOW_SMOKE_CODE = (
-    "import os,sys; sys.path.insert(0, os.environ['SANKAKU_VERIFY_APP']); "
-    "from PySide6.QtCore import QCoreApplication,Qt; "
-    "QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts); "
-    "from PySide6.QtWidgets import QApplication; "
-    "import ui_main_window; "
-    "app=QApplication([]); root=os.environ['SANKAKU_VERIFY_ROOT']; "
-    "window=ui_main_window.MainWindow(root); "
-    "actual=tuple(window.tabs.tabText(index) for index in range(window.tabs.count())); "
-    "assert actual == ui_main_window.MAIN_TAB_TITLES; "
-    "window.close(); window.deleteLater(); app.processEvents(); print('mainwindow-ok')"
+_OFFLINE_MAINWINDOW_SMOKE_CODE = "\n".join(
+    (
+        "import os, sys",
+        "sys.path.insert(0, os.environ['SANKAKU_VERIFY_APP'])",
+        "from PySide6.QtCore import QCoreApplication, Qt",
+        "QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts)",
+        "from PySide6.QtWidgets import QApplication",
+        "import ui_main_window",
+        "app = QApplication([])",
+        "root = os.environ['SANKAKU_VERIFY_ROOT']",
+        "window = ui_main_window.MainWindow(root)",
+        "expected = ui_main_window.MAIN_TAB_TITLES",
+        "actual = tuple(window.tabs.tabText(index) for index in range(window.tabs.count()))",
+        "if actual != expected:",
+        "    raise RuntimeError(f'tab contract mismatch: expected={expected!r}, actual={actual!r}')",
+        "window.close()",
+        "window.deleteLater()",
+        "app.processEvents()",
+        "print('mainwindow-ok')",
+    )
 )
+
+
+def _format_verification_failures(
+    results: Sequence[VerificationResult],
+) -> str:
+    failed = tuple(result for result in results if result.returncode)
+    if not failed:
+        return ""
+    lines = [f"verification failed: {', '.join(item.name for item in failed)}"]
+    for item in failed:
+        lines.append(f"[{item.name}] exit code {item.returncode}")
+        stdout = item.stdout.rstrip()
+        stderr = item.stderr.rstrip()
+        if stdout:
+            lines.extend(("stdout:", stdout))
+        if stderr:
+            lines.extend(("stderr:", stderr))
+    return "\n".join(lines)
 
 
 def verify_runtime(runtime: Path, app: Path) -> list[VerificationResult]:
@@ -937,11 +965,6 @@ def verify_runtime(runtime: Path, app: Path) -> list[VerificationResult]:
             "verification requires CPython "
             f"{TARGET_PYTHON_VERSION[0]}.{TARGET_PYTHON_VERSION[1]}"
         )
-    temp_root = runtime / "_verify_tmp"
-    if temp_root.exists():
-        shutil.rmtree(temp_root)
-    temp_root.mkdir(parents=True)
-    environment = _verification_environment(runtime, app, temp_root)
     results: list[VerificationResult] = []
     steps: tuple[tuple[str, Sequence[str], dict[str, str]], ...] = (
         (
@@ -992,7 +1015,6 @@ def verify_runtime(runtime: Path, app: Path) -> list[VerificationResult]:
             {
                 "SANKAKU_DISABLE_WEBENGINE": "1",
                 "SANKAKU_VERIFY_APP": str(app),
-                "SANKAKU_VERIFY_ROOT": str(temp_root / "portable_root"),
             },
         ),
         (
@@ -1011,10 +1033,16 @@ def verify_runtime(runtime: Path, app: Path) -> list[VerificationResult]:
             },
         ),
     )
-    try:
+    with tempfile.TemporaryDirectory(prefix="sankaku-runtime-verify-") as temporary:
+        temp_root = Path(temporary)
+        environment = _verification_environment(runtime, app, temp_root)
         for name, command, overrides in steps:
             step_environment = dict(environment)
             step_environment.update(overrides)
+            if name == "offline_mainwindow_construction":
+                step_environment["SANKAKU_VERIFY_ROOT"] = str(
+                    temp_root / "portable_root"
+                )
             results.append(
                 _run_verification_step(
                     name,
@@ -1023,8 +1051,6 @@ def verify_runtime(runtime: Path, app: Path) -> list[VerificationResult]:
                     cwd=app,
                 )
             )
-    finally:
-        shutil.rmtree(temp_root, ignore_errors=True)
     return results
 
 
@@ -1046,9 +1072,9 @@ def build_runtime(
         raise RuntimeBuildError(f"forbidden files reached output: {forbidden}")
     verification = verify_runtime(builder.destination, app.resolve()) if verify else []
     report = builder.write_manifest(verification)
-    failed = [item.name for item in verification if item.returncode]
-    if failed:
-        raise RuntimeBuildError(f"verification failed: {', '.join(failed)}")
+    failure_message = _format_verification_failures(verification)
+    if failure_message:
+        raise RuntimeBuildError(failure_message)
     return report, verification
 
 

@@ -48,8 +48,6 @@ from PySide6.QtWidgets import (
     QSplitter,
     QStatusBar,
     QTableView,
-    QTableWidget,
-    QTableWidgetItem,
     QTabWidget,
     QTextEdit,
     QVBoxLayout,
@@ -74,7 +72,12 @@ from sankaku_url_policy import (
     post_id_from_url,
     tag_search_url,
 )
-from settings_store import SettingsError, SettingsStore
+from settings_store import (
+    SettingsError,
+    SettingsStore,
+    normalize_download_directory,
+)
+from task_query import TaskQueryError, query_tasks
 from task_store import DownloadTask, TaskStore, TaskStoreCorruptError, TaskStoreError
 from version import APP_DISPLAY_NAME
 from workers import (
@@ -130,6 +133,59 @@ def _format_file_size(value: object) -> str:
             return f"{int(size)} {unit}" if unit == "B" else f"{size:.1f} {unit}"
         size /= 1024.0
     return "—"
+
+
+class _TaskTableModel(QAbstractTableModel):
+    """Expose a filtered task view without allocating one item per cell."""
+
+    _HEADERS = ("作品 ID", "分级", "状态", "加入时间", "输出", "说明")
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._tasks: tuple[DownloadTask, ...] = ()
+
+    def set_tasks(self, tasks: Iterable[DownloadTask]) -> None:
+        prepared = tuple(tasks)
+        self.beginResetModel()
+        self._tasks = prepared
+        self.endResetModel()
+
+    def rowCount(self, parent=QModelIndex()) -> int:  # noqa: N802 - Qt API
+        return 0 if parent.isValid() else len(self._tasks)
+
+    def columnCount(self, parent=QModelIndex()) -> int:  # noqa: N802 - Qt API
+        return 0 if parent.isValid() else len(self._HEADERS)
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):  # noqa: N802
+        if (
+            role == Qt.DisplayRole
+            and orientation == Qt.Horizontal
+            and 0 <= section < len(self._HEADERS)
+        ):
+            return self._HEADERS[section]
+        return None
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid() or not 0 <= index.row() < len(self._tasks):
+            return None
+        task = self._tasks[index.row()]
+        column = index.column()
+        if role == Qt.ToolTipRole and column in {4, 5}:
+            return "; ".join(task.output_files) if column == 4 else task.error
+        if role != Qt.DisplayRole:
+            return None
+        values = (
+            task.post_id,
+            _RATING_TEXT.get(task.rating, "未知"),
+            _STATUS_TEXT.get(task.status, task.status),
+            task.added_at.replace("T", " ")[:19],
+            "; ".join(task.output_files),
+            task.error,
+        )
+        return values[column] if 0 <= column < len(values) else None
+
+    def task_at(self, row: int) -> DownloadTask | None:
+        return self._tasks[row] if 0 <= row < len(self._tasks) else None
 
 
 class _LibraryTableModel(QAbstractTableModel):
@@ -458,11 +514,39 @@ class MainWindow(QMainWindow):
         actions.addWidget(self.task_summary)
         layout.addLayout(actions)
 
-        splitter = QSplitter(Qt.Vertical)
-        self.task_table = QTableWidget(0, 6)
-        self.task_table.setHorizontalHeaderLabels(
-            ["作品 ID", "分级", "状态", "加入时间", "输出", "说明"]
+        filters = QHBoxLayout()
+        filters.addWidget(QLabel("状态"))
+        self.task_filter_combo = QComboBox()
+        self.task_filter_combo.setAccessibleName("下载任务状态筛选")
+        self.task_filter_combo.addItem("全部", "")
+        for status in (
+            "pending",
+            "queued",
+            "running",
+            "completed",
+            "failed",
+            "cancelled",
+        ):
+            self.task_filter_combo.addItem(_STATUS_TEXT[status], status)
+        self.task_filter_combo.currentIndexChanged.connect(
+            lambda _index: self._refresh_tasks()
         )
+        filters.addWidget(self.task_filter_combo)
+        filters.addWidget(QLabel("搜索"))
+        self.task_search_edit = QLineEdit()
+        self.task_search_edit.setAccessibleName("搜索下载任务")
+        self.task_search_edit.setPlaceholderText("作品 ID、输出文件或失败说明（空格分隔多个条件）")
+        self.task_search_edit.setClearButtonEnabled(True)
+        self.task_search_edit.setMaxLength(256)
+        self.task_search_edit.textChanged.connect(lambda _text: self._refresh_tasks())
+        filters.addWidget(self.task_search_edit, 1)
+        layout.addLayout(filters)
+
+        splitter = QSplitter(Qt.Vertical)
+        self.task_table = QTableView()
+        self.task_table.setAccessibleName("下载任务筛选结果")
+        self.task_model = _TaskTableModel(self.task_table)
+        self.task_table.setModel(self.task_model)
         self.task_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.task_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.task_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -715,18 +799,28 @@ class MainWindow(QMainWindow):
         return snapshot
 
     def _resolve_download_dir(self, value: str) -> str:
-        candidate = value.strip() if isinstance(value, str) else ""
+        candidate = normalize_download_directory(value)
         if not candidate:
             return self.default_download_dir
         if os.path.isabs(candidate):
             return os.path.abspath(candidate)
-        return os.path.abspath(os.path.join(self.portable_root, candidate))
+        resolved = os.path.abspath(
+            os.path.join(self.portable_root, candidate.replace("/", os.sep))
+        )
+        downloads_root = os.path.abspath(
+            os.path.join(self.portable_root, "Downloads")
+        )
+        if os.path.commonpath((resolved, downloads_root)) != downloads_root:
+            raise SettingsError("invalid download directory")
+        return resolved
 
     def _portable_download_value(self, value: str) -> str:
-        candidate = value.strip()
-        if not candidate:
+        if not value.strip():
             return "Downloads"
-        absolute = os.path.abspath(candidate)
+        normalized = normalize_download_directory(value)
+        if not os.path.isabs(normalized):
+            return normalized
+        absolute = os.path.abspath(normalized)
         try:
             relative = os.path.relpath(absolute, self.portable_root)
         except ValueError:
@@ -1068,30 +1162,32 @@ class MainWindow(QMainWindow):
 
     def _refresh_tasks(self) -> None:
         tasks = self.task_store.list()
-        self.task_table.setRowCount(len(tasks))
-        for row, task in enumerate(tasks):
-            id_item = QTableWidgetItem(task.post_id)
-            id_item.setData(Qt.UserRole, task.post_id)
-            self.task_table.setItem(row, 0, id_item)
-            self.task_table.setItem(row, 1, QTableWidgetItem(_RATING_TEXT.get(task.rating, "未知")))
-            self.task_table.setItem(row, 2, QTableWidgetItem(_STATUS_TEXT.get(task.status, task.status)))
-            self.task_table.setItem(row, 3, QTableWidgetItem(task.added_at.replace("T", " ")[:19]))
-            self.task_table.setItem(row, 4, QTableWidgetItem("; ".join(task.output_files)))
-            self.task_table.setItem(row, 5, QTableWidgetItem(task.error))
+        try:
+            visible = query_tasks(
+                tasks,
+                status=str(self.task_filter_combo.currentData() or ""),
+                query=self.task_search_edit.text(),
+            )
+        except TaskQueryError as exc:
+            self.task_model.set_tasks(())
+            self.task_summary.setText(str(exc))
+            return
+        self.task_model.set_tasks(visible)
         counts: dict[str, int] = {}
         for task in tasks:
             counts[task.status] = counts.get(task.status, 0) + 1
         self.task_summary.setText(
-            f"共 {len(tasks)} · 待处理 {sum(counts.get(x, 0) for x in ('pending','failed','cancelled'))} "
+            f"显示 {len(visible)} / 共 {len(tasks)} · "
+            f"待处理 {sum(counts.get(x, 0) for x in ('pending','failed','cancelled'))} "
             f"· 完成 {counts.get('completed', 0)}"
         )
 
     def _selected_task_ids(self) -> list[str]:
         ids: list[str] = []
         for index in self.task_table.selectionModel().selectedRows():
-            item = self.task_table.item(index.row(), 0)
-            if item:
-                ids.append(str(item.data(Qt.UserRole)))
+            task = self.task_model.task_at(index.row())
+            if task is not None:
+                ids.append(task.post_id)
         return ids
 
     def _retry_selected_tasks(self) -> None:

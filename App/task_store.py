@@ -6,6 +6,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 import json
+import ntpath
 import os
 import tempfile
 import threading
@@ -21,6 +22,14 @@ TASK_STATES = frozenset(
     {"pending", "queued", "running", "completed", "failed", "cancelled"}
 )
 RETRYABLE_STATES = frozenset({"pending", "failed", "cancelled"})
+_WINDOWS_RESERVED_BASENAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{index}" for index in range(1, 10)}
+    | {f"LPT{index}" for index in range(1, 10)}
+    | {f"COM{suffix}" for suffix in ("¹", "²", "³")}
+    | {f"LPT{suffix}" for suffix in ("¹", "²", "³")}
+)
+_WINDOWS_INVALID_COMPONENT_CHARS = frozenset('<>:"|?*')
 
 
 class TaskStoreFailure(RuntimeError):
@@ -121,15 +130,28 @@ def _validate_timestamp(value: object) -> str:
 def _validate_relative_path(value: object) -> str:
     if not isinstance(value, str) or not value or len(value) > 32768:
         raise TaskStoreError("invalid output path")
-    normalized = os.path.normpath(value)
+    windows_value = value.replace("/", "\\")
+    drive, _tail = ntpath.splitdrive(windows_value)
+    raw_parts = tuple(part for part in windows_value.split("\\") if part)
+    normalized = ntpath.normpath(windows_value)
+    parts = tuple(part for part in normalized.split("\\") if part)
     if (
-        os.path.isabs(normalized)
-        or normalized == ".."
-        or normalized.startswith(".." + os.sep)
+        drive
+        or ntpath.isabs(windows_value)
+        or not parts
+        or any(part == ".." for part in raw_parts)
         or any(ord(char) < 32 for char in normalized)
     ):
         raise TaskStoreError("invalid output path")
-    return normalized.replace("\\", "/")
+    for part in parts:
+        if (
+            part in {".", ".."}
+            or part.endswith((".", " "))
+            or any(char in _WINDOWS_INVALID_COMPONENT_CHARS for char in part)
+            or part.split(".", 1)[0].upper() in _WINDOWS_RESERVED_BASENAMES
+        ):
+            raise TaskStoreError("invalid output path")
+    return "/".join(parts)
 
 
 class TaskStore:

@@ -10,6 +10,7 @@ from pathlib import Path, PurePosixPath
 import struct
 import tempfile
 import unittest
+from unittest import mock
 
 from tools import build_runtime_subset as runtime_builder
 
@@ -106,6 +107,68 @@ class RuntimeAllowlistTests(unittest.TestCase):
         code = runtime_builder._OFFLINE_MAINWINDOW_SMOKE_CODE
         self.assertIn("ui_main_window.MAIN_TAB_TITLES", code)
         self.assertNotIn("tabs.count()==", code)
+        self.assertIn("expected=", code)
+        self.assertIn("actual=", code)
+
+    def test_verification_failure_formatter_keeps_only_failed_diagnostics(self):
+        results = (
+            runtime_builder.VerificationResult("passed", 0, 0.1, "secret", ""),
+            runtime_builder.VerificationResult("first", 2, 0.2, "one\n", ""),
+            runtime_builder.VerificationResult("second", 3, 0.3, "", "two\n"),
+        )
+
+        message = runtime_builder._format_verification_failures(results)
+
+        self.assertTrue(message.startswith("verification failed: first, second"))
+        self.assertNotIn("passed", message)
+        self.assertNotIn("secret", message)
+        self.assertLess(message.index("[first]"), message.index("[second]"))
+        self.assertIn("[first] exit code 2\nstdout:\none", message)
+        self.assertIn("[second] exit code 3\nstderr:\ntwo", message)
+        self.assertEqual(runtime_builder._format_verification_failures(results[:1]), "")
+
+    def test_runtime_verification_uses_a_temporary_root_outside_the_payload(self):
+        with tempfile.TemporaryDirectory() as raw_root:
+            root = Path(raw_root)
+            runtime = root / "runtime"
+            app = root / "app"
+            runtime.mkdir()
+            app.mkdir()
+            (runtime / "python.exe").write_bytes(b"MZ")
+            temporary_roots: list[Path] = []
+
+            def capture_environment(_runtime, _app, temporary_root):
+                temporary_roots.append(temporary_root)
+                return {}
+
+            def successful_step(name, _command, **_kwargs):
+                return runtime_builder.VerificationResult(name, 0, 0.0, "", "")
+
+            with (
+                mock.patch.object(
+                    runtime_builder,
+                    "detect_python_layout",
+                    return_value=mock.Mock(version_info=(3, 13)),
+                ),
+                mock.patch.object(
+                    runtime_builder,
+                    "_verification_environment",
+                    side_effect=capture_environment,
+                ),
+                mock.patch.object(
+                    runtime_builder,
+                    "_run_verification_step",
+                    side_effect=successful_step,
+                ),
+            ):
+                results = runtime_builder.verify_runtime(runtime, app)
+
+            self.assertEqual(len(results), 4)
+            self.assertEqual(len(temporary_roots), 1)
+            self.assertFalse(
+                temporary_roots[0].resolve().is_relative_to(runtime.resolve())
+            )
+            self.assertFalse(temporary_roots[0].exists())
 
     def test_forbidden_cache_development_and_heavy_binaries(self):
         rejected = (

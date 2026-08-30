@@ -133,7 +133,7 @@ class SettingsStoreTests(unittest.TestCase):
                     with self.assertRaises(SettingsError):
                         self.store.set(key, value)
 
-        download_at_limit = "D" * 32768
+        download_at_limit = "D:\\" + "x" * (32768 - 3)
         self.store.set("download_dir", download_at_limit)
         self.assertEqual(self.store.get("download_dir"), download_at_limit)
         with self.assertRaises(SettingsError):
@@ -153,6 +153,41 @@ class SettingsStoreTests(unittest.TestCase):
             with self.subTest(receipt=receipt):
                 with self.assertRaises(SettingsError):
                     self.store.set("credential_vault_receipt", receipt)
+
+    def test_download_directory_accepts_only_canonical_portable_or_absolute_paths(self):
+        accepted = (
+            ("", ""),
+            ("Downloads", "Downloads"),
+            (r"downloads\albums\..\saved", "Downloads/saved"),
+            (r"D:\Media\Sankaku", r"D:\Media\Sankaku"),
+            (r"\\server\share\Sankaku", r"\\server\share\Sankaku"),
+        )
+        for value, expected in accepted:
+            with self.subTest(value=value):
+                self.store.set("download_dir", value)
+                self.assertEqual(self.store.get("download_dir"), expected)
+
+        rejected = (
+            "Media",
+            r"..\escape",
+            r"Downloads\..\escape",
+            r"C:relative",
+            r"C:..\escape",
+            r"\rooted",
+            r"\\?\C:\Media",
+            r"\\.\C:\Media",
+            r"\??\C:\Media",
+            r"Downloads\bad:stream",
+            r"Downloads\CON",
+            "Downloads/COM¹.txt",
+            r"D:\Media\LPT²",
+            "Downloads/trailing.",
+            "Downloads/trailing ",
+        )
+        for value in rejected:
+            with self.subTest(value=value):
+                with self.assertRaises(SettingsError):
+                    self.store.set("download_dir", value)
 
     def test_proxy_validation_accepts_only_credential_free_host_and_port(self):
         accepted = (
