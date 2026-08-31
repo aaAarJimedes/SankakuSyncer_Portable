@@ -69,7 +69,8 @@ class BoundProcessLockTests(unittest.TestCase):
 
     def test_independent_process_is_blocked_then_can_acquire_after_release(self):
         child_code = (
-            "import sys; from bound_process_lock import BoundProcessLock,"
+            "import sys; sys.path.insert(0,sys.argv[3]); "
+            "from bound_process_lock import BoundProcessLock,"
             " BoundProcessLockBusy, BoundProcessLockError; "
             "lock=BoundProcessLock(sys.argv[1],sys.argv[2]); "
             "\ntry:\n lock.__enter__()\n"
@@ -80,6 +81,7 @@ class BoundProcessLockTests(unittest.TestCase):
 
         def run_child() -> subprocess.CompletedProcess[bytes]:
             environment = dict(os.environ)
+            environment.pop("PYTHONPATH", None)
             environment["PYTHONDONTWRITEBYTECODE"] = "1"
             return subprocess.run(
                 [
@@ -89,8 +91,9 @@ class BoundProcessLockTests(unittest.TestCase):
                     child_code,
                     self.data_dir,
                     ".process.lock",
+                    os.path.abspath(os.path.dirname(__file__)),
                 ],
-                cwd=os.path.dirname(__file__),
+                cwd=self._temporary.name,
                 env=environment,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
