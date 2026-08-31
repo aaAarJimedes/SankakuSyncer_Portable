@@ -1148,7 +1148,15 @@ class BoundTreeSession:
                         f"private directory must use canonical name: {private_name}"
                     )
 
-                child_token = self._open_any(directory_token, name)
+                try:
+                    child_token = self._open_any(directory_token, name)
+                except BoundTreeUnsafe:
+                    if private_name is not None:
+                        raise BoundTreeUnsafe(
+                            "private archive path must be a plain directory: "
+                            f"{private_name}"
+                        ) from None
+                    raise
                 try:
                     try:
                         before = self._state(child_token)

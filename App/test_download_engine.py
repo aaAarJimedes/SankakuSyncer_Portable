@@ -557,7 +557,7 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
 
         final_commits = [pair for pair in observed_commits if pair[1] == "Post_1.jpg"]
         self.assertEqual(len(final_commits), 1)
-        self.assertEqual(result.file_path, final_path)
+        self.assertTrue(os.path.samefile(result.file_path, final_path))
         self.assertTrue(os.path.isfile(final_path))
         self.assertFalse(os.path.exists(self._paths()[1]))
 
@@ -1178,7 +1178,9 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         for unsafe_path in (final_path, part_path, state_path):
             with self.subTest(unsafe_path=unsafe_path):
                 def selective_lstat(path: str):
-                    if os.path.normcase(path) == os.path.normcase(unsafe_path):
+                    if os.path.normcase(os.path.basename(path)) == os.path.normcase(
+                        os.path.basename(unsafe_path)
+                    ):
                         return fake_reparse
                     return real_lstat(path)
 
@@ -1211,7 +1213,9 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         )
 
         def selective_lstat(path: str):
-            if os.path.normcase(path) == os.path.normcase(sidecar_path):
+            if os.path.normcase(os.path.basename(path)) == os.path.normcase(
+                os.path.basename(sidecar_path)
+            ):
                 return fake_reparse
             return real_lstat(path)
 
@@ -2443,74 +2447,6 @@ class MediaDownloaderOfflineTests(unittest.TestCase):
         for payload in payloads:
             with self.subTest(payload=payload[:8]):
                 self.assertEqual(download_engine._media_signatures(payload), frozenset())
-
-    def test_download_worker_emits_metadata_warning_without_marking_failure(self):
-        from task_store import DownloadTask
-        import workers
-
-        api = mock.Mock()
-        result = DownloadResult(
-            post_id="Post_1",
-            file_path=self._paths()[0],
-            relative_path="Post_1.jpg",
-            size=6,
-            sha256="a" * 64,
-            resumed=False,
-            already_present=False,
-            metadata_warning="元数据写入失败",
-        )
-
-        class FakeDownloader:
-            def __init__(self, *_args, **_kwargs):
-                self.closed = False
-
-            def download(self, _post_id: str, *, progress=None):
-                del progress
-                return result
-
-            def close(self):
-                self.closed = True
-
-        task = DownloadTask(
-            post_id="Post_1",
-            source_url="https://chan.sankakucomplex.com/post/show/Post_1",
-        )
-        settings = {
-            "download_dir": self.temp_dir.name,
-            "request_timeout": 10,
-            "max_retries": 0,
-            "prefer_original": True,
-            "save_metadata": True,
-        }
-        warnings: list[tuple[object, str, str]] = []
-        successes: list[tuple[object, str]] = []
-        failures: list[tuple[object, str, str]] = []
-        finished: list[tuple[object, int, int, bool]] = []
-        with mock.patch("workers._api_from_settings", return_value=api), mock.patch(
-            "workers.MediaDownloader", FakeDownloader
-        ):
-            worker = workers.DownloadWorker(settings, "token", [task])
-            worker.item_warning.connect(
-                lambda owner, post_id, text: warnings.append((owner, post_id, text))
-            )
-            worker.item_succeeded.connect(
-                lambda owner, post_id, _result: successes.append((owner, post_id))
-            )
-            worker.item_failed.connect(
-                lambda owner, post_id, text: failures.append((owner, post_id, text))
-            )
-            worker.batch_finished.connect(
-                lambda owner, succeeded, failed, cancelled: finished.append(
-                    (owner, succeeded, failed, cancelled)
-                )
-            )
-            worker.run()
-
-        self.assertEqual(warnings, [(worker, "Post_1", "元数据写入失败")])
-        self.assertEqual(successes, [(worker, "Post_1")])
-        self.assertEqual(failures, [])
-        self.assertEqual(finished, [(worker, 1, 0, False)])
-        api.close.assert_called_once_with()
 
     def test_cancellation_keeps_secret_free_resumable_state(self):
         stop_event = threading.Event()

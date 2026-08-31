@@ -550,6 +550,62 @@ class LibraryThumbnailWorkerOfflineTests(unittest.TestCase):
 
 
 class WorkerLifecycleTests(unittest.TestCase):
+    def test_download_worker_emits_metadata_warning_without_marking_failure(self):
+        api = mock.Mock()
+        result = SimpleNamespace(metadata_warning="元数据写入失败")
+
+        class FakeDownloader:
+            def __init__(self, *_args, **_kwargs):
+                self.closed = False
+
+            def download(self, _post_id: str, *, progress=None):
+                del progress
+                return result
+
+            def close(self):
+                self.closed = True
+
+        task = workers.DownloadTask(
+            post_id="Post_1",
+            source_url="https://chan.sankakucomplex.com/post/show/Post_1",
+        ).validated()
+        settings = {
+            "download_dir": "unused-by-fake",
+            "request_timeout": 10,
+            "max_retries": 0,
+            "prefer_original": True,
+            "save_metadata": True,
+        }
+        warnings: list[tuple[object, str, str]] = []
+        successes: list[tuple[object, str]] = []
+        failures: list[tuple[object, str, str]] = []
+        finished: list[tuple[object, int, int, bool]] = []
+        with mock.patch("workers._api_from_settings", return_value=api), mock.patch(
+            "workers.MediaDownloader", FakeDownloader
+        ):
+            worker = DownloadWorker(settings, "token", [task])
+            worker.item_warning.connect(
+                lambda owner, post_id, text: warnings.append((owner, post_id, text))
+            )
+            worker.item_succeeded.connect(
+                lambda owner, post_id, _result: successes.append((owner, post_id))
+            )
+            worker.item_failed.connect(
+                lambda owner, post_id, text: failures.append((owner, post_id, text))
+            )
+            worker.batch_finished.connect(
+                lambda owner, succeeded, failed, cancelled: finished.append(
+                    (owner, succeeded, failed, cancelled)
+                )
+            )
+            worker.run()
+
+        self.assertEqual(warnings, [(worker, "Post_1", "元数据写入失败")])
+        self.assertEqual(successes, [(worker, "Post_1")])
+        self.assertEqual(failures, [])
+        self.assertEqual(finished, [(worker, 1, 0, False)])
+        api.close.assert_called_once_with()
+
     def test_search_cancel_closes_live_api_and_clears_token(self):
         class BlockingAPI:
             def __init__(self):
