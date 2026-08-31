@@ -353,6 +353,69 @@ class MainWindowOfflineSmokeTests(unittest.TestCase):
             finally:
                 self._close(window)
 
+    def test_browser_uses_saved_proxy_and_applies_edits_without_restart(self):
+        from settings_store import SettingsStore
+        import ui_browser_tab as browser_module
+
+        initial_proxy = "http://127.0.0.1:8080"
+        updated_proxy = "http://127.0.0.1:8888"
+        with tempfile.TemporaryDirectory() as root:
+            store = SettingsStore(os.path.join(root, "Data"))
+            store.set("proxy", initial_proxy)
+            store.save()
+            with mock.patch.object(
+                browser_module,
+                "_configure_webengine_proxy",
+                return_value=(initial_proxy, "explicit"),
+            ) as configure:
+                window = self.MainWindow(root)
+            try:
+                configure.assert_called_once_with(initial_proxy)
+                self.assertEqual(window.browser_tab.proxy, initial_proxy)
+                self.assertEqual(window.browser_tab.proxy_route, "explicit")
+
+                window.proxy_edit.setText(updated_proxy)
+                with mock.patch.object(
+                    window.browser_tab, "set_proxy", return_value=True
+                ) as set_proxy:
+                    window._save_settings()
+
+                set_proxy.assert_called_once_with(updated_proxy)
+                self.assertEqual(window.settings.get("proxy"), updated_proxy)
+                self.assertEqual(window.status_label.text(), "设置已安全保存")
+            finally:
+                self._close(window)
+
+    def test_used_browser_reloads_when_proxy_source_changes(self):
+        import ui_browser_tab as browser_module
+
+        with tempfile.TemporaryDirectory() as root, mock.patch.object(
+            browser_module,
+            "_configure_webengine_proxy",
+            return_value=("", "system"),
+        ):
+            window = self.MainWindow(root)
+            try:
+                browser_tab = window.browser_tab
+                fake_view = mock.Mock()
+                browser_tab.web_view = fake_view
+                browser_tab._loaded_once = True
+                with mock.patch.object(
+                    browser_module,
+                    "_configure_webengine_proxy",
+                    return_value=("http://127.0.0.1:8080", "explicit"),
+                ):
+                    self.assertTrue(
+                        browser_tab.set_proxy("http://127.0.0.1:8080")
+                    )
+
+                fake_view.reload.assert_called_once_with()
+                self.assertEqual(browser_tab.proxy_route, "explicit")
+                self.assertIn("显式 HTTP 代理", browser_tab.status_label.text())
+                browser_tab.web_view = None
+            finally:
+                self._close(window)
+
     def test_task_view_filters_searches_and_keeps_download_all_global(self):
         from task_store import DownloadTask
 

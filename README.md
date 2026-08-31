@@ -10,12 +10,13 @@
 
 ![SankakuSyncer 下载任务搜索与状态筛选界面](docs/SankakuSyncer_UI.png)
 
-## 0.1.21 功能
+## 0.1.22 功能
 
 逐版变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 当前版本包含：
 
+- 站内浏览与其余联网功能不再分裂代理链路：填写显式 HTTP 代理后，API、缩略图、下载和 Qt WebEngine 共同使用；留空时 API/下载保持直连，站内浏览遵循 Windows 系统代理。保存后即时切换并重新载入已打开页面，状态栏会显示当前代理来源。
 - 同一下载目录由固定、持久且不含秘密的 `.sankakusyncer-download.lock` 串行保护。租约在重新获取作品元数据和签名 URL 前取得，并一直覆盖续传、发布、sidecar 与结果生成；等待可取消，进程崩溃后由系统释放锁，锁文件本身不被删除、清空或改写。
 - `.part` 在发布前会从绑定对象重新完整散列。Windows 以拒绝共享写的原生 HANDLE 执行 root-relative no-clobber rename，并持有到最终名称、大小、摘要、sidecar 和结果均确认；POSIX 发布独立快照并使用 `renameat2(RENAME_NOREPLACE)`，旧追加 fd 不能改变已发布 inode。校验后追加、同元数据替身、多链接、目标抢占或返回前名称替换都不会产生错误成功结果。
 - 下载期间所有普通路径 I/O 都锚定到租约句柄解析出的实际目录；祖先链接或 junction 被换向时不会向新目标创建 part/state/sidecar，也不会删除新目标的兼容 decoy。只有遵守该租约的当前版本实例会互相协调；下载目录仍须是当前用户独占写入的普通本地目录。
@@ -86,7 +87,7 @@
 
 首次运行：
 
-1. 在“账号与设置”选择下载目录。
+1. 在“账号与设置”选择下载目录；如需统一显式代理，可填写 `http://主机:端口`。留空时站内浏览使用 Windows 系统代理，而 API 与下载直连。
 2. 如需账号内容，在同页输入账号密码并点击“验证并登录”；勾选后仅保存 DPAPI 加密文件。
 3. 在“发现与搜索”输入标签，选择结果加入任务篮；也可从受限站内页收集当前可见作品链接。
 4. 在“下载任务”中选择单项或顺序下载全部待处理任务。
@@ -96,7 +97,7 @@
 
 ## 源码开发
 
-项目使用 Python 3.13、PySide6 6.11.2 与 Windows 原生 WinHTTP/Schannel。应用传输不携带 requests、urllib3、PySocks、Python `_ssl` 或 OpenSSL DLL；代理只支持一个不带凭据的显式 HTTP 代理（可为 HTTPS 目标建立 CONNECT），不支持 SOCKS 或 HTTPS-to-proxy。普通开发环境：
+项目使用 Python 3.13、PySide6 6.11.2 与 Windows 原生 WinHTTP/Schannel。应用传输不携带 requests、urllib3、PySocks、Python `_ssl` 或 OpenSSL DLL；统一显式代理只支持一个不带凭据的 HTTP 代理（可为 HTTPS 目标建立 CONNECT），不支持 SOCKS 或 HTTPS-to-proxy。显式代理留空时，WinHTTP API/下载保持直连，Qt WebEngine 按 Qt 官方代理接口读取 Windows 系统代理；继承的代理环境变量仍会在导入 Qt 前清除。普通开发环境：
 
 ```powershell
 python -m venv .venv

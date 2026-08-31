@@ -36,6 +36,75 @@ class _SignalRecorder:
         self.count += 1
 
 
+class _FakeNetworkProxy:
+    class ProxyType:
+        HttpProxy = "http-proxy"
+
+    applied = []
+
+    def __init__(self, proxy_type, host, port):
+        self.proxy_type = proxy_type
+        self.host = host
+        self.port = port
+
+    @classmethod
+    def setApplicationProxy(cls, proxy):  # noqa: N802 - Qt-compatible fake
+        cls.applied.append(proxy)
+
+
+class _FakeNetworkProxyFactory:
+    system_configuration_calls = []
+
+    @classmethod
+    def setUseSystemConfiguration(cls, enabled):  # noqa: N802 - Qt-compatible fake
+        cls.system_configuration_calls.append(enabled)
+
+
+class BrowserProxyConfigurationTests(unittest.TestCase):
+    def setUp(self):
+        _FakeNetworkProxy.applied.clear()
+        _FakeNetworkProxyFactory.system_configuration_calls.clear()
+
+    def test_explicit_http_proxy_is_forwarded_to_qt_webengine(self):
+        normalized, route = browser._configure_webengine_proxy(
+            "  http://Proxy.Example:8080/  ",
+            network_proxy_class=_FakeNetworkProxy,
+            network_proxy_factory_class=_FakeNetworkProxyFactory,
+        )
+
+        self.assertEqual(normalized, "http://proxy.example:8080")
+        self.assertEqual(route, "explicit")
+        self.assertEqual(_FakeNetworkProxyFactory.system_configuration_calls, [])
+        self.assertEqual(len(_FakeNetworkProxy.applied), 1)
+        configured = _FakeNetworkProxy.applied[0]
+        self.assertEqual(configured.proxy_type, "http-proxy")
+        self.assertEqual(configured.host, "proxy.example")
+        self.assertEqual(configured.port, 8080)
+
+    def test_empty_explicit_proxy_uses_system_configuration(self):
+        normalized, route = browser._configure_webengine_proxy(
+            "   ",
+            network_proxy_class=_FakeNetworkProxy,
+            network_proxy_factory_class=_FakeNetworkProxyFactory,
+        )
+
+        self.assertEqual(normalized, "")
+        self.assertEqual(route, "system")
+        self.assertEqual(_FakeNetworkProxy.applied, [])
+        self.assertEqual(_FakeNetworkProxyFactory.system_configuration_calls, [True])
+
+    def test_unsupported_proxy_is_rejected_before_qt_is_changed(self):
+        with self.assertRaises(ValueError):
+            browser._configure_webengine_proxy(
+                "socks5://127.0.0.1:1080",
+                network_proxy_class=_FakeNetworkProxy,
+                network_proxy_factory_class=_FakeNetworkProxyFactory,
+            )
+
+        self.assertEqual(_FakeNetworkProxy.applied, [])
+        self.assertEqual(_FakeNetworkProxyFactory.system_configuration_calls, [])
+
+
 class BrowserResourceInterceptorTests(unittest.TestCase):
     def test_allows_exact_first_party_and_cdn_requests(self):
         for url in (

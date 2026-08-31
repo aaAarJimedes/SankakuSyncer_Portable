@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import os
 from typing import Any
+from urllib.parse import urlsplit
 
 from PySide6.QtCore import Qt, QUrl, Signal, Slot
+from PySide6.QtNetwork import QNetworkProxy, QNetworkProxyFactory
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -19,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from http_transport import normalize_proxy
 from sankaku_url_policy import (
     canonical_post_url,
     is_allowed_browser_resource_url,
@@ -32,6 +35,41 @@ from sankaku_url_policy import (
 HOME_URL = "https://chan.sankakucomplex.com/cn/"
 MAX_COLLECTED_POSTS = 100
 _MAX_RAW_DOM_CANDIDATES = 400
+_EXPLICIT_PROXY_ROUTE = "explicit"
+_SYSTEM_PROXY_ROUTE = "system"
+
+
+def _configure_webengine_proxy(
+    proxy: str,
+    *,
+    network_proxy_class: Any = QNetworkProxy,
+    network_proxy_factory_class: Any = QNetworkProxyFactory,
+) -> tuple[str, str]:
+    """Configure the Qt proxy source consumed by Chromium.
+
+    The application setting is constrained to one credential-free HTTP proxy
+    by ``normalize_proxy``.  When it is empty, use Windows' system
+    configuration instead of silently forcing Chromium to connect directly.
+    Inherited proxy environment variables remain forbidden at process start.
+    """
+
+    normalized = normalize_proxy(proxy)
+    if not normalized:
+        network_proxy_factory_class.setUseSystemConfiguration(True)
+        return "", _SYSTEM_PROXY_ROUTE
+
+    parsed = urlsplit(normalized)
+    host = parsed.hostname
+    port = parsed.port
+    if not host or port is None:  # Defensive: normalize_proxy already checks this.
+        raise ValueError("invalid proxy")
+    configured = network_proxy_class(
+        network_proxy_class.ProxyType.HttpProxy,
+        host,
+        port,
+    )
+    network_proxy_class.setApplicationProxy(configured)
+    return normalized, _EXPLICIT_PROXY_ROUTE
 
 try:
     if os.environ.get("SANKAKU_DISABLE_WEBENGINE") == "1":
@@ -244,6 +282,7 @@ class BrowserTab(QWidget):
         parent: QWidget | None = None,
         *,
         home_url: str = HOME_URL,
+        proxy: str = "",
     ) -> None:
         super().__init__(parent)
         self.setObjectName("browserTab")
@@ -255,18 +294,53 @@ class BrowserTab(QWidget):
         self.browser: Any | None = None
         self._request_interceptor: Any | None = None
         self._loaded_once = False
+        self._proxy, self._proxy_route = _configure_webengine_proxy(proxy)
 
         self._build_controls()
         if WEBENGINE_AVAILABLE:
             self._build_webengine()
             self.address_edit.setText(self._home_url)
-            self._set_status("站内浏览尚未联网；打开本页签后再载入主页。")
+            self._set_status(
+                "站内浏览尚未联网；打开本页签后再载入主页。"
+                f"网络将使用{self._proxy_description()}。"
+            )
         else:
             self._build_placeholder()
 
     @property
     def webengine_available(self) -> bool:
         return WEBENGINE_AVAILABLE
+
+    @property
+    def proxy(self) -> str:
+        return self._proxy
+
+    @property
+    def proxy_route(self) -> str:
+        return self._proxy_route
+
+    def _proxy_description(self) -> str:
+        if self._proxy_route == _EXPLICIT_PROXY_ROUTE:
+            return "设置中的显式 HTTP 代理"
+        return "Windows 系统代理设置"
+
+    def set_proxy(self, proxy: str) -> bool:
+        """Apply a validated proxy source and reload an already-used page."""
+
+        normalized, route = _configure_webengine_proxy(proxy)
+        changed = (normalized, route) != (self._proxy, self._proxy_route)
+        self._proxy = normalized
+        self._proxy_route = route
+        if not changed:
+            return False
+        if self._loaded_once and self.web_view is not None:
+            self._set_status(
+                f"站内浏览已切换为{self._proxy_description()}，正在重新载入页面…"
+            )
+            self.web_view.reload()
+        else:
+            self._set_status(f"站内浏览将使用{self._proxy_description()}。")
+        return True
 
     def _build_controls(self) -> None:
         outer = QVBoxLayout(self)
@@ -566,7 +640,11 @@ class BrowserTab(QWidget):
         if succeeded:
             self._set_status("页面已载入。")
         else:
-            self._set_status("页面载入失败或被安全策略阻止。", error=True)
+            self._set_status(
+                "页面载入失败或被安全策略阻止；"
+                f"当前使用{self._proxy_description()}，请检查该网络链路。",
+                error=True,
+            )
 
     def _update_history_buttons(self) -> None:
         if self.web_view is None:

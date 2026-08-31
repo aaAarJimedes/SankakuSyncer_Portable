@@ -126,7 +126,7 @@ Runtime\python.exe -B App\tools\probe_webengine_codecs.py --require-no-patented-
 ```bat
 Runtime\python.exe -B -s App\tools\build_manifest.py --root "."
 Runtime\python.exe -B -s App\tools\build_manifest.py --root "." --check
-Runtime\python.exe -B -s App\tools\build_deterministic_zip.py --source "." --output "..\SankakuSyncer_Portable-v0.1.21.zip"
+Runtime\python.exe -B -s App\tools\build_deterministic_zip.py --source "." --output "..\SankakuSyncer_Portable-v0.1.22.zip"
 ```
 
 `SHA256SUMS.txt` 覆盖除私有目录和清单自身外的发行树。确定性 ZIP 工具按规范化 UTF-8 路径排序、写入固定 DOS 时间与权限属性，并在整个构建期间保留源码根句柄；Windows 从目录 HANDLE 枚举并逐层根相对打开，POSIX 使用目录 fd 与 `openat`/`O_NOFOLLOW`。文件会先建立 SHA-256 快照，写入时再次核对完整祖先链和摘要；链接、重解析点、多链接普通文件、跨卷节点、大小写冲突、超过 100,000 个项目/128 层/单文件 50 GiB/总计 100 GiB 的输入及构建期间结构变化都会失败关闭。

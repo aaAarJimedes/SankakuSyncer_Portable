@@ -635,12 +635,26 @@ class MainWindow(QMainWindow):
             label.setWordWrap(True)
             layout.addWidget(label, 1)
             return frame
-        browser = BrowserTab()
+        browser = BrowserTab(proxy=str(self.settings.get("proxy", "")))
         if hasattr(browser, "add_current_requested"):
             browser.add_current_requested.connect(self._add_browser_current)
         if hasattr(browser, "collect_visible_requested"):
             browser.collect_visible_requested.connect(self._add_browser_visible)
         return browser
+
+    def _apply_browser_proxy_setting(self) -> bool:
+        setter = getattr(self.browser_tab, "set_proxy", None)
+        if not callable(setter):
+            return True
+        try:
+            setter(str(self.settings.get("proxy", "")))
+        except (RuntimeError, TypeError, ValueError) as exc:
+            self._log(
+                "站内浏览代理未能即时更新"
+                f"（{type(exc).__name__}）；重启后将从已保存设置重试。"
+            )
+            return False
+        return True
 
     def _build_tasks_tab(self) -> QWidget:
         page = QWidget()
@@ -931,8 +945,17 @@ class MainWindow(QMainWindow):
         network_form.addRow("每页作品", self.page_size_spin)
 
         self.proxy_edit = QLineEdit(str(self.settings.get("proxy")))
-        self.proxy_edit.setPlaceholderText("可选，例如 http://127.0.0.1:8080；不支持代理密码或 SOCKS")
-        network_form.addRow("代理", self.proxy_edit)
+        self.proxy_edit.setPlaceholderText(
+            "可选，例如 http://127.0.0.1:8080；填写后所有联网功能共用"
+        )
+        network_form.addRow("显式 HTTP 代理", self.proxy_edit)
+        proxy_hint = QLabel(
+            "留空时 API 与下载保持直连，站内浏览遵循 Windows 系统代理；"
+            "不支持代理密码、SOCKS 或 HTTPS-to-proxy。"
+        )
+        proxy_hint.setWordWrap(True)
+        proxy_hint.setObjectName("subtleText")
+        network_form.addRow("", proxy_hint)
 
         self.prefer_original_check = QCheckBox("有权限时优先原文件")
         self.prefer_original_check.setChecked(bool(self.settings.get("prefer_original")))
@@ -2325,7 +2348,12 @@ class MainWindow(QMainWindow):
             self._session_persisted = False
             self._credential_close_save_blocked = False
             self.remember_check.setChecked(False)
-            self.status_label.setText("设置已安全保存")
+            proxy_applied = self._apply_browser_proxy_setting()
+            self.status_label.setText(
+                "设置已安全保存"
+                if proxy_applied
+                else "设置已保存；站内浏览代理将在重启后生效"
+            )
             self._log("普通设置已保存；本机凭据记忆已禁用。")
             return
 
@@ -2397,7 +2425,12 @@ class MainWindow(QMainWindow):
         if needs_credential_write:
             self._session_persisted = True
             self._credential_close_save_blocked = False
-        self.status_label.setText("设置已安全保存")
+        proxy_applied = self._apply_browser_proxy_setting()
+        self.status_label.setText(
+            "设置已安全保存"
+            if proxy_applied
+            else "设置已保存；站内浏览代理将在重启后生效"
+        )
         self._log("普通设置已保存；其中不含账号密码或令牌。")
 
     # ------------------------------ downloads ------------------------------
